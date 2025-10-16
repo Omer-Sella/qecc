@@ -17,6 +17,7 @@ from arithmetic import polynomial
 from scipy.linalg import circulant
 import numpy as np
 
+codes = {}
 """
 Generalized bicycle (GB) codes. The matrices
 A and B have form A = (a(x)), B = (b(x)), so
@@ -34,6 +35,7 @@ b_254_28_padded = b_254_28 + [0]*(127 - len(b_254_28))
 A1_B = circulant(b_254_28_padded).transpose()
 A1_HX = np.hstack((A1_A, A1_B))
 A1_HZ = np.hstack((A1_B.transpose(), A1_A.transpose()))
+codes["A1"] = (A1_HX, A1_HZ)
 #a_254_28.reverse()
 #a = polynomial(a_254_28)
 #a.printValues()
@@ -56,7 +58,7 @@ A2_B = circulant(b_126_28_8_padded).transpose()
 #b.printValues()
 A2_HX = np.hstack((A2_A, A2_B))
 A2_HZ = np.hstack((A2_B.transpose(), A2_A.transpose()))
-
+codes["A2"] = (A2_HX, A2_HZ)
 # A3) [[48, 6, 8]] code (l = 24).
 # a(x) = 1 + x2 + x8 + x15,
 a_48_6_8 = [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,1]
@@ -75,19 +77,20 @@ A3_B = circulant(b_48_6_8_padded).transpose()
 #b.printValues()
 A3_HX = np.hstack((A3_A, A3_B))
 A3_HZ = np.hstack((A3_B.transpose(), A3_A.transpose()))
-
+codes["A3"] = (A3_HX, A3_HZ)
 # A4) [[46, 2, 9]] code (l = 23).
 # a(x) = 1 + x5 + x8 + x12,
 a_46_2_9 = [1,0,0,0,0,1,0,0,1,0,0,0,1]
 a_46_2_9_padded = a_46_2_9 + [0]*(23 - len(a_46_2_9))
 A4_A = circulant(a_46_2_9_padded).transpose()
-# b(x) = 1 + x + x5 + x7.
+# b(x) = 1 + x + x5 + x7
 b_46_2_9 = [1,1,0,0,0,1,0,1]
 b_46_2_9_padded = b_46_2_9 + [0]*(23 - len(b_46_2_9))
 A4_B = circulant(b_46_2_9_padded).transpose()
 
 A4_HX = np.hstack((A4_A, A4_B))
 A4_HZ = np.hstack((A4_B.transpose(), A4_A.transpose()))
+codes["A4"] = (A4_HX, A4_HZ)
 #a_46_2_9.reverse()
 #a = polynomial(a_46_2_9)
 #a.printValues()
@@ -108,6 +111,7 @@ A5_B = circulant(b_180_10_padded).transpose()
 
 A5_HX = np.hstack((A5_A, A5_B))
 A5_HZ = np.hstack((A5_B.transpose(), A5_A.transpose()))
+codes["A5"] = (A5_HX, A5_HZ)
 #a_180_10.reverse()
 #a = polynomial(a_180_10)
 #a.printValues()
@@ -128,7 +132,7 @@ A6_B = circulant(b_900_50_15_padded).transpose()
 
 A6_HX = np.hstack((A6_A, A6_B))
 A6_HZ = np.hstack((A6_B.transpose(), A6_A.transpose()))
-
+codes["A6"] = (A6_HX, A6_HZ)
 #a_900_50_15.reverse()    
 #a = polynomial(a_900_50_15)
 #a.printValues()
