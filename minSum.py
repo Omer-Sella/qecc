@@ -167,6 +167,7 @@ class checkNode:
         
 specForLdpcDecoder = [
     ('H', NUMBA_FLOAT[:,:]),
+    ('syndromeDecoding', NUMBA_BOOL),
     ('parityMatrix', NUMBA_FLOAT[:,:]),
     ('numberOfVariableNodes', NUMBA_INT),
     ('numberOfCheckNodes', NUMBA_INT),
@@ -185,8 +186,9 @@ specForLdpcDecoder = [
 #@jitclass(specForLdpcDecoder)
 class ldpcDecoder:
 
-    def __init__(self, H):
+    def __init__(self, H, syndromeDecoding = False):
         self.parityMatrix = H
+        self.syndromeDecoding = syndromeDecoding
         m,n = H.shape
         self.numberOfVariableNodes = n
         self.numberOfCheckNodes = m
@@ -231,10 +233,16 @@ class ldpcDecoder:
         return status, binaryVector
 
     def decoderSet(self, fromChannel):
-        for i in range(self.numberOfVariableNodes):
-            self.variableNodes[i].fromChannel = fromChannel[i]
-            self.variableNodes[i].presentState = fromChannel[i]
+        if self.syndromeDecoding:
+            for i in range(self.numberOfCheckNodes):
+                self.checkNodes[i].fromChannel = fromChannel[i]
+                self.checkNodes[i].presentState = fromChannel[i]
+        else:
+            for i in range(self.numberOfVariableNodes):
+                self.variableNodes[i].fromChannel = fromChannel[i]
+                self.variableNodes[i].presentState = fromChannel[i]
         return
+
     
     #def vn2cnTemp(self, j, i, value):
     #    self.checkNodes[j].receive(self.variableNodes[i].identity, value)
@@ -274,10 +282,16 @@ class ldpcDecoder:
         return
 
     def decoderStep(self):
-        # A decoder step is a broadcast from checknodes,
-        # followed by a return broadcast from check nodes to variable nodes
-        self.variableNodesToCheckNodes()
-        self.checkNodesToVariableNodes()    
+        
+        # If self.syndromeDecoding is True, then we start with a check2variable step first, and a decoder step is a broadcast from checknodes, followed by a return broadcast from check nodes to variable nodes
+        # Otherwise we start with a variable2check step first.
+        if self.syndromeDecoding:
+            self.checkNodesToVariableNodes()
+            self.variableNodesToCheckNodes()
+        else:
+            self.variableNodesToCheckNodes()
+            self.checkNodesToVariableNodes()    
+        
         # Reset the value of softVector
         softVector = self.softVector * 0
         # Finally we add the information from the channel to the present state and gather all present state values into a vector.
