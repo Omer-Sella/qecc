@@ -5,15 +5,17 @@ Performance" by Pavel Panteleev and Gleb Kalachev
 For polynomial arithmetic, we use the reedSolomon project: https://github.com/Omer-Sella/reedSolomon
 or:
 git@github.com:Omer-Sella/reedSolomon.git
+There is no real need for it if you're just using the matrices.
+I used the Reed Solomon code to verify the polynomials given in the paper, but I left it commented.
 
 Then set an environment variable REEDSOLOMON to the root directory of the project.
 """
 import os, sys
-reedSolomonProjectDir = os.environ.get('REEDSOLOMON')
-if reedSolomonProjectDir == None: 
-     raise("Please set the REEDSOLOMON environment variable to the root directory of the reedSolomon project")
-sys.path.insert(0, reedSolomonProjectDir)
-from arithmetic import polynomial
+# reedSolomonProjectDir = os.environ.get('REEDSOLOMON')
+# if reedSolomonProjectDir == None: 
+#      raise("Please set the REEDSOLOMON environment variable to the root directory of the reedSolomon project")
+# sys.path.insert(0, reedSolomonProjectDir)
+# from arithmetic import polynomial
 from scipy.linalg import circulant
 import numpy as np
 
@@ -164,7 +166,7 @@ F^{<l>}_2.
 """
 Hypergraph product (HP) codes. Each hy-
 pergraph product code in our simulations is con-
-structed from a single cyclic code dened by its
+structed from a single cyclic code defined by its
 parity polynomial h(x) and the length l.
 """
 # C1) [[7938, 578, 16]] code. The matrices HX and
