@@ -6,3 +6,10 @@
 
 
 [![Python package](https://github.com/Omer-Sella/qecc/actions/workflows/python-package.yml/badge.svg)](https://github.com/Omer-Sella/qecc/actions/workflows/python-package.yml)
+
+# Quantum Low Density Parity Check codes
+
+What's in here ?
+
+Resources (explanations, code, jupyter notebooks) to help you get started with quantum LDPC codes.
+
