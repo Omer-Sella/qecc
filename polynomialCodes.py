@@ -11,11 +11,11 @@ I used the Reed Solomon code to verify the polynomials given in the paper, but I
 Then set an environment variable REEDSOLOMON to the root directory of the project.
 """
 import os, sys
-# reedSolomonProjectDir = os.environ.get('REEDSOLOMON')
-# if reedSolomonProjectDir == None: 
-#      raise("Please set the REEDSOLOMON environment variable to the root directory of the reedSolomon project")
-# sys.path.insert(0, reedSolomonProjectDir)
-# from arithmetic import polynomial
+reedSolomonProjectDir = os.environ.get('REEDSOLOMON')
+if reedSolomonProjectDir == None: 
+     raise("Please set the REEDSOLOMON environment variable to the root directory of the reedSolomon project")
+sys.path.insert(0, reedSolomonProjectDir)
+from arithmetic import polynomial
 from scipy.linalg import circulant
 import numpy as np
 
@@ -38,11 +38,11 @@ A1_B = circulant(b_254_28_padded).transpose()
 A1_HX = np.hstack((A1_A, A1_B))
 A1_HZ = np.hstack((A1_B.transpose(), A1_A.transpose()))
 codes["A1"] = (A1_HX, A1_HZ)
-#a_254_28.reverse()
-#a = polynomial(a_254_28)
+a_254_28.reverse()
+a = polynomial(a_254_28)
 #a.printValues()
-#b_254_28.reverse()
-#b = polynomial(b_254_28)
+b_254_28.reverse()
+b = polynomial(b_254_28)
 #b.printValues()
 
 #A2 [[126, 28, 8]] code (l = 63).
@@ -93,8 +93,10 @@ A4_B = circulant(b_46_2_9_padded).transpose()
 A4_HX = np.hstack((A4_A, A4_B))
 A4_HZ = np.hstack((A4_B.transpose(), A4_A.transpose()))
 codes["A4"] = (A4_HX, A4_HZ)
-#a_46_2_9.reverse()
-#a = polynomial(a_46_2_9)
+b_46_2_9.reverse()
+b_46_2_9X = polynomial(b_46_2_9)
+a_46_2_9.reverse()
+a_46_2_9X = polynomial(a_46_2_9)
 #a.printValues()
 
 #b_46_2_9.reverse()  
