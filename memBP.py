@@ -16,7 +16,7 @@ def extendedSign(x):
         return -1
 
     
-def decoderInit(H, errorProbabilities, standardBP = True):
+def decoderInit(H, initMarginals, errorProbabilities, standardBP = True, logProbabilities = False):
     """
     inputs:
     H: parity check matrix
@@ -41,16 +41,33 @@ def decoderInit(H, errorProbabilities, standardBP = True):
     #for j in range(n):
     #    marginals[j] = initMarginals[j]
     Lambda = np.zeros(n)
-    for j in range(n):
-        Lambda[j] = np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
-        ni[:,j] *= np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
-        #for i in range(m):
-            #print(np.log((1 - errorProbabilities[j]) / errorProbabilities[j]))
-            #ni[i,j] *= np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
-            #print(f"ni[{i},{j}] = {ni[i,j]}")
-        if standardBP:
-            # set marginals to be the same as Lambda
-            marginals[j] = np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
+    if logProbabilities:
+        for j in range(n):
+            Lambda[j] = errorProbabilities[j]
+            ni[:,j] *= errorProbabilities[j]
+            #for i in range(m):
+                #print(np.log((1 - errorProbabilities[j]) / errorProbabilities[j]))
+                #ni[i,j] *= np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
+                #print(f"ni[{i},{j}] = {ni[i,j]}")
+            if standardBP:
+                # set marginals to be the same as Lambda
+                marginals[j] = errorProbabilities[j]
+            else:
+                marginals = copy.copy(initMarginals)
+    else:
+        for j in range(n):
+            Lambda[j] = np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
+            ni[:,j] *= np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
+            #for i in range(m):
+                #print(np.log((1 - errorProbabilities[j]) / errorProbabilities[j]))
+                #ni[i,j] *= np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
+                #print(f"ni[{i},{j}] = {ni[i,j]}")
+            if standardBP:
+                # set marginals to be the same as Lambda
+                marginals[j] = np.log((1 - errorProbabilities[j]) / errorProbabilities[j])
+            else:
+                marginals = copy.copy(initMarginals)
+
     checkNeighbourhoods = {}
     errorNeighbourhoods = {}
     for i in range(m):
@@ -126,8 +143,8 @@ def decoderStep(checkNeighbourhoods, errorNeighbourhoods, ni, mu, Lambda, sigma)
             errorToCheckMessage(Lambda, copy.copy(errorNeighbourhoods[errorNodeJ]), mu, ni, checkI, errorNodeJ)
     return
 
-def decode(H, sigma, initMarginals, errorProbabilities, Gammas, maxIterations=10):
-    marginals, Lambda, errorNeighbourhoods, checkNeighbourhoods, ni = decoderInit(H, errorProbabilities)
+def decode(H, sigma, initMarginals, errorProbabilities, Gammas, maxIterations=10, logProbabilities = False):
+    marginals, Lambda, errorNeighbourhoods, checkNeighbourhoods, ni = decoderInit(H, initMarginals, errorProbabilities, standardBP=True, logProbabilities = logProbabilities)
     mu = np.zeros(H.shape)
     converged = False
     for iteration in range(maxIterations):

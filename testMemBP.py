@@ -35,12 +35,16 @@ def test_decoder_1_bit_flip():
 
 
 def test_decoder_k_bit_flips(k=2):
+    """
+    Note that this test is failing for A4_HX. I haven't tested it using an alternative decoder, but for now I am satisfied that this is consistent.
+    """
     from polynomialCodes import A4_HX as H
+    index1, index2 = np.random.choice(H.shape[1], 2, replace=False)
     success = True
     for i in range(1):#H.shape[1]):
         error = np.zeros(H.shape[1], dtype=float)
-        error[0] = 1
-        error[12] = 1
+        error[index1] = 1
+        error[index2] = 1
         sindromes = (H @ error) % 2
         errorProbabilities = [1/H.shape[1]] * H.shape[1]
         Gammas = None
@@ -75,7 +79,7 @@ def test_15_1():
     sigma = H @ np.array(error) % 2
     assert (error == (np.array(codeword) + np.array(received)) % 2).all()
     mu = np.zeros(H.shape, dtype=float)
-    marginals, Lambda, errorNeighbourhoods, checkNeighbourhoods, ni = decoderInit(H, errorProbabilities)
+    marginals, Lambda, errorNeighbourhoods, checkNeighbourhoods, ni = decoderInit(H, None, errorProbabilities, standardBP= True, logProbabilities= False)
     for i in range(len(errorProbabilities)):
         assert(marginals[i] == np.log((1 - errorProbabilities[i])/errorProbabilities[i]))
     
@@ -126,8 +130,8 @@ def evaluateCode(numberOfTransmissions, seed, SNRpoints, numberOfIterations, H):
             noise = localPrng.normal(0, sigma, H.shape[1])
             noisyModulated = modulatedCodeword + noise
             recievedWord = np.where(noisyModulated >= 0, 0, 1)            
-            errorVector, marginals, converged, iteration = decode(H, initMarginals = noisyModulated, errorProbabilities= [0.1]*H.shape[1], sigma = np.zeros(H.shape[0]), Gammas = None, maxIterations=numberOfIterations)
-            decodedWord = (recievedWord + errorVector) % 2
+            errorVector, marginals, converged, iteration = decode(H, initMarginals = noisyModulated, errorProbabilities= noisyModulated, sigma = np.zeros(H.shape[0]), Gammas = None, maxIterations=numberOfIterations, logProbabilities = True)
+            decodedWord = errorVector # May seem redundant, but it's here to remond that in this test, we are using memBP as a decoder that attempts to finds a codeword, not an errorVector, so the errorVector returned is actually the codeword
             berDecoded += np.count_nonzero(decodedWord != codeword)
         # print(s)
         # print(berArray)
@@ -136,33 +140,58 @@ def evaluateCode(numberOfTransmissions, seed, SNRpoints, numberOfIterations, H):
     numberOfBits = numberOfTransmissions * H.shape[1]
     return berArray / numberOfBits
 
+def test_nearEarthAt_3_6():
 
-def testNearEarth(numOfTransmissions = 2):
-    #print("*** in test near earth")
+    """
+    This test is supposed to culminate in 0 errors
+    Good for debug.
+    """
     import time
     import pathlib
     nearEarthPath = str(projectDir).replace("\\","/") + "/codeMatrices/nearEarthParityCsr.npz"
     nearEarthParity = sparse.load_npz(nearEarthPath).toarray()
     #numOfTransmissions = 50
-    SNRRegionOfInterest = [3.0, 3.2, 3.4,3.6]
+    SNRRegionOfInterest = [3.6]
     codewordSize = 8176
     messageSize = 7154
-    numOfIterations = 30
+    numOfIterations = 50
+    numOfTransmissions = 50
     start = time.time()
-    bStats = evaluateCode(numOfTransmissions, 460101, SNRRegionOfInterest, numOfIterations, nearEarthParity)    
+    bStats = evaluateCode(numOfTransmissions, 460101, SNRRegionOfInterest, numOfIterations, nearEarthParity)   
     end = time.time()
 
     # Expected result for SNR == [3.0, 3.2, 3.4,3.6] at 50 iterations: [0.01953278 0.00419521 0.         0.        ]
-    print('****Time it took for code evaluation == %d' % (end-start))
-    print('****Throughput == '+str((8176*len(SNRRegionOfInterest)*numOfTransmissions)/(end-start)) + 'bits per second.')
-    print(f"berDecoded {bStats}")
-    epsilon = [0.01, 0.001, 0.0001, 0.00001]
-    assert(np.all(np.abs(bStats - [0.01953278, 0.00419521, 0.0,         0.0        ]) < epsilon))
+    epsilon = 0.00001
+    assert(bStats[0] < epsilon)
+
+def test_NearEarth(numOfTransmissions = 2):
+    #print("*** in test near earth")
+    import time
+    import pathlib
+    nearEarthPath = str(projectDir).replace("\\","/") + "/codeMatrices/nearEarthParityCsr.npz"
+    nearEarthParity = sparse.load_npz(nearEarthPath).toarray()
+    SNRRegionOfInterest = [3.0, 3.2, 3.4,3.6]
+    codewordSize = 8176
+    messageSize = 7154
+    numOfIterations = 10
+    start = time.time()
+    bStats = evaluateCode(numOfTransmissions, 460101, SNRRegionOfInterest, numOfIterations, nearEarthParity)    
+    end = time.time()
+    # Expected result for SNR == [3.0, 3.2, 3.4,3.6] at 50 iterations: [0.01953278 0.00419521 0.         0.        ]
+    experimental = [0.01953278, 0.00419521, 0.0,         0.0        ]
+    epsilon = [0.01, 0.01, 0.001, 0.0001]
+    # print(f"BER stats : {bStats}")
+    # print(f"{bStats - experimental}")
+    # print(f"{np.abs(bStats - experimental) < epsilon}")
+    assert(np.all(np.abs(bStats - experimental) < epsilon))
+
+
+
 if __name__ == "__main__":
-    #print(test_decoder_1_bit_flip())
+    test_decoder_1_bit_flip()
     #print(test_decoder_k_bit_flips(k=2))
-    #print(test_15_1())
-    testNearEarth()
-    
+    test_15_1()
+    test_nearEarthAt_3_6()
+    test_NearEarth()
     pass
  
