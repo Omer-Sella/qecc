@@ -7,7 +7,7 @@ import copy
 from numba import jit, int32, float32, types, typed, boolean, float64, int64
 from numba.experimental import jitclass
 #import math
-from polynomialCodes import A1_HX
+from src.polynomialCodes import A1_HX
 LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
 # LDPC_**_DATA_TYPE stores the data type over which all arithmetic is done.
 # It is a nice way of changing the data type of the entire implementation at one place.
