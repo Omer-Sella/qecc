@@ -1,5 +1,5 @@
-include README.md
-include license.md
-include *.ipynb
-recursive-include codeMatrices *
-recursive-include notebooks *
+include src/qecc/funWithMatrices.py
+include src/qecc/memBP.py
+include src/qecc/osd.py
+include src/qecc/polynomialCodes.py
+include src/qecc/__init__.py

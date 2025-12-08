@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qecc"
+version = "0.1.1"
+description = "Quantum Error Correction Codes library, containing some basic functions to perform quantum LDPC decoding."
+authors = [
+    {name = "Omer S. Sella", email = "o.sella@outlook.com"},
+]
+dependencies = [
+    "numpy","scipy", "sympy", "numba", "matplotlib",
+]
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "flake8",
+]
+
+[project.urls]
+Homepage= "https://github.com/Omer-Sella/qecc"

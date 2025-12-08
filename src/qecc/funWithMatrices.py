@@ -6,11 +6,12 @@ from sympy.matrices import Matrix, eye, zeros, ones, diag, GramSchmidt
 from sympy import symbols, shape, init_printing, Basic, And, Xor, Not, simplify_logic
 import numpy as np
 import matplotlib.pyplot as plt
-from src.polynomialCodes import A1_HX, A1_HZ, A2_HX, A2_HZ, A3_HX, A3_HZ, A4_HX, A4_HZ, A5_HX, A5_HZ,  A6_HX, A6_HZ
+
 seed = 777
 localRandom = np.random.RandomState(seed)
 from numpy.linalg import matrix_rank
 import copy
+BINARY_DATA_TYPE = np.int32
 
 def generateSymbolicMatrix(rows, cols):
     symbolsList = []
@@ -56,20 +57,17 @@ def symbolicCofactor(matrix):
     return cofactorsList
 
 
-def binaryGaussianEliminationOnRows(matrix):
-    isSquare = (matrix.shape[0] == matrix.shape[1])
-    if isSquare:
-        matrixInverse = np.eye(matrix.shape[0], dtype = np.bool)
-    else:
-        matrixInverse = np.zeros(matrix.shape, dtype = np.bool)
+def binaryGaussianEliminationOnRows(matrix, returnDtype = BINARY_DATA_TYPE):
+    matrixInverse = np.eye(matrix.shape[0], dtype = returnDtype)
     rank = 0
-    for k in range(0, matrix.shape[1], 1):
+    for k in range(0, matrix.shape[0], 1): #OMer: changed from matrix.shape[1] to matrix.shape[0]
         # Find the first row index i >= k, such that row i has non zero element at column k
         for i in range(k, matrix.shape[0], 1):
             if matrix[i, k] != 0:
                 temp = copy.copy(matrix[rank, :])
                 matrix[rank, :] = matrix[i, :]
                 matrix[i, :] = copy.copy(temp)
+                
                 temp = copy.copy(matrixInverse[rank,:])
                 matrixInverse[rank,:] = matrixInverse[i,:]
                 matrixInverse[i, :] = copy.copy(temp)
@@ -78,21 +76,66 @@ def binaryGaussianEliminationOnRows(matrix):
                 for j in range(0, matrix.shape[0], 1):
                     if j != rank:
                         if matrix[j, k] != 0:
-                            #print(f"Canceling row j =={j}")
-                            matrix[j, :] ^= matrix[rank, :]
-                            matrixInverse[j, :] ^= matrix[rank, :]
+                            
+                            matrix[j, :] = (matrix[j, :] + matrix[rank, :]) %2
+                            matrixInverse[j, :] = (matrixInverse[j, :] + matrixInverse[rank, :]) %2#Omer: changhed from matrix to matrixInverse
                 rank += 1
     return matrix, matrixInverse, rank
 
+def solveHomogenicBinaryLinearSystem(matrixA):
+    """
+    Docstring for solveBinaryLinearSystem
+    
+    :param matrixA: Binary matrix A
+    :param vectorb: binary row vector b
+    :return: a basis for the space of solutions to Ax = 0 over F(2)
+    
+    Then find a basis for the space of solutions to Ax = 0 over F(2)
+    1. Given a binary matrix, A, perform Gaussian elimination on the rows of A to get A in reduced echcelon form.
+    2. Identify the free variables, which are variables that the reduced echelon form doesn't say they need to equate to 0, namely x_rank .. x_n-1
+    3. For each free variable, set it to 1 and the others to 0, then start at the last row of the reduced echelon form and work upwards, substituting in values for the free variables to get values for the leading variables.
+    4. Each such assignment gives a basis vector for the solution space.
+    5. Return a matrix which colums span the solution space.
+    """
+    
+    
+    reducedAugmentedMatrix, augmentedMatrix, rank = binaryGaussianEliminationOnRows(augmentedMatrix)
+    
+    solutions = []
+    if rank == matrixA.shape[1]:
+        # Full rank, only the trivial solution exists
+        solutions.append(np.zeros( (matrixA.shape[1]), dtype = BINARY_DATA_TYPE))
+    else:
+        for freeVarIndex in range(rank, matrixA.shape[1]):
+            # allocate space for the solution set all variables to 0
+            solution = np.zeros( (matrixA.shape[1]), dtype = BINARY_DATA_TYPE)
+            # Set the free variable to 1
+            solution[freeVarIndex] = 1
+            # Now work upwards from the last row to determine the values of the other variables
+            for rowIndex in range(rank-1, -1, -1):
+                # Find the leading variable in this row
+                leadingVarIndex = None
+                for colIndex in range(matrixA.shape[1]):
+                    if reducedAugmentedMatrix[rowIndex, colIndex] == 1:
+                        leadingVarIndex = colIndex
+                        break
+                if leadingVarIndex is not None:
+                    # Calculate the value of the leading variable
+                    sumValue = 0
+                    for colIndex in range(leadingVarIndex + 1, matrixA.shape[1]):
+                        sumValue = ((reducedAugmentedMatrix[rowIndex, colIndex] * solution[colIndex]) + sumValue) %2
+                    solution[leadingVarIndex] = sumValue
+            solutions.append(solution)
+    return np.array(solutions)
+
 def binaryDeterminant(matrix, rowNumber = 0):
+
     
     if not (matrix.shape[0] == matrix.shape[1]):
         raise("Determinant of matrices is only supported for squrae matrices.")
-    if matrix.dtype != np.bool:
-        raise("Only binary matrices are supported, i.e. of dtype np.bool.")
     
     if matrix.shape[0] == 2:
-        determinantResult =  (matrix[0,0] & matrix[1,1]) ^ (matrix[0,1] & matrix[1,0])
+        determinantResult =  (matrix[0,0] * matrix[1,1]) + (matrix[0,1] * matrix[1,0]) %2
     else:
         # Determinant according to row number 0
         determinantResult = False

@@ -32,9 +32,9 @@ circulant size l.
 a_254_28 = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
 b_254_28 = [1] + [0]*57 + [1,1] + [0]*40 + [1] + [0]*20 + [1]
 a_254_28_padded = a_254_28 + [0]*(127 - len(a_254_28))
-A1_A = circulant(a_254_28_padded).transpose()
+A1_A = circulant(a_254_28_padded)#.transpose()
 b_254_28_padded = b_254_28 + [0]*(127 - len(b_254_28))
-A1_B = circulant(b_254_28_padded).transpose()
+A1_B = circulant(b_254_28_padded)#.transpose()
 A1_HX = np.hstack((A1_A, A1_B))
 A1_HZ = np.hstack((A1_B.transpose(), A1_A.transpose()))
 codes["A1_HX"] = A1_HX
