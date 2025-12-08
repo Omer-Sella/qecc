@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qecc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Quantum Error Correction Codes library, containing some basic functions to perform quantum LDPC decoding."
 authors = [
     {name = "Omer S. Sella", email = "o.sella@outlook.com"},

@@ -60,8 +60,8 @@ def test_solveBinaryLinearSystem():
     solutions.append(np.zeros(4, dtype = np.int32))
     solutions = np.array(solutions)
     prposedSolutions = funWithMatrices.solveHomogenicBinaryLinearSystem(A)
-
     assert(np.all( prposedSolutions == solutions))
+
     A = np.array([[1,0,0,0],
                   [0,1,0,0],
                   [0,0,1,0]], dtype = np.int32)
@@ -72,6 +72,7 @@ def test_solveBinaryLinearSystem():
     solutions = np.array(solutions)
     proposedSolutions = funWithMatrices.solveHomogenicBinaryLinearSystem(A)
     assert(np.all( proposedSolutions == solutions))
+
     A = np.array([[1,0,0,0],
                   [0,1,0,0],
                   [0,0,1,1]], dtype = np.int32)
@@ -81,7 +82,8 @@ def test_solveBinaryLinearSystem():
     solution1[2] = 1
     solutions.append(solution1)
     solutions = np.array(solutions)
-    assert(np.all(funWithMatrices.solveHomogenicBinaryLinearSystem(A) == solutions))
+    proposedSolutions = funWithMatrices.solveHomogenicBinaryLinearSystem(A)
+    assert(np.all(proposedSolutions == solutions))
     
     
 if __name__ == "__main__":

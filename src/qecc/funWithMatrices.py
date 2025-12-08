@@ -80,7 +80,7 @@ def binaryGaussianEliminationOnRows(matrix, returnDtype = BINARY_DATA_TYPE):
                             matrix[j, :] = (matrix[j, :] + matrix[rank, :]) %2
                             matrixInverse[j, :] = (matrixInverse[j, :] + matrixInverse[rank, :]) %2#Omer: changhed from matrix to matrixInverse
                 rank += 1
-    return matrix, matrixInverse, rank
+    return  matrix.astype(returnDtype), matrixInverse.astype(returnDtype), rank                                                                                                 
 
 def solveHomogenicBinaryLinearSystem(matrixA):
     """
@@ -99,7 +99,7 @@ def solveHomogenicBinaryLinearSystem(matrixA):
     """
     
     
-    reducedAugmentedMatrix, augmentedMatrix, rank = binaryGaussianEliminationOnRows(augmentedMatrix)
+    reducedAugmentedMatrix, augmentedMatrix, rank = binaryGaussianEliminationOnRows(copy.copy(matrixA))
     
     solutions = []
     if rank == matrixA.shape[1]:
