@@ -6,8 +6,6 @@ import os
 import copy
 from numba import jit, int32, float32, types, typed, boolean, float64, int64
 from numba.experimental import jitclass
-#import math
-from polynomialCodes import A1_HX
 LDPC_LOCAL_PRNG = np.random.RandomState(7134066)
 # LDPC_**_DATA_TYPE stores the data type over which all arithmetic is done.
 # It is a nice way of changing the data type of the entire implementation at one place.
@@ -233,14 +231,14 @@ class ldpcDecoder:
         return status, binaryVector
 
     def decoderSet(self, fromChannel):
-        if self.syndromeDecoding:
-            for i in range(self.numberOfCheckNodes):
-                self.checkNodes[i].fromChannel = fromChannel[i]
-                self.checkNodes[i].presentState = fromChannel[i]
-        else:
-            for i in range(self.numberOfVariableNodes):
-                self.variableNodes[i].fromChannel = fromChannel[i]
-                self.variableNodes[i].presentState = fromChannel[i]
+        # if self.syndromeDecoding:
+        #     for i in range(self.numberOfCheckNodes):
+        #         self.checkNodes[i].fromChannel = fromChannel[i]
+        #         self.checkNodes[i].presentState = fromChannel[i]
+        # else:
+        for i in range(self.numberOfVariableNodes):
+            self.variableNodes[i].fromChannel = fromChannel[i]
+            self.variableNodes[i].presentState = fromChannel[i]
         return
 
     
@@ -313,6 +311,8 @@ class ldpcDecoder:
                 #print('At iteration %d the status is: %s'%(i, status))
         return status, binaryVector, softVector, i
 
+    def decode(self, fromChannel, maxNumberOfIterations):
+        return self.decoderMainLoop(self, fromChannel, maxNumberOfIterations)
 
 
 def main():
