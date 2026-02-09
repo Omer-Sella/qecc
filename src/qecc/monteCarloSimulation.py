@@ -9,22 +9,6 @@ import copy
 import matplotlib.pyplot as plt
 import numpy as np
 from qecc.osd import osdDecoder
-#seed = 777
-#
-#H_X = A1_HX.astype(np.int32)
-#H_Z = A1_HZ.astype(np.int32)
-#L_X, L_Z = logicals.computeLogicals(H_X, H_Z)
-
-# # In the following we simulate errors, and set the reliability vector true to where errors occurred.
-# probabilityOfError = 0.1
-# # Create an error pattern
-# error = np.random.choice([0,1], size=(H_X.shape[1],), p=[1-probabilityOfError, probabilityOfError]).astype(np.int32)
-# print( f"Number of errors: {np.count_nonzero(error)}")
-# # Calculate the syndrome
-# syndrome = H_X @ error %2
-# coordinateReliabilities = error * probabilityOfError + (1-error)*(1-probabilityOfError) #np.ones(code.shape[1]) * probabilityOfError
-# solution, reliability = osdDecoder(H_X, syndrome, coordinateReliabilities)
-# print(f"{np.all(solution  == error)} ")
 
 
 def monteCarloSimulation(Hx, Hz, osdDecode = True, numberOfSamples = 100, pErrorList = np.linspace(0.001, 0.1, 10), maxIterations =50, seed = 777):
@@ -40,20 +24,18 @@ def monteCarloSimulation(Hx, Hz, osdDecode = True, numberOfSamples = 100, pError
         probabilityOfError = pErrorList[p]
         print(f"Simulating for probability of error {probabilityOfError}")
         for i in range(numberOfSamples):
-            error = np.random.choice([0,1], size=(Hx.shape[1],), p=[1-probabilityOfError, probabilityOfError]).astype(np.int32)
+            error = localRandom.random.choice([0,1], size=(Hx.shape[1],), p=[1-probabilityOfError, probabilityOfError]).astype(np.int32)
             coordinateReliabilities = np.ones(Hx.shape[1]) * probabilityOfError
             initMarginals = np.ones(Hx.shape[1]) * np.log( (1 - probabilityOfError) / probabilityOfError )
             errorVector, marginals, converged, iteration = decode(Hx, initMarginals = initMarginals, errorProbabilities= initMarginals, sigma = (Hx @ error %2), Gammas = None, maxIterations=maxIterations, logProbabilities = True)
             #Count bit errors
             ber[p]+= np.sum(np.where(errorVector  == error, 0, 1))
-            if osdDecode:
-                if not np.all(errorVector  == error):
-                    solution, reliability = osdDecoder(Hx, (Hx @ error %2), marginals)
-                    # Check whether a logical error occurred
-                    residualError = (error + solution) %2
-                    if np.any(Hx @ residualError % 2) or np.any(L_X @ residualError % 2):
-                        logicalErrors[p] += 1
-        print(f"Logical error rate at probability of error {probabilityOfError} is {logicalErrors[p]/numberOfSamples}")
+            if osdDecode and not converged:
+                solution, reliability = osdDecoder(Hx, (Hx @ error %2), marginals)
+                # Check whether a logical error occurred
+                residualError = (error + solution) %2
+                if np.any(Hx @ residualError % 2) or np.any(L_X @ residualError % 2):
+                    logicalErrors[p] += 1
     return logicalErrors, ber
 
 
