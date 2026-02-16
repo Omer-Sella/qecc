@@ -7,12 +7,13 @@ I found that most books teach Quantum computing, maybe some Quantum mechanics, a
 I'm hoping to do the opposite, i.e., first get the reader to master qECC, then learn some quantum computing where qECC are used.
 
 
+
 ## Some pointers
 To start reading, go to:
 
 [linearCodesOverF2.ipynb](./1%20linearCodesOverF2.ipynb) - that should calibrate you to notation and some basic ideas from classical error correcting codes.
 
-Then the most natural place to continue is: [orderedStatisticsDecoding.ipynb](./2%20orderedStatisticsDecoding.ipynb)
+Then the most natural place to continue is: [orderedStatisticsDecoding.ipynb](./2%20orderedStatisticsDecoding.ipynb) which doesn't require more than linear algebra over $F_2$.
 
 Next review an implementation of a belief propagation decoder in [minSumExample.ipynb](./3%20minSumExample.ipynb) and you can check under the hood in minSum.py
 
