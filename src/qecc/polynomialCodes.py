@@ -183,3 +183,125 @@ parity polynomial h(x) and the length l.
 # C2) [[1922, 50, 16]] code. The matrices HX and
 # HZ are (3,6)-regular, and we have:
 # ` = 31, h(x) = 1 + x2 + x5.
+
+
+"""
+Bivariate Bicycle codes from High-threshold and low-overhead fault-tolerant quantum memory
+
+4 BivariateBicyclequantumLDPCcodes
+LetIℓ andSℓbethe identitymatrixandthecyclicshiftmatrixof sizeℓ×ℓrespectively. Thei-throwofSℓhasa
+singlenonzeroentryequal tooneatthecolumni+1 (modℓ).Forexample,
+S2= 0 1
+1 0 and S3=
+
+
+0 1 0
+0 0 1
+1 0 0
+
+.
+Considermatrices
+x=Sℓ⊗Im and y=Iℓ⊗Sm.
+Notethatxy=yxandxℓ=ym=Iℓm.ABBcodeisdefinedbyapairofmatrices
+A=A1+A2+A3 and B=B1+B2+B3 (1)
+whereeachmatrixAiandBj isapowerofxory.Hereandbelowtheadditionandmultiplicationofbinarymatrices
+isperformedmodulotwo,unlessstatedotherwise. Thus,wealsoassumetheAi aredistinctandtheBj aredistinct
+toavoidcancellationof terms. Forexample,onecouldchooseA=x3+y+y2andB=y3+x+x2. NotethatA
+andBhaveexactlythreenon-zeroentries ineachrowandeachcolumn. Furthermore,AB=BAsincexy=yx.The
+abovedatadefinesaBBLDPCcodedenotedQC(A,B)withlengthn=2ℓmandcheckmatrices
+HX=[A|B] and HZ=BT|AT 
+
+[[n,k,d]] NetEncoding
+Rater ℓ,m A B
+[[72,12,6]] 1/12 6,6 x3+y+y2 y3+x+x2
+[[90,8,10]] 1/23 15,3 x9+y+y2 1+x2+x7
+[[108,8,10]] 1/27 9,6 x3+y+y2 y3+x+x2
+[[144,12,12]] 1/24 12,6 x3+y+y2 y3+x+x2
+[[288,12,18]] 1/48 12,12 x3+y2+y7 y3+x+x2
+[[360,12,≤24]] 1/60 30,6 x9+y+y2 y3+x25+x26
+[[756,16,≤34]] 1/95 21,18 x3+y10+y17 y5+x3+x19
+"""
+
+def generateBicycleCode(l,m, aX, aY, bX, bY):
+     s_l = np.roll(np.eye(l), 1, axis = 1)
+     s_m = np.roll(np.eye(m), 1, axis = 1)
+     I_l = np.eye(l)
+     I_m = np.eye(m)
+     x = np.kron(s_l, I_m)
+     y = np.kron(I_l, s_m)
+     A = np.zeros(x.shape)
+     B = np.zeros(y.shape)
+     for p in aX:
+          A = (A + (np.linalg.matrix_power(x, p) % 2) )%2
+     for p in aY: 
+          A = (A + (np.linalg.matrix_power(y, p) %2) )%2
+     for p in bX:
+          B = (B + (np.linalg.matrix_power(x, p) %2))%2
+     for p in bY:
+          B = (B + (np.linalg.matrix_power(y, p)%2) )%2
+     H_X = np.hstack((A, B))
+     H_Z = np.hstack((B.transpose(), A.transpose()))
+     return H_X, H_Z
+
+
+
+
+
+aX_72_12_6 = [3]
+aY_72_12_6 = [1, 2]
+bX_72_12_6 = [1,2]
+bY_72_12_6 = [3]
+H_x_72_12_6, H_z_72_12_6 = generateBicycleCode(6, 6, aX_72_12_6, aY_72_12_6, bX_72_12_6, bY_72_12_6)
+codes["Hx_72_12_6"] = H_x_72_12_6
+codes["Hz_72_12_6"] = H_z_72_12_6
+
+aX_90_8_10 = [9]
+aY_90_8_10 = [1, 2]
+bX_90_8_10 = [0, 2, 7]
+bY_90_8_10 = []
+Hx_90_8_10, Hz_90_8_10 = generateBicycleCode(15, 3, aX_90_8_10, aY_90_8_10, bX_90_8_10, bY_90_8_10)
+codes["Hx_90_8_10"] = Hx_90_8_10
+codes["Hz_90_8_10"] = Hz_90_8_10
+
+aX_108_8_10 = [3]
+aY_108_8_10 = [1, 2]
+bX_108_8_10 = [1, 2]
+bY_108_8_10 = [3]
+HX_108_8_10, HZ_108_8_10 = generateBicycleCode(9, 6, aX_108_8_10, aY_108_8_10, bX_108_8_10, bY_108_8_10)
+codes["Hx_108_8_10"] = HX_108_8_10
+codes["Hz_108_8_10"] = HZ_108_8_10
+
+aX_144_12_12 = [3]
+aY_144_12_12 = [1, 2]
+bX_144_12_12 = [1, 2]
+bY_144_12_12 = [3]
+Hx_144_12_12, Hz_144_12_12 = generateBicycleCode(12, 6, aX_144_12_12, aY_144_12_12, bX_144_12_12, bY_144_12_12)
+codes["Hx_144_12_12"] = Hx_144_12_12
+codes["Hz_144_12_12"] = Hz_144_12_12
+
+aX_288_12_18 = [3]
+aY_288_12_18 = [2, 7]
+bX_288_12_18 = [1, 2]
+bY_288_12_18 = [3]
+Hx_288_12_18, Hz_288_12_18 = generateBicycleCode(12, 12, aX_288_12_18, aY_288_12_18, bX_288_12_18, bY_288_12_18)
+codes["Hx_288_12_18"] = Hx_288_12_18
+codes["Hz_288_12_18"] = Hz_288_12_18
+
+aX_360_12_24 = [9]
+aY_360_12_24 = [1, 2]
+bX_360_12_24 = [25, 26]
+bY_360_12_24 = [3]
+Hx_360_12_24, Hz_360_12_24 = generateBicycleCode(30, 6, aX_360_12_24, aY_360_12_24, bX_360_12_24, bY_360_12_24)
+codes["Hx_360_12_24"] = Hx_360_12_24
+codes["Hz_360_12_24"] = Hz_360_12_24
+
+
+aX_756_16_34 = [3]
+aY_756_16_34 = [10, 17] 
+bX_756_16_34 = [3, 19]
+bY_756_16_34 = [5]
+Hx_756_16_34, Hz_756_16_34 = generateBicycleCode(21, 18, aX_756_16_34, aY_756_16_34, bX_756_16_34, bY_756_16_34)
+codes["Hx_756_16_34"] = Hx_756_16_34
+codes["Hz_756_16_34"] = Hz_756_16_34
+
+

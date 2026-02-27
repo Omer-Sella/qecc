@@ -316,7 +316,7 @@ class ldpcDecoder:
 
 
 def main():
-    print("*** In ldpc.py main function.")
+    print("*** In minSum.py main function.")
     pass
 
 
