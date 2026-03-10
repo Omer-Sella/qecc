@@ -1,9 +1,12 @@
 import numpy as np
+from qecc.gf4 import integerToDualBinary
+from qecc.logicals import computeLogicals
 from qecc.minSum import ldpcDecoder
 from qecc.memBP import decode
 import time
 from qecc.polynomialCodes import A1_HX, A1_HZ
 LDPC_INT_DATA_TYPE = np.int32
+FLOAT_DATA_TYPE_UTILS = np.float32
 
 def minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H):
     """
@@ -107,12 +110,86 @@ def memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteration
     return berArray / (numberOfTransmissions * codewordSize)
 
 
+def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderStoppingCriterion, numberOfSamples):
+    """
+    Arguments:
+    Hx, Hz: A pair of binary matrices. Use the codes in polynomialCodes.py
+    errorRange: A range of probabilities
+    decoderStoppingCriterion - usually intended as maximum number of iterations.
+
+    Returns:
+    logicalErrorRate: array of floats. For each error probability p, the number of times a logical error was created divided by the number of samples attempted for the error probability.
+    decoderFailureRate: array of floats. For each error probability p, the number of times the decoder failed divided by the number of samples attempted for the error probability.
+    """
+    import numpy as np
+    from qecc.gf4 import integerTraceProduct as tp
+    from qecc.gf4 import integerToDualBinary, binaryDualToInteger
+    from qecc.logicals import computeLogicals
+    seed = 7134066
+    localRandom = np.random.RandomState(seed)
+    logicalX, logicalZ = computeLogicals(Hx, Hz)
+
+    decoderFailureRate = {}
+    logicalErrorRate = {}
+    for p in errorRange:
+        decoderFailureRate[p] = 0
+        logicalErrorRate[p] = 0
+        for _ in range(numberOfSamples):
+            #Sample (some number of times) an error, which is a vector over {0,1,2,3} representing I,X,Z,Y (to be consistent check with the documentation in gf4.py)
+            error = localRandom.choice([0,1,2,3], size=Hx.shape[1], replace=True, p=[1 - 3*p, p, p, p])
+            errorX, errorZ = integerToDualBinary(error)
+            #Calculate the syndrome for this error
+            syndromeX, syndromeZ = Hx.dot(errorZ)%2, Hz.dot(errorX)%2
+            #Run whatever decoder you decided to evaluate with arguments Hx, Hz, syndrome. The decoder has to accept a binary pair and syndrome, and return errorEstimation (an estimated solution), which is an array over 0,1,2,3 and a success flag (boolean).
+            
+            if dualBinary:
+                initialValues = np.tile(np.array([1,2 * p]), (Hx.shape[1], 1))
+                estimatedErrorX, estimatedErrorZ, success = decoderFunction(Hx, Hz, syndromeX, syndromeZ, initialValues, decoderStoppingCriterion)
+            else:
+                initialValues = np.tile(np.array([1, p, p, p]), (Hx.shape[1], 1))
+                syndrome = np.hstack((syndromeX, syndromeZ))
+                H = np.vstack((Hx, 2*Hz))
+                estimatedError, success = decoderFunction(H, syndrome, initialValues, decoderStoppingCriterion)
+                estimatedErrorX, estimatedErrorZ = integerToDualBinary(estimatedError)
+            #If the decoder thinks it failed, add 1 to the decoderFailure counter. 
+            if not success:
+                decoderFailureRate[p] = decoderFailureRate[p] + 1
+            else:
+
+                #If the decoder thinks it succeeded (success == True), then test the residual error, i.e.: the (gf(4)) sum of the estimated error and the original error, to see if either: 
+                #It does not amount to a 0 syndrome (this means the decoder is wrong, meaning - it thinks that the estimatedError + error is a stabilizer, and that it countered the effect of the error up to a stabilizer, but it didn't, and the result is not in the normalizer).
+                #It is a logical error.
+                #In either case we increase the decoderErrorRate by 1.
+                residualErrorX = (estimatedErrorX + errorX) % 2
+                residualErrorZ = (estimatedErrorZ + errorZ) % 2
+                # Check whether the residual error gives 0 syndrome:
+                if not ( np.all((np.dot(Hx,residualErrorZ)) % 2 ==0) and np.all((np.dot(Hz, residualErrorX)%2) == 0)):
+                    print("Decoder failure: the residual error does not give 0 syndrome, meaning the decoder is wrong")
+                    logicalErrorRate[p] += 1
+                else: # So we are in the case that the residual error commutes with all stabilizers, i.e., it is in the normalizer. So let's check if it is a stabilizer (commutes with all logicals), or a logical error (anticommutes with some logical operator)
+                    if not ( np.all((np.dot(logicalZ,residualErrorX) % 2 )== 0) and np.all((np.dot(logicalX, residualErrorZ) % 2)==0)):
+                        print(f"Logical error: the residual error commutes with all stabilizers but anticommutes with some logical operator")
+                        logicalErrorRate[p] += 1
+    return logicalErrorRate, decoderFailureRate
+
+
+
+
 if __name__ == "__main__":
-    numberOfTransmissions = 20
-    seed = 123456
-    errorRange = np.linspace(0.001, 0.1, 10)
-    numberOfIterations = 50
-    H = A1_HX.astype(np.int32)
-    minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H)
-    memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H)
+    
+    
+    from qecc.qbp import refinedBPalgorithm3
+    from qecc.polynomialCodes import A1_HX, A1_HZ
+
+
+    logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001, 0.00001], decoderStoppingCriterion = 20, numberOfSamples = 10)
+    print(f"Logical error rate: {logicalER}")
+    print(f"Decoder failure rate: {decoderFailureRate}")
+    # numberOfTransmissions = 20
+    # seed = 123456
+    # errorRange = np.linspace(0.001, 0.1, 10)
+    # numberOfIterations = 50
+    # H = A1_HX.astype(np.int32)
+    # minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H)
+    # memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H)
     
