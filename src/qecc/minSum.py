@@ -209,8 +209,8 @@ class ldpcDecoder:
             cn = checkNode(i, addresses)#self.checkNodeAddressBook[i])
             self.checkNodes.append(cn)
     
-    def isCodeword(self, modulatedVector):
-        binaryVector = np.where(modulatedVector == -1, 0, 1)
+    def isCodeword(self, logProbabilityVector):
+        binaryVector = np.where(logProbabilityVector < 0, 0, 1) 
         #Omer Sella: H.dot(binaryVector) is the same as summation over axis 0 of H[:,binaryVector] so we convert float multiplication into indexing and summation
         # Omer Sella: The following are equivalent (use of where, use of asarray(condition))
         #print(np.where(binaryVector != 0))
@@ -230,6 +230,14 @@ class ldpcDecoder:
             status = 'Not a codeword'
         return status, binaryVector
 
+    def syndromeFound(self, logProbabilityVector, syndrome):
+        binaryVector = np.where(logProbabilityVector <0, 0, 1)
+        if np.all((self.parityMatrix.dot(binaryVector)%2) == syndrome):
+            success = True # not really a codeword, just success
+        else:
+            success = False
+        return success, binaryVector
+        
     def decoderSet(self, fromChannel):
         # if self.syndromeDecoding:
         #     for i in range(self.numberOfCheckNodes):
@@ -307,12 +315,48 @@ class ldpcDecoder:
             while (i < maxNumberOfIterations) & (status == 'Not a codeword'):
                 i = i + 1
                 softVector = self.decoderStep()
+                
                 status, binaryVector = self.isCodeword(softVector)
                 #print('At iteration %d the status is: %s'%(i, status))
         return status, binaryVector, softVector, i
+    
+    def syndromeDecoderMainLoop(self, fromChannel, syndrome, maxNumberOfIterations):
+        status, binaryVector = self.syndromeFound(fromChannel, syndrome)
+        softVector = np.copy(fromChannel)
+        i = 0
+        if status == False:
+            self.decoderSet(fromChannel)
+            while (i < maxNumberOfIterations) & (status == False):
+                i = i + 1
+                softVector = self.decoderStep()
+                status, binaryVector = self.syndromeFound(softVector, syndrome)
+                
+        return status, binaryVector
 
     def decode(self, fromChannel, maxNumberOfIterations):
         return self.decoderMainLoop(self, fromChannel, maxNumberOfIterations)
+
+def ldpcDecoderWrapper(Hx, Hz, syndromeX, syndromeZ, initialValuesX, initialValuesZ, decoderStoppingCriterion):
+    """
+    Wrapper for the ldpc class decoder, so it could be used as a dual binary channel decoder for quantum ldpc codes. 
+    
+    Inputs:
+    Hx, Hz: binary matrices
+    syndromeX, syndromeZ: binary syndromes
+    initialValues: initial guess for the decoder. Assumed to be in the shape NX2 where [i][0] is the probability that the ith variable is 0, [i][1] is the probability that the ith variable is 1
+    decoderStoppingCriterion: (int) number of iterations afterwhich the decoder stops
+
+    Returns:
+    estimatedErrorX, estimatedErrorZ (int) binary estimation of the error
+    success: (boolean) whether the decoder beleives it succeeded or not, i.e.: Hx.dot(estimatedErrorZ)%2 == syndromeZ
+    """
+    zDecoder = ldpcDecoder(Hx, syndromeDecoding = True)
+    xDecoder = ldpcDecoder(Hz, syndromeDecoding = True)
+    successX, estimatedErrorX = xDecoder.syndromeDecoderMainLoop(np.log(initialValuesX[:,0] / initialValuesX[:,1]), syndromeX, decoderStoppingCriterion)
+    successZ, estimatedErrorZ = zDecoder.syndromeDecoderMainLoop(np.log(initialValuesZ[:,0] / initialValuesZ[:,1]), syndromeZ, decoderStoppingCriterion)
+
+    return estimatedErrorX, estimatedErrorZ, successX and successZ
+    
 
 
 def main():
