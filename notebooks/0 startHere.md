@@ -6,7 +6,8 @@ I found that most books teach Quantum computing, maybe some Quantum mechanics, a
 
 I'm hoping to do the opposite, i.e., first get the reader to master qECC, then learn some quantum computing where qECC are used.
 
-
+So far I have the following technology tree (if you ever played Civilisation):
+![Quantum technology tree](./figures/quantumTechnologyTree.svg)
 
 ## Some pointers
 To start reading, go to:
@@ -22,3 +23,5 @@ Next review an implementation of a belief propagation decoder in [minSumExample.
 
 polinomialCodes.py contains codes that were introduced in a paper by Panteleev and Kalachev, but also IBM
 relaybp.py is my own implementation of relay BP from a paper by IBM.
+
+
