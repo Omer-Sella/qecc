@@ -10,7 +10,7 @@ authors = [
     {name = "Omer S. Sella", email = "o.sella@outlook.com"},
 ]
 dependencies = [
-    "numpy","scipy", "sympy", "numba", "matplotlib", "pytorch", "gymnasium", 
+    "numpy","scipy", "sympy", "numba", "matplotlib", "pytorch", "gymnasium", "ldpc"
 ]
 requires-python = ">=3.8"
 
