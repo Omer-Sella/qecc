@@ -112,7 +112,7 @@ def memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteration
 def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion):
     from ldpc import bposd_decoder
     p_error = np.average(initialValues[:,1]) # initialValues[i,1] is the probability of error for the ith coordinate
-    bpDecoder=BpOsdDecoder(H,#the parity check matrix
+    bpDecoder=bposd_decoder(H,#the parity check matrix
         error_rate=p_error,
         channel_probs= initialValues[:,1], #assign error_rate to each qubit. This will override "error_rate" input variable
         max_iter=decoderStoppingCriterion, #the maximum number of iterations for BP)
