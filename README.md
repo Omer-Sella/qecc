@@ -1,6 +1,6 @@
 [![python](https://img.shields.io/badge/Python-3.10-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
 
-![example workflow](https://github.com/Omer-Sella/qecc/actions/workflows/python-package.yml/badge.svg)
+[![Publish to TestPyPI](https://github.com/Omer-Sella/qecc/actions/workflows/python-publish.yml/badge.svg)](https://github.com/Omer-Sella/qecc/actions/workflows/python-publish.yml)
 
 ![example workflow](https://github.com/Omer-Sella/qecc/actions/workflows/OSD.yml/badge.svg)
 
