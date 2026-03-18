@@ -11,11 +11,7 @@ I used the Reed Solomon code to verify the polynomials given in the paper, but I
 Then set an environment variable REEDSOLOMON to the root directory of the project.
 """
 import os, sys
-reedSolomonProjectDir = os.environ.get('REEDSOLOMON')
-if reedSolomonProjectDir == None: 
-     raise("Please set the REEDSOLOMON environment variable to the root directory of the reedSolomon project")
-sys.path.insert(0, reedSolomonProjectDir)
-from arithmetic import polynomial
+from qecc.arithmetic import polynomial
 from scipy.linalg import circulant
 import numpy as np
 
