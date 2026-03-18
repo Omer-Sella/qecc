@@ -20,6 +20,7 @@ from scipy.linalg import circulant
 import numpy as np
 
 codes = {}
+bbCodes = {}
 """
 Generalized bicycle (GB) codes. The matrices
 A and B have form A = (a(x)), B = (b(x)), so
@@ -241,10 +242,7 @@ def generateBicycleCode(l,m, aX, aY, bX, bY):
           B = (B + (np.linalg.matrix_power(y, p)%2) )%2
      H_X = np.hstack((A, B))
      H_Z = np.hstack((B.transpose(), A.transpose()))
-     return H_X, H_Z
-
-
-
+     return H_X.astype(int), H_Z.astype(int)
 
 
 aX_72_12_6 = [3]
@@ -254,6 +252,7 @@ bY_72_12_6 = [3]
 H_x_72_12_6, H_z_72_12_6 = generateBicycleCode(6, 6, aX_72_12_6, aY_72_12_6, bX_72_12_6, bY_72_12_6)
 codes["Hx_72_12_6"] = H_x_72_12_6
 codes["Hz_72_12_6"] = H_z_72_12_6
+bbCodes["72_12_6"] = [H_x_72_12_6, H_x_72_12_6]
 
 aX_90_8_10 = [9]
 aY_90_8_10 = [1, 2]
@@ -262,6 +261,7 @@ bY_90_8_10 = []
 Hx_90_8_10, Hz_90_8_10 = generateBicycleCode(15, 3, aX_90_8_10, aY_90_8_10, bX_90_8_10, bY_90_8_10)
 codes["Hx_90_8_10"] = Hx_90_8_10
 codes["Hz_90_8_10"] = Hz_90_8_10
+bbCodes["90_8_10"] = [Hx_90_8_10, Hz_90_8_10]
 
 aX_108_8_10 = [3]
 aY_108_8_10 = [1, 2]
@@ -270,6 +270,7 @@ bY_108_8_10 = [3]
 HX_108_8_10, HZ_108_8_10 = generateBicycleCode(9, 6, aX_108_8_10, aY_108_8_10, bX_108_8_10, bY_108_8_10)
 codes["Hx_108_8_10"] = HX_108_8_10
 codes["Hz_108_8_10"] = HZ_108_8_10
+bbCodes["108_8_10"] = [HX_108_8_10, HZ_108_8_10]
 
 aX_144_12_12 = [3]
 aY_144_12_12 = [1, 2]
@@ -278,6 +279,7 @@ bY_144_12_12 = [3]
 Hx_144_12_12, Hz_144_12_12 = generateBicycleCode(12, 6, aX_144_12_12, aY_144_12_12, bX_144_12_12, bY_144_12_12)
 codes["Hx_144_12_12"] = Hx_144_12_12
 codes["Hz_144_12_12"] = Hz_144_12_12
+bbCodes["144_12_12"] = [Hx_144_12_12, Hz_144_12_12]
 
 aX_288_12_18 = [3]
 aY_288_12_18 = [2, 7]
@@ -286,6 +288,7 @@ bY_288_12_18 = [3]
 Hx_288_12_18, Hz_288_12_18 = generateBicycleCode(12, 12, aX_288_12_18, aY_288_12_18, bX_288_12_18, bY_288_12_18)
 codes["Hx_288_12_18"] = Hx_288_12_18
 codes["Hz_288_12_18"] = Hz_288_12_18
+bbCodes["288_12_18"] = [Hx_288_12_18, Hz_288_12_18]
 
 aX_360_12_24 = [9]
 aY_360_12_24 = [1, 2]
@@ -294,6 +297,7 @@ bY_360_12_24 = [3]
 Hx_360_12_24, Hz_360_12_24 = generateBicycleCode(30, 6, aX_360_12_24, aY_360_12_24, bX_360_12_24, bY_360_12_24)
 codes["Hx_360_12_24"] = Hx_360_12_24
 codes["Hz_360_12_24"] = Hz_360_12_24
+bbCodes["360_12_24"] = [Hx_360_12_24, Hz_360_12_24]
 
 
 aX_756_16_34 = [3]
@@ -303,5 +307,6 @@ bY_756_16_34 = [5]
 Hx_756_16_34, Hz_756_16_34 = generateBicycleCode(21, 18, aX_756_16_34, aY_756_16_34, bX_756_16_34, bY_756_16_34)
 codes["Hx_756_16_34"] = Hx_756_16_34
 codes["Hz_756_16_34"] = Hz_756_16_34
+bbCodes["756_16_34"] = [Hx_756_16_34, Hz_756_16_34]
 
 
