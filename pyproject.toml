@@ -1,11 +1,12 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=42", "wheel", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "qecc"
-version = "0.1.2"
+dynamic = ["version"]
 description = "Quantum Error Correction Codes library, containing some basic functions to perform quantum LDPC decoding."
+readme = "README.md"
 authors = [
     {name = "Omer S. Sella", email = "o.sella@outlook.com"},
 ]
@@ -13,6 +14,8 @@ dependencies = [
     "numpy","scipy", "sympy", "numba", "matplotlib", "torch", "gymnasium", "ldpc"
 ]
 requires-python = ">=3.8"
+
+[tool.setuptools_scm]
 
 [project.optional-dependencies]
 dev = [
