@@ -1,67 +1,80 @@
-# This workflow will upload a Python Package to PyPI when a release is created
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python#publishing-to-package-registries
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
+# This action will push the package to testpypi, UPDATING VERSION NUMBER in the process !
 name: Upload Python Package
 
-
 on: push
-  
 
 permissions:
-  contents: read
+  contents: write   
 
 jobs:
   build:
     name: Build distribution 📦
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v4
       with:
-        persist-credentials: false
+        fetch-depth: 0             
+        persist-credentials: true  
+
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: "3.x"
 
-    - name: Install pypa/build
-      run: >-
-        python3 -m
-        pip install
-        build
-        --user
+    - name: Install build tools
+      run: pip install build setuptools-scm
+
+    - name: Auto-bump version tag
+      id: tag
+      run: |
+        # Get the latest tag, default to v0.0.0 if none exists
+        LATEST=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+        LATEST=${LATEST:-v0.0.0}
+
+        # Bump the patch number
+        BASE=${LATEST#v}
+        MAJOR=$(echo $BASE | cut -d. -f1)
+        MINOR=$(echo $BASE | cut -d. -f2)
+        PATCH=$(echo $BASE | cut -d. -f3)
+        NEW_TAG="v$MAJOR.$MINOR.$((PATCH + 1))"
+
+        echo "Bumping $LATEST → $NEW_TAG"
+
+        # Create and push the new tag
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git tag $NEW_TAG
+        git push origin $NEW_TAG
+
+        echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+
     - name: Build a binary wheel and a source tarball
       run: python3 -m build
+
     - name: Store the distribution packages
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v4
       with:
         name: python-package-distributions
         path: dist/
 
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
-    needs:
-    - build
+    needs: build
     runs-on: ubuntu-latest
-
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/<package-name>
+      url: https://test.pypi.org/p/qecc
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
-
+      id-token: write
     steps:
     - name: Download all the dists
-      uses: actions/download-artifact@v6
+      uses: actions/download-artifact@v4
       with:
         name: python-package-distributions
         path: dist/
+
     - name: Publish distribution 📦 to TestPyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         repository-url: https://test.pypi.org/legacy/
+        skip-existing: true        # ← safety net, skips upload if version already exists
