@@ -1,13 +1,7 @@
 import pathlib
 import os
 
-projectDir = os.environ.get('QECC')
-if projectDir == None:
-    raise Exception("Please set the environment variable 'QECC' to point to the root directory of the project.")
-import sys
-# insert at 1, 0 is the script path (or '' in REPL)
-sys.path.append(projectDir)
-from src.memBP import decode, errorToCheckMessage, checkToErrorMessage, decoderInit, calculateMarginalsAndHardDecision
+from qecc.memBP import decode, errorToCheckMessage, checkToErrorMessage, decoderInit, calculateMarginalsAndHardDecision
 from scipy import sparse
 import numpy as np
 import copy
@@ -17,7 +11,7 @@ import copy
 LDPC_INT_DATA_TYPE = np.int32
 
 def test_decoder_1_bit_flip():
-    from polynomialCodes import A4_HX as H
+    from qecc.polynomialCodes import A4_HX as H
     success = True
     for i in range(H.shape[1]):
         error = np.zeros(H.shape[1], dtype=bool)
@@ -38,7 +32,7 @@ def test_decoder_k_bit_flips(k=2):
     """
     Note that this test is failing for A4_HX. I haven't tested it using an alternative decoder, but for now I am satisfied that this is consistent.
     """
-    from polynomialCodes import A4_HX as H
+    from qecc.polynomialCodes import A4_HX as H
     index1, index2 = np.random.choice(H.shape[1], 2, replace=False)
     success = True
     for i in range(1):#H.shape[1]):
@@ -148,7 +142,7 @@ def test_nearEarthAt_3_6():
     """
     import time
     import pathlib
-    nearEarthPath = str(projectDir).replace("\\","/") + "/codeMatrices/nearEarthParityCsr.npz"
+    nearEarthPath ="./codeMatrices/nearEarthParityCsr.npz"
     nearEarthParity = sparse.load_npz(nearEarthPath).toarray()
     #numOfTransmissions = 50
     SNRRegionOfInterest = [3.6]
@@ -168,7 +162,7 @@ def test_NearEarth(numOfTransmissions = 2):
     #print("*** in test near earth")
     import time
     import pathlib
-    nearEarthPath = str(projectDir).replace("\\","/") + "/codeMatrices/nearEarthParityCsr.npz"
+    nearEarthPath = "/codeMatrices/nearEarthParityCsr.npz"
     nearEarthParity = sparse.load_npz(nearEarthPath).toarray()
     SNRRegionOfInterest = [3.0, 3.2, 3.4,3.6]
     codewordSize = 8176
