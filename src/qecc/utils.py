@@ -110,7 +110,7 @@ def memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteration
     return berArray / (numberOfTransmissions * codewordSize)
 
 def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion):
-    from ldpc import bposd_decoder
+    from ldpc import bposd_decoder as BpOsdDecoder
     p_error = np.average(initialValues[:,1]) # initialValues[i,1] is the probability of error for the ith coordinate
     bpDecoder=BpOsdDecoder(H,#the parity check matrix
         error_rate=p_error,

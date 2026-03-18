@@ -585,310 +585,310 @@ class gf256Generic(gfBase):
     def lengthInBits(self):
         return 8
         
-    @property
-    def pathToInverseTable(self):
-        return reedSolomonProjectDir + "/cachedArithmetic/gf256Inverse_G_8_0.npy"
+    # @property
+    # def pathToInverseTable(self):
+    #     return reedSolomonProjectDir + "/cachedArithmetic/gf256Inverse_G_8_0.npy"
         
-    @property
-    def pathToExponentTable(self):
-        return reedSolomonProjectDir + "/cachedArithmetic/gf256Exponent_G_8_0.npy"
+    # @property
+    # def pathToExponentTable(self):
+    #     return reedSolomonProjectDir + "/cachedArithmetic/gf256Exponent_G_8_0.npy"
         
-    @property
-    def pathToLogTable(self):
-        return reedSolomonProjectDir + "/cachedArithmetic/gf256Log_G_8_0.npy"
+    # @property
+    # def pathToLogTable(self):
+    #     return reedSolomonProjectDir + "/cachedArithmetic/gf256Log_G_8_0.npy"
         
-    @property
-    def pathToTimesTable(self):
-        return reedSolomonProjectDir + "/cachedArithmetic/gf256TimesTable_G_8_0.npy"
+    # @property
+    # def pathToTimesTable(self):
+    #     return reedSolomonProjectDir + "/cachedArithmetic/gf256TimesTable_G_8_0.npy"
         
         
         
-class gf128Generic(gfBase):
-    super
-    def polynomialName(self):
-        return G_7_1
-    @property
-    def lengthInBits(self):
-        return 7
+# class gf128Generic(gfBase):
+#     super
+#     def polynomialName(self):
+#         return G_7_1
+#     @property
+#     def lengthInBits(self):
+#         return 7
         
-    @property
-    def pathToInverseTable(self):
-        return reedSolomonProjectDir + "/cachedArithmetic/gf128Inverse.npy"
+#     @property
+#     def pathToInverseTable(self):
+#         return reedSolomonProjectDir + "/cachedArithmetic/gf128Inverse.npy"
         
-    @property
-    def pathToExponentTable(self):
-        return reedSolomonProjectDir + "/cachedArithmetic/gf128Exponent.npy"
+#     @property
+#     def pathToExponentTable(self):
+#         return reedSolomonProjectDir + "/cachedArithmetic/gf128Exponent.npy"
         
-    @property
-    def pathToLogTable(self):
-        return reedSolomonProjectDir + "/cachedArithmetic/gf128Log.npy"
+#     @property
+#     def pathToLogTable(self):
+#         return reedSolomonProjectDir + "/cachedArithmetic/gf128Log.npy"
         
-    @property
-    def pathToTimesTable(self):
-        return None
+#     @property
+#     def pathToTimesTable(self):
+#         return None
 
 
-class gf128(polynomial):
-    """
-    Ad-hoc implementation of gf128 arithmetic, since this arithmetic class has several possible specific optimizations 
-    """
+# class gf128(polynomial):
+#     """
+#     Ad-hoc implementation of gf128 arithmetic, since this arithmetic class has several possible specific optimizations 
+#     """
     
-    pathToInverseTable = reedSolomonProjectDir + "/cachedArithmetic/gf128Inverse.npy"
-    pathToExponentTable = reedSolomonProjectDir + "/cachedArithmetic/gf128Exponent.npy"
-    pathToLogTable = reedSolomonProjectDir + "/cachedArithmetic/gf128Log.npy"
-    inverseTable = np.load(pathToInverseTable, allow_pickle = True).item()
-    exponentTable = np.load(pathToExponentTable, allow_pickle = True).item()
-    logTable = np.load(pathToLogTable, allow_pickle = True).item()
-    generatorPolynomial = polynomial([1,0,0,0,1,0,0,1])
+#     # pathToInverseTable = reedSolomonProjectDir + "/cachedArithmetic/gf128Inverse.npy"
+#     # pathToExponentTable = reedSolomonProjectDir + "/cachedArithmetic/gf128Exponent.npy"
+#     # pathToLogTable = reedSolomonProjectDir + "/cachedArithmetic/gf128Log.npy"
+#     inverseTable = np.load(pathToInverseTable, allow_pickle = True).item()
+#     exponentTable = np.load(pathToExponentTable, allow_pickle = True).item()
+#     logTable = np.load(pathToLogTable, allow_pickle = True).item()
+#     generatorPolynomial = polynomial([1,0,0,0,1,0,0,1])
 
     
     
-    def __init__(self, value):
-        if hasattr(value, '__len__'):
-            if len(value) == 7:
-                super().__init__(coefficients = value)
-            else:
-                print("Class of provided value is " + str(value.__class__))
-                raise("An element in GF(128) is a 7-tuple of binary values. Please avoid ambiguity by stating all 7 coefficients. ")
-        elif np.isscalar(value) and (value == 0 or value == 1):
-            coefficients = np.zeros(7, IEEE_BINARY_DTYPE)
-            coefficients[-1] = value
-            super().__init__(coefficients = coefficients)
-        else:
-            raise("Class of provided value is " + str(value.__class__) + "An element in GF(128) is a 7-tuple of binary values. Please avoid ambiguity by stating all 7 coefficients.")
+#     def __init__(self, value):
+#         if hasattr(value, '__len__'):
+#             if len(value) == 7:
+#                 super().__init__(coefficients = value)
+#             else:
+#                 print("Class of provided value is " + str(value.__class__))
+#                 raise("An element in GF(128) is a 7-tuple of binary values. Please avoid ambiguity by stating all 7 coefficients. ")
+#         elif np.isscalar(value) and (value == 0 or value == 1):
+#             coefficients = np.zeros(7, IEEE_BINARY_DTYPE)
+#             coefficients[-1] = value
+#             super().__init__(coefficients = coefficients)
+#         else:
+#             raise("Class of provided value is " + str(value.__class__) + "An element in GF(128) is a 7-tuple of binary values. Please avoid ambiguity by stating all 7 coefficients.")
     
-    def mul(self, other):
-        ########### GF128 mul
-        tempResult = self.times(other)
-        tempResult.coefficients = tempResult.coefficients %2
-        # Omer Sella: note that there was a choice of polynomila here, namely: p(x) = x^7 + x^3 + 1
-        tempResult = tempResult.modulu(self.generatorPolynomial)#polynomial([1,0,0,0,1,0,0,1]))
-        result = gf128(value = tempResult.coefficients)
-        return result
+#     def mul(self, other):
+#         ########### GF128 mul
+#         tempResult = self.times(other)
+#         tempResult.coefficients = tempResult.coefficients %2
+#         # Omer Sella: note that there was a choice of polynomila here, namely: p(x) = x^7 + x^3 + 1
+#         tempResult = tempResult.modulu(self.generatorPolynomial)#polynomial([1,0,0,0,1,0,0,1]))
+#         result = gf128(value = tempResult.coefficients)
+#         return result
         
-    def inverse(self):
-        if self.inverseTable is not None:
-            return gf128(self.inverseTable[str(self.getValue())])
-        else:
-            # Omer Sella: consider a verilog oriented implementation here, could be slow to run on a CPU but better than not working.
-            raise
+#     def inverse(self):
+#         if self.inverseTable is not None:
+#             return gf128(self.inverseTable[str(self.getValue())])
+#         else:
+#             # Omer Sella: consider a verilog oriented implementation here, could be slow to run on a CPU but better than not working.
+#             raise
     
-    def binaryMul(self, other):
-        if other.value == 0:
-            return gf128(value = 0)
-        else:
-            return gf128(value = self.coefficients)
+#     def binaryMul(self, other):
+#         if other.value == 0:
+#             return gf128(value = 0)
+#         else:
+#             return gf128(value = self.coefficients)
     
-    def getValue(self):
-        return self.coefficients
+#     def getValue(self):
+#         return self.coefficients
     
-    def plus(self, other):
-        coefficients = (self.coefficients + other.coefficients) %2
-        return gf128(coefficients)
+#     def plus(self, other):
+#         coefficients = (self.coefficients + other.coefficients) %2
+#         return gf128(coefficients)
     
-    def __div__(self, other):
-        return self.mul(other.inverse())
+#     def __div__(self, other):
+#         return self.mul(other.inverse())
     
-    def __truediv__(self, other):
-        return self.mul(other.inverse())
+#     def __truediv__(self, other):
+#         return self.mul(other.inverse())
 
-    def __add__(self, other):
-        return self.plus(other)
+#     def __add__(self, other):
+#         return self.plus(other)
      
-    def __sub__(self, other):
-        return self.minus(other)
+#     def __sub__(self, other):
+#         return self.minus(other)
      
-    def __mul__(self, other):
-        return self.mul(other)
+#     def __mul__(self, other):
+#         return self.mul(other)
      
-    def __eq__(self, other):
-        result = False
-        if other.__class__ == self.__class__:
-            result = (np.all(other.getValue() == self.getValue()))
-        elif other == 0:
-            result = np.all(self.getValue() == 0)
-        elif other == 1:
-            result = (np.all(self.getValue()[0 : -1] == 0) and (self.getValue()[-1] == 1))
-        else:
-            raise
-        return result
+#     def __eq__(self, other):
+#         result = False
+#         if other.__class__ == self.__class__:
+#             result = (np.all(other.getValue() == self.getValue()))
+#         elif other == 0:
+#             result = np.all(self.getValue() == 0)
+#         elif other == 1:
+#             result = (np.all(self.getValue()[0 : -1] == 0) and (self.getValue()[-1] == 1))
+#         else:
+#             raise
+#         return result
      
-    def __ne__(self, other):
-        return (not (self == other))
+#     def __ne__(self, other):
+#         return (not (self == other))
     
-    def getLog(self):
-        if self == 0 :
-            raise ValueError('Log is not defined for 0')
-        else:
-            key = ''.join(map(str, self.coefficients))
-        return self.logTable[key]
+#     def getLog(self):
+#         if self == 0 :
+#             raise ValueError('Log is not defined for 0')
+#         else:
+#             key = ''.join(map(str, self.coefficients))
+#         return self.logTable[key]
 
 
-class gf256(polynomial):
+# class gf256(polynomial):
     
-    polynomialName = "G_8_0"
-    pathToInverseTable = reedSolomonProjectDir + "/cachedArithmetic/gf256Inverse_" + polynomialName + ".npy"
-    pathToLogTable = reedSolomonProjectDir + "/cachedArithmetic/gf256Log_" + polynomialName + ".npy"
-    pathToExponentTable = reedSolomonProjectDir + "/cachedArithmetic/gf256Exponent_"+ polynomialName + ".npy"
-    inverseTable = np.load(pathToInverseTable, allow_pickle = True).item()  
-    exponentTable = np.load(pathToExponentTable, allow_pickle = True).item()
-    logTable = np.load(pathToLogTable, allow_pickle = True).item()
-    pathToTimesTable = reedSolomonProjectDir + "/cachedArithmetic/gf256TimesTable_" + polynomialName + ".npy"
-    timesTable = np.load(pathToTimesTable, allow_pickle = True).item()
-    # Irreducible polynomials from https://www.partow.net/programming/polynomials/index.html#deg08
-    #In 177-1 it seems like they used the polynomial x^8 + x^7 + 0 + x^5 + x^4 + 0 + 0 + x + 1 which is not irreducible / primitive 
-    generatorPolynomial = polynomial(G_8_0)
-    def __init__(self, value):
-        if hasattr(value, '__len__'):
-            if len(value) == 8:
-                super().__init__(coefficients = value)
-            else:
-                print("Class of provided value is " + str(value.__class__))
-                raise("An element in GF(256) is a 8-tuple of binary values. Please avoid ambiguity by stating all 8 coefficients. ")
-        elif np.isscalar(value) and (value == 0 or value == 1):
-            coefficients = np.zeros(8, IEEE_BINARY_DTYPE)
-            coefficients[-1] = value
-            super().__init__(coefficients = coefficients)
-        else:
-            raise("Class of provided value is " + str(value.__class__) + "An element in GF(256) is a 8-tuple of binary values. Please avoid ambiguity by stating all 8 coefficients.")
+#     polynomialName = "G_8_0"
+#     # pathToInverseTable = reedSolomonProjectDir + "/cachedArithmetic/gf256Inverse_" + polynomialName + ".npy"
+#     # pathToLogTable = reedSolomonProjectDir + "/cachedArithmetic/gf256Log_" + polynomialName + ".npy"
+#     # pathToExponentTable = reedSolomonProjectDir + "/cachedArithmetic/gf256Exponent_"+ polynomialName + ".npy"
+#     # inverseTable = np.load(pathToInverseTable, allow_pickle = True).item()  
+#     # exponentTable = np.load(pathToExponentTable, allow_pickle = True).item()
+#     # logTable = np.load(pathToLogTable, allow_pickle = True).item()
+#     # pathToTimesTable = reedSolomonProjectDir + "/cachedArithmetic/gf256TimesTable_" + polynomialName + ".npy"
+#     # timesTable = np.load(pathToTimesTable, allow_pickle = True).item()
+#     # Irreducible polynomials from https://www.partow.net/programming/polynomials/index.html#deg08
+#     #In 177-1 it seems like they used the polynomial x^8 + x^7 + 0 + x^5 + x^4 + 0 + 0 + x + 1 which is not irreducible / primitive 
+#     generatorPolynomial = polynomial(G_8_0)
+#     def __init__(self, value):
+#         if hasattr(value, '__len__'):
+#             if len(value) == 8:
+#                 super().__init__(coefficients = value)
+#             else:
+#                 print("Class of provided value is " + str(value.__class__))
+#                 raise("An element in GF(256) is a 8-tuple of binary values. Please avoid ambiguity by stating all 8 coefficients. ")
+#         elif np.isscalar(value) and (value == 0 or value == 1):
+#             coefficients = np.zeros(8, IEEE_BINARY_DTYPE)
+#             coefficients[-1] = value
+#             super().__init__(coefficients = coefficients)
+#         else:
+#             raise("Class of provided value is " + str(value.__class__) + "An element in GF(256) is a 8-tuple of binary values. Please avoid ambiguity by stating all 8 coefficients.")
     
-    def mul(self, other):
-        ########### GF256 mul
-        tempResult = self.times(other)
-        tempResult.coefficients = tempResult.coefficients %2
-        tempResult = tempResult.modulu(self.generatorPolynomial)
-        result = self.__class__(value = tempResult.coefficients)
-        return result
+#     def mul(self, other):
+#         ########### GF256 mul
+#         tempResult = self.times(other)
+#         tempResult.coefficients = tempResult.coefficients %2
+#         tempResult = tempResult.modulu(self.generatorPolynomial)
+#         result = self.__class__(value = tempResult.coefficients)
+#         return result
         
-    def inverse(self):
-        if np.all(self.coefficients == 0):
-            raise ZeroDivisionError
-        return self.__class__(self.inverseTable[str(self.getValue())]) 
+#     def inverse(self):
+#         if np.all(self.coefficients == 0):
+#             raise ZeroDivisionError
+#         return self.__class__(self.inverseTable[str(self.getValue())]) 
 
     
-    def __mul__(self, other):
-        answer = self.__class__(self.timesTable["".join(str(e) for e in self.getValue())]["".join(str(c) for c in other.getValue())])
-        return answer
+#     def __mul__(self, other):
+#         answer = self.__class__(self.timesTable["".join(str(e) for e in self.getValue())]["".join(str(c) for c in other.getValue())])
+#         return answer
     
-    def binaryMul(self, other):
-        if other.value == 0:
-            return self.__class__(value = 0)
-        else:
-            return self.__class__(value = self.coefficients)
+#     def binaryMul(self, other):
+#         if other.value == 0:
+#             return self.__class__(value = 0)
+#         else:
+#             return self.__class__(value = self.coefficients)
     
-    def getValue(self):
-        return self.coefficients
+#     def getValue(self):
+#         return self.coefficients
     
-    def plus(self, other):
-        coefficients = (self.coefficients + other.coefficients) %2
-        return self.__class__(coefficients)
+#     def plus(self, other):
+#         coefficients = (self.coefficients + other.coefficients) %2
+#         return self.__class__(coefficients)
     
-    def __div__(self, other):
-        return self.mul(other.inverse())
+#     def __div__(self, other):
+#         return self.mul(other.inverse())
     
-    def __truediv__(self, other):
-        return self * other.inverse()
+#     def __truediv__(self, other):
+#         return self * other.inverse()
 
-    def __add__(self, other):
-        return self.plus(other)
+#     def __add__(self, other):
+#         return self.plus(other)
      
-    def __sub__(self, other):
-        return self.minus(other)
+#     def __sub__(self, other):
+#         return self.minus(other)
      
-    def __eq__(self, other):
-        result = False
-        if other.__class__ == self.__class__:
-            result = (np.all(other.getValue() == self.getValue()))
-        elif other == 0:
-            result = np.all(self.getValue() == 0)
-        elif other == 1:
-            result = (np.all(self.getValue()[0 : -1] == 0) and (self.getValue()[-1] == 1))
-        else:
-            raise
-        return result
+#     def __eq__(self, other):
+#         result = False
+#         if other.__class__ == self.__class__:
+#             result = (np.all(other.getValue() == self.getValue()))
+#         elif other == 0:
+#             result = np.all(self.getValue() == 0)
+#         elif other == 1:
+#             result = (np.all(self.getValue()[0 : -1] == 0) and (self.getValue()[-1] == 1))
+#         else:
+#             raise
+#         return result
      
-    def __ne__(self, other):
-        return (not (self == other))
+#     def __ne__(self, other):
+#         return (not (self == other))
     
-    def getLog(self):
-        if self == 0 :
-            raise ValueError('Log is not defined for 0')
-        else:
-            key = ''.join(map(str, self.coefficients))
-        return self.logTable[key]
+#     def getLog(self):
+#         if self == 0 :
+#             raise ValueError('Log is not defined for 0')
+#         else:
+#             key = ''.join(map(str, self.coefficients))
+#         return self.logTable[key]
 
 
-def generateTimesTable(gfType = gf128, generatorAsList = [0,0,0,0,0,1,0]):
-    a = gfType(generatorAsList)
-    b = gfType(generatorAsList)
-    generator = gfType(generatorAsList)
-    timesTable = dict()
-    zro = gfType([0] * len(generatorAsList))
-    # Populate zero times b and b times zero
-    timesTable["".join(str(c) for c in zro.getValue())] = dict()
-    timesTable["".join(str(c) for c in zro.getValue())]["".join(str(e) for e in zro.getValue())] = zro.getValue()
-    for i in range(2 ** len(generatorAsList) - 1):        
-        timesTable["".join(str(c) for c in zro.getValue())]["".join(str(e) for e in b.getValue())] = zro.getValue()
-        timesTable["".join(str(c) for c in b.getValue())] = dict()
-        timesTable["".join(str(c) for c in b.getValue())]["".join(str(e) for e in zro.getValue())] = zro.getValue()
-        b = b.mul(generator)
-    # Reset b
-    b = gfType(generatorAsList)
-    for i in range(2 ** len(generatorAsList) - 1):
-        for j in range(2 ** len(generatorAsList) - 1):
-            result = a.mul(b)
-            timesTable["".join(str(e) for e in a.getValue())]["".join(str(ee) for ee in b.getValue())]  = result.getValue()
-            #for coefficient in result.coefficients:
-                #assert(coefficient == 0 or coefficient == 1)
-            b = b.mul(generator)
-        a = a.mul(generator)
-    return timesTable
+# def generateTimesTable(gfType = gf128, generatorAsList = [0,0,0,0,0,1,0]):
+#     a = gfType(generatorAsList)
+#     b = gfType(generatorAsList)
+#     generator = gfType(generatorAsList)
+#     timesTable = dict()
+#     zro = gfType([0] * len(generatorAsList))
+#     # Populate zero times b and b times zero
+#     timesTable["".join(str(c) for c in zro.getValue())] = dict()
+#     timesTable["".join(str(c) for c in zro.getValue())]["".join(str(e) for e in zro.getValue())] = zro.getValue()
+#     for i in range(2 ** len(generatorAsList) - 1):        
+#         timesTable["".join(str(c) for c in zro.getValue())]["".join(str(e) for e in b.getValue())] = zro.getValue()
+#         timesTable["".join(str(c) for c in b.getValue())] = dict()
+#         timesTable["".join(str(c) for c in b.getValue())]["".join(str(e) for e in zro.getValue())] = zro.getValue()
+#         b = b.mul(generator)
+#     # Reset b
+#     b = gfType(generatorAsList)
+#     for i in range(2 ** len(generatorAsList) - 1):
+#         for j in range(2 ** len(generatorAsList) - 1):
+#             result = a.mul(b)
+#             timesTable["".join(str(e) for e in a.getValue())]["".join(str(ee) for ee in b.getValue())]  = result.getValue()
+#             #for coefficient in result.coefficients:
+#                 #assert(coefficient == 0 or coefficient == 1)
+#             b = b.mul(generator)
+#         a = a.mul(generator)
+#     return timesTable
 
-def generateExponentAndLogTables(gfType = gf128, generatorAsList = [0,0,0,0,0,1,0]):
-    exponentTable={}
-    logarithmTable={}
-    a = gfType(generatorAsList) #gf128([0,0,0,0,0,1,0])
-    wanAsList = [0] * len(generatorAsList)
-    wanAsList[len(wanAsList) - 1] = 1
-    b = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
-    wanAsString = "".join([str(e) for e in wanAsList])
-    f = []
-    stringF = '' 
-    for e in a.coefficients:
-        f.append(e)
-        stringF = stringF + str(e)
-    exponentTable[0] = wanAsList #[0,0,0,0,0,0,1]
-    #exponentTable[1] = f
-    logarithmTable[wanAsString] = 0
-    logarithmTable[stringF] = 1
-    for i in range(1, (2 ** len(generatorAsList)) - 1, 1):
-        b = b * a
-        f = []
-        stringF = ''
-        for e in b.coefficients:
-            f.append(e)
-            stringF = stringF + str(e)
-        exponentTable[i] = f
-        logarithmTable[stringF] = i
-    return exponentTable, logarithmTable
+# def generateExponentAndLogTables(gfType = gf128, generatorAsList = [0,0,0,0,0,1,0]):
+#     exponentTable={}
+#     logarithmTable={}
+#     a = gfType(generatorAsList) #gf128([0,0,0,0,0,1,0])
+#     wanAsList = [0] * len(generatorAsList)
+#     wanAsList[len(wanAsList) - 1] = 1
+#     b = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
+#     wanAsString = "".join([str(e) for e in wanAsList])
+#     f = []
+#     stringF = '' 
+#     for e in a.coefficients:
+#         f.append(e)
+#         stringF = stringF + str(e)
+#     exponentTable[0] = wanAsList #[0,0,0,0,0,0,1]
+#     #exponentTable[1] = f
+#     logarithmTable[wanAsString] = 0
+#     logarithmTable[stringF] = 1
+#     for i in range(1, (2 ** len(generatorAsList)) - 1, 1):
+#         b = b * a
+#         f = []
+#         stringF = ''
+#         for e in b.coefficients:
+#             f.append(e)
+#             stringF = stringF + str(e)
+#         exponentTable[i] = f
+#         logarithmTable[stringF] = i
+#     return exponentTable, logarithmTable
 
-def generateInverseTable(gfType = gf128, generatorAsList = [0,0,0,0,0,1,0]):
-    # A pretty lazy implementation of finding an inverse, we're only using this once in a lifetime, so simple and readable.
-    inverseDictionary = {}
-    wanAsList = [0] * len(generatorAsList)
-    wanAsList[len(wanAsList) - 1] = 1
-    a = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
-    temp = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
-    key = str(a.getValue())
-    b = gfType(generatorAsList) #gf128([0,0,0,0,0,1,0])
-    ONE = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
-    inverseDictionary[key] = temp.getValue()
-    for i in range(1,(2 ** len(generatorAsList) ) - 1, 1):
-        print(i)
-        a = a * b
-        key = str(a.getValue())
-        temp = gfType(wanAsList)# gf128([0,0,0,0,0,1,0])
-        while temp * a != ONE:
-            temp = temp * b
-        inverseDictionary[key] = temp.getValue()
-    return inverseDictionary
+# def generateInverseTable(gfType = gf128, generatorAsList = [0,0,0,0,0,1,0]):
+#     # A pretty lazy implementation of finding an inverse, we're only using this once in a lifetime, so simple and readable.
+#     inverseDictionary = {}
+#     wanAsList = [0] * len(generatorAsList)
+#     wanAsList[len(wanAsList) - 1] = 1
+#     a = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
+#     temp = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
+#     key = str(a.getValue())
+#     b = gfType(generatorAsList) #gf128([0,0,0,0,0,1,0])
+#     ONE = gfType(wanAsList) #gf128([0,0,0,0,0,0,1])
+#     inverseDictionary[key] = temp.getValue()
+#     for i in range(1,(2 ** len(generatorAsList) ) - 1, 1):
+#         print(i)
+#         a = a * b
+#         key = str(a.getValue())
+#         temp = gfType(wanAsList)# gf128([0,0,0,0,0,1,0])
+#         while temp * a != ONE:
+#             temp = temp * b
+#         inverseDictionary[key] = temp.getValue()
+#     return inverseDictionary
