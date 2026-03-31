@@ -234,13 +234,13 @@ if __name__ == "__main__":
     errorRange = np.linspace(10**-4, 10**-2, 6)
 
 
-    errorRateQBP= {}
-    errorRateDualBinaryMinSum = {}
-    for key, value in bbCodes.items():
+    # errorRateQBP= {}
+    # errorRateDualBinaryMinSum = {}
+    # for key, value in bbCodes.items():
         
-        logicalERbp3, decoderFailureRatebp3 = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
-        errorRateQBP[key] = [logicalERbp3, decoderFailureRatebp3]
-        logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
-        errorRateDualBinaryMinSum[key] = [logicalERMS, decoderFailureRateMS]
-    data = {"errorRateDualBinaryMinSum": errorRateDualBinaryMinSum, "errorRateQBP": errorRateQBP}
-    np.save("bbCodesQBPStats.npy", data, allow_pickle=True)
+    #     logicalERbp3, decoderFailureRatebp3 = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
+    #     errorRateQBP[key] = [logicalERbp3, decoderFailureRatebp3]
+    #     logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
+    #     errorRateDualBinaryMinSum[key] = [logicalERMS, decoderFailureRateMS]
+    # data = {"errorRateDualBinaryMinSum": errorRateDualBinaryMinSum, "errorRateQBP": errorRateQBP}
+    # np.save("bbCodesQBPStats.npy", data, allow_pickle=True)
