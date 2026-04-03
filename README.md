@@ -18,7 +18,7 @@ This repository is intended for myself before I leanred quantum ECC. Hopefully, 
 
 I found that most books that teach Quantum computing delay quantum ECC to very end, even though (I think) they could be learned and used before most of the quantum computing background.
 
-Another thing I found is that some (very good) books rely on the reader knowing stabilizer formalism and what it means to measure a stabilizer in order to understand and use ECC which could be regarder over the binary field.
+Another thing I found is that some (very good) books rely on the reader knowing stabilizer formalism and what it means to measure a stabilizer in order to understand and use ECC which could be regarded over the binary field.
 
 # Ok, how do I use it ? (install)
 I haven't published this to pypi (although I do test with testpypi), so one option is to clone the repository locally using
