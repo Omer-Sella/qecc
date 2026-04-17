@@ -38,3 +38,8 @@ Finally, install the package using
 ```powershell
 pip install -e .
 ```
+# And then what ?!
+From here you can do one of a few things:
+1. Look into the notebooks folder to get started on quantum error correcting codes.
+2. Use the codes in /src/qecc/polynomialCodes.py and in /codeMatrices/
+3. Use the (Reinforcement Learning) environment in /src/qecc/bicycleBivariateCodeEnvironment.py if you want to apply reinforcement learning agents to construct BB codes.

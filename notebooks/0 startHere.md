@@ -16,12 +16,21 @@ To start reading, go to:
 
 Then the most natural place to continue is: [orderedStatisticsDecoding.ipynb](./2%20orderedStatisticsDecoding.ipynb) which doesn't require more than linear algebra over $F_2$.
 
-Next review an implementation of a belief propagation decoder in [minSumExample.ipynb](./3%20minSumExample.ipynb) and you can check under the hood in minSum.py
+Next review an implementation of a belief propagation decoder in [minSumExample.ipynb](./3%20minSumDecoding.ipynb) and you can check under the hood in minSum.py
 
-[beliefPropagationAndOsd.ipynb](4%20beliefPropagationAndOsd.ipynb)
+[quaternaryBeliefPropagationAndOsd.ipynb](./4%20quaternaryBeliefPropagationAndOsd.ipynb)
 
 
-polinomialCodes.py contains codes that were introduced in a paper by Panteleev and Kalachev, but also IBM
+polinomialCodes.py contains codes that were introduced in a paper by Panteleev and Kalachev, and also IBM
 relaybp.py is my own implementation of relay BP from a paper by IBM.
+
+
+
+# Resources I found helpful
+If you're comfortable with the tensor product, and linear algebra over $\mathbb{C}$, then the [video lectures by Daniel Gottesman](https://pirsa.org/c17045) are a great place to start.
+
+
+Another really useful resource is [James Wootton's videos](https://www.youtube.com/@decodoku) which are hard to find since they are under @decodoku.
+
 
 
