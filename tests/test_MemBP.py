@@ -152,33 +152,32 @@ def test_nearEarthAt_3_6():
     epsilon = 0.00001
     assert(bStats[0] < epsilon)
 
-# def test_NearEarth(numOfTransmissions = 10):
-#     #print("*** in test near earth")
-#     import time
-#     import pathlib
-#     nearEarthPath = "./codeMatrices/nearEarthParityCsr.npz"
-#     nearEarthParity = sparse.load_npz(nearEarthPath).toarray()
-#     SNRRegionOfInterest = [3.0, 3.2]#, 3.4,3.6]
-#     codewordSize = 8176
-#     messageSize = 7154
-#     numOfIterations = 50
-#     bStats = evaluateCode(numOfTransmissions, 460101, SNRRegionOfInterest, numOfIterations, nearEarthParity)    
-#     # Expected result for SNR == [3.0, 3.2, 3.4,3.6] at 50 iterations: [0.01953278 0.00419521 0.         0.        ]
-#     experimental = [0.01953278, 0.00419521, 0.0,         0.0        ]
-#     epsilon = [0.01, 0.01, 0.001, 0.0001]
-#     # print(f"BER stats : {bStats}")
-#     # print(f"{bStats - experimental}")
-#     # print(f"{np.abs(bStats - experimental) < epsilon}")
-#     assert(np.all(np.abs(bStats - experimental) < epsilon))
+def nearEarthEvaluation(numOfTransmissions = 20):
+    #print("*** in test near earth")
+    import time
+    import pathlib
+    nearEarthPath = "./codeMatrices/nearEarthParityCsr.npz"
+    nearEarthParity = sparse.load_npz(nearEarthPath).toarray()
+    SNRRegionOfInterest = [3.0, 3.2, 3.4,3.6]
+    codewordSize = 8176
+    messageSize = 7154
+    numOfIterations = 50
+    bStats = evaluateCode(numOfTransmissions, 460101, SNRRegionOfInterest, numOfIterations, nearEarthParity)    
+    # Expected result for SNR == [3.0, 3.2, 3.4,3.6] at 50 iterations: [0.01953278 0.00419521 0.         0.        ]
+    experimental = [0.01953278, 0.00419521, 0.0,         0.0        ]
+    epsilon = [0.01, 0.01, 0.001, 0.0001]
+    # print(f"BER stats : {bStats}")
+    # print(f"{bStats - experimental}")
+    # print(f"{np.abs(bStats - experimental) < epsilon}")
+    assert(np.all(np.abs(bStats - experimental) < epsilon))
 
 
 
 if __name__ == "__main__":
-    test_decoder_1_bit_flip()
+    #test_decoder_1_bit_flip()
     #print(test_decoder_k_bit_flips(k=2))
-    test_15_1()
-    test_nearEarthAt_3_6()
-    # Omer: I disabled this test since the performance is so low right now that the test takes to long
-    #test_NearEarth()
+    #test_15_1()
+    #test_nearEarthAt_3_6()
+    #nearEarthEvaluation()
     pass
  

@@ -143,11 +143,12 @@ def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderSto
     localRandom = np.random.RandomState(seed)
     logicalX, logicalZ = computeLogicals(Hx, Hz)
 
-    decoderFailureRate = {}
-    logicalErrorRate = {}
-    for p in errorRange:
-        decoderFailureRate[p] = 0
-        logicalErrorRate[p] = 0
+    decoderFailureRate = np.zeros(len(errorRange))
+    logicalErrorRate = np.zeros(len(errorRange))
+    for i in range(len(errorRange)):
+        p = errorRange[i]
+        decoderFailureRate[i] = 0
+        logicalErrorRate[i] = 0
         for _ in range(numberOfSamples):
             #Sample (some number of times) an error, which is a vector over {0,1,2,3} representing I,X,Z,Y (to be consistent check with the documentation in gf4.py)
             error = localRandom.choice([0,1,2,3], size=Hx.shape[1], replace=True, p=[1 - 3*p, p, p, p])
@@ -169,7 +170,7 @@ def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderSto
                 estimatedErrorX, estimatedErrorZ = integerToDualBinary(estimatedError)
             #If the decoder thinks it failed, add 1 to the decoderFailure counter. 
             if not success:
-                decoderFailureRate[p] = decoderFailureRate[p] + 1
+                decoderFailureRate[i] = decoderFailureRate[i] + 1
             else:
 
                 #If the decoder thinks it succeeded (success == True), then test the residual error, i.e.: the (gf(4)) sum of the estimated error and the original error, to see if either: 
@@ -181,11 +182,11 @@ def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderSto
                 # Check whether the residual error gives 0 syndrome:
                 if not ( np.all((np.dot(Hx,residualErrorZ)) % 2 ==0) and np.all((np.dot(Hz, residualErrorX)%2) == 0)):
                     print("Decoder failure: the residual error does not give 0 syndrome, meaning the decoder is wrong")
-                    logicalErrorRate[p] += 1
+                    logicalErrorRate[i] += 1
                 else: # So we are in the case that the residual error commutes with all stabilizers, i.e., it is in the normalizer. So let's check if it is a stabilizer (commutes with all logicals), or a logical error (anticommutes with some logical operator)
                     if not ( np.all((np.dot(logicalZ,residualErrorX) % 2 )== 0) and np.all((np.dot(logicalX, residualErrorZ) % 2)==0)):
                         #print(f"Logical error: the residual error commutes with all stabilizers but anticommutes with some logical operator")
-                        logicalErrorRate[p] += 1
+                        logicalErrorRate[i] += 1
     return logicalErrorRate, decoderFailureRate
 
 
@@ -206,41 +207,53 @@ if __name__ == "__main__":
     from qecc.minSum import ldpcDecoderWrapper
     import numpy as np
     import json
-
+    import time
     # Check quaternary BP is working
-    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001, 0.00001], decoderStoppingCriterion = 20, numberOfSamples = 10)
+    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001], decoderStoppingCriterion = 20, numberOfSamples = 10)
     #print(f"Logical error rate: {logicalER}")
     #print(f"Decoder failure rate: {decoderFailureRate}")
     
-    logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001, 0.00001], decoderStoppingCriterion = 20, numberOfSamples = 10)
-    print(f"Logical error rate: {logicalER}")
-    print(f"Decoder failure rate: {decoderFailureRate}")
-    dualRoffeDecoder = binaryDecoderToDualBinaryDecoderWrapper(wrapperForRoffesLdpc)
-    logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001, 0.00001], decoderStoppingCriterion = 20, numberOfSamples = 10)
-    print(f"Logical error rate: {logicalER}")
-    print(f"Decoder failure rate: {decoderFailureRate}")
+    # Check minsum decoder is working
+    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001], decoderStoppingCriterion = 20, numberOfSamples = 10)
+    #print(f"Logical error rate: {logicalER}")
+    #print(f"Decoder failure rate: {decoderFailureRate}")
+    
     # numberOfTransmissions = 20
     # seed = 123456
-    # errorRange = np.linspace(0.001, 0.1, 10)
+    #errorRange = np.linspace(0.001, 0.1, 10)
     # numberOfIterations = 50
     # H = A1_HX.astype(np.int32)
     # minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H)
     # memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H)
-    from qecc.utils import decoderEvaluator
-    from qecc.qbp import refinedBPalgorithm3
+    # from qecc.utils import decoderEvaluator
+    # from qecc.qbp import refinedBPalgorithm3
     from qecc.polynomialCodes import A1_HX, A1_HZ, bbCodes
-    from qecc.minSum import ldpcDecoderWrapper
-    import numpy as np
-    errorRange = np.linspace(10**-4, 10**-2, 6)
+    # from qecc.minSum import ldpcDecoderWrapper
+    # import numpy as np
+    errorRange = np.linspace(10**-4, 10**-1, 10)
 
 
     errorRateQBP= {}
-    errorRateDualBinaryMinSum = {}
+    errorRate = {}
+    #errorRateDualBinaryMinSum = {}
+    timeMeasured = {}
+    dualRoffeDecoder = binaryDecoderToDualBinaryDecoderWrapper(wrapperForRoffesLdpc)
     for key, value in bbCodes.items():
-        
-        logicalERbp3, decoderFailureRatebp3 = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
-        errorRateQBP[key] = [logicalERbp3, decoderFailureRatebp3]
-        logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
-        errorRateDualBinaryMinSum[key] = [logicalERMS, decoderFailureRateMS]
-    data = {"errorRateDualBinaryMinSum": errorRateDualBinaryMinSum, "errorRateQBP": errorRateQBP}
-    np.save("bbCodesQBPStats.npy", data, allow_pickle=True)
+    #value = bbCodes["72_12_6"]
+    #key = "72_12_6"
+        print(f"Characterizing code {key}")
+        start = time.time()
+        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = 100)
+        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = 50)
+        end = time.time()
+        #print(f"Logical error rate: {logicalER}")
+        #print(f"Decoder failure rate: {decoderFailureRate}")
+        #print(f"Time taken: {end - start}")
+    
+    # #logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
+        combinedErrors = logicalER + decoderFailureRate
+        errorRate[key] = combinedErrors
+        timeMeasured[key] = end-start
+    data = {"errorRange": errorRange, "errorRate": errorRate, "time": timeMeasured}
+    
+    np.save("bbCodesQBP3_50_50.npz", data, allow_pickle=True)
