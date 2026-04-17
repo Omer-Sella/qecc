@@ -5,6 +5,7 @@ from qecc.polynomialCodes import generateBicycleCode
 from qecc.utils import decoderEvaluator
 import copy
 INT_DATA_TYPE = np.int16
+# Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
 class bicycleBivariateCodeEnvironment(gym.Env):
     """
     A gymnasium environment to learn bicycle bivariate codes as described in Bivariate Bicycle codes from High-threshold and low-overhead fault-tolerant quantum memory
@@ -34,12 +35,15 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         
         self.observation_space = spaces.Dict(
             {
-                "Hx": spaces.MultiBinary([self._l*self._m, self._l*self._m,]),
-                "Hz": spaces.MultiBinary([self._l*self._m, self._l*self._m,]),
+                "Hx": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
+                "Hz": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
             }
         )
 
-        
+    def _getObservation(self):
+        # Omer: There is a warning about the obs returned not within observation space. Tried int8 but didn't work.
+        #return {"Hx": np.int8(self.Hx), "Hz": np.int8(self.Hz)}
+        return {"Hx": self.Hx, "Hz": self.Hz}
     
     def reset(self, seed = None, options = None):
         super().reset(seed = seed)
@@ -81,14 +85,11 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         info = {}#None
         return observation, reward, terminated, False, info
     
-    def _getObservation(self):
-        # Omer: There is a warning about the obs returned not within observation space. Tried int8 but didn't work.
-        #return {"Hx": np.int8(self.Hx), "Hz": np.int8(self.Hz)}
-        return {"Hx": self.Hx, "Hz": self.Hz}
+
     
     def _calculateReward(self, logicalErrorRate, decoderFailureRate, numberOfIterations = 10):      
         #ber = (logicalErrorRate + decoderFailureRate)
-        ber = np.array([logicalErrorRate[k] + decoderFailureRate[k] for k in logicalErrorRate.keys()])    
+        ber = logicalErrorRate + decoderFailureRate
         snr = np.array(copy.copy(self.errorRange))
         itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
         while itr < numberOfIterations:
@@ -104,17 +105,20 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         pTotalInteg = (pConst - p).integ()
         reward = pTotalInteg(self.errorRange[-1]) - pTotalInteg(self.errorRange[0])
         return reward
-    
-if __name__ == "__main__":
+
+def exampleDecoderFunction(Hx,Hz,errorRange):
     from qecc.minSum import ldpcDecoderWrapper
     from qecc.utils import decoderEvaluator
-    def decoderFunction(Hx,Hz,errorRange):
-        numberOfSamples = 30
-        logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = numberOfSamples)
-        return {key: value/numberOfSamples for key,value in logicalErrors.items()} , {key: value/numberOfSamples for key,value in decoderFailures.items()}
+
+    numberOfSamples = 30
+    logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = numberOfSamples)
+    #return {key: value/numberOfSamples for key,value in logicalErrors.items()} , {key: value/numberOfSamples for key,value in decoderFailures.items()}
+    return logicalErrors/numberOfSamples, decoderFailures/numberOfSamples
+
+if __name__ == "__main__":
     l = 6
     m = 6
-    env = gym.make('qecc/bbcode-v0', l = l, m = m, evaluationDecoderFunction = decoderFunction, errorRange = [0.01, 0.001])
+    env = gym.make('qecc/bbcode-v0', l = l, m = m, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
     env.reset()
     aX = np.zeros(l*m)
     aY = np.zeros(l*m)
@@ -129,3 +133,6 @@ if __name__ == "__main__":
     action = (aX,aY,bX,bY)
     observation = env.step(action = action)
     print(observation)
+    print(observation[0])
+    print(observation[1])
+    print(observation[2])
