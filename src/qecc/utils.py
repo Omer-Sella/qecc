@@ -232,7 +232,8 @@ if __name__ == "__main__":
     # import numpy as np
     errorRange = np.linspace(10**-4, 10**-1, 10)
 
-
+    NUMBER_OF_SAMPLES = 100
+    NUMBER_OF_DECODER_ITERATIONS = 50
     errorRateQBP= {}
     errorRate = {}
     #errorRateDualBinaryMinSum = {}
@@ -243,8 +244,8 @@ if __name__ == "__main__":
     #key = "72_12_6"
         print(f"Characterizing code {key}")
         start = time.time()
-        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = 100)
-        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = 50)
+        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
+        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
         end = time.time()
         #print(f"Logical error rate: {logicalER}")
         #print(f"Decoder failure rate: {decoderFailureRate}")
@@ -254,6 +255,6 @@ if __name__ == "__main__":
         combinedErrors = logicalER + decoderFailureRate
         errorRate[key] = combinedErrors
         timeMeasured[key] = end-start
-    data = {"errorRange": errorRange, "errorRate": errorRate, "time": timeMeasured}
+    data = {"errorRange": errorRange, "errorRate": errorRate, "time": timeMeasured, "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, "Number of samples": NUMBER_OF_SAMPLES}
     
-    np.save("bbCodesQBP3_50_50.npz", data, allow_pickle=True)
+    np.save("/rds/general/user/osella/home/qecc/decoderComparisonData/bbCodesQBP_50_100", data, allow_pickle=True)
