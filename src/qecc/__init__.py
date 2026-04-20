@@ -11,6 +11,6 @@ PACKAGE_NAME = "qecc"
 from gymnasium.envs.registration import register
 
 register(
-    id="qecc/bbcode-v0",
-    entry_point="qecc.bicycleBivariateCodeEnvironment:bicycleBivariateCodeEnvironment",
+    id="bbcode-v0",
+    entry_point="qecc.bb_gym:bb_env",
 )

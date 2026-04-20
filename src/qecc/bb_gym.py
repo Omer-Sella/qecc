@@ -6,7 +6,7 @@ from qecc.utils import decoderEvaluator
 import copy
 INT_DATA_TYPE = np.int16
 # Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
-class bicycleBivariateCodeEnvironment(gym.Env):
+class bb_env(gym.Env):
     """
     A gymnasium environment to learn bicycle bivariate codes as described in Bivariate Bicycle codes from High-threshold and low-overhead fault-tolerant quantum memory
     """
@@ -33,17 +33,19 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                                np.where(self.bX !=0)[0], 
                                                np.where(self.bY !=0)[0])
         
-        self.observation_space = spaces.Dict(
-            {
-                "Hx": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
-                "Hz": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
-            }
-        )
+        # self.observation_space = spaces.Dict(
+        #      {
+        #          "Hx": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
+        #          "Hz": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
+        #      }
+        #  )
+        self.observation_space = spaces.MultiBinary(int(np.prod(self.Hx.shape) + np.prod(self.Hz.shape)))
 
     def _getObservation(self):
         # Omer: There is a warning about the obs returned not within observation space. Tried int8 but didn't work.
         #return {"Hx": np.int8(self.Hx), "Hz": np.int8(self.Hz)}
-        return {"Hx": self.Hx, "Hz": self.Hz}
+        #return {"Hx": self.Hx, "Hz": self.Hz}
+        return np.vstack((self.Hx, self.Hz)).flatten() 
     
     def reset(self, seed = None, options = None):
         super().reset(seed = seed)
@@ -118,7 +120,8 @@ def exampleDecoderFunction(Hx,Hz,errorRange):
 if __name__ == "__main__":
     l = 6
     m = 6
-    env = gym.make('qecc/bbcode-v0', l = l, m = m, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
+    
+    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
     env.reset()
     aX = np.zeros(l*m)
     aY = np.zeros(l*m)

@@ -22,3 +22,10 @@ def test_bbCodesEnvIsWorking():
     action = (aX,aY,bX,bY)
     observation = env.step(action = action)
     print(observation)
+
+def test_bbCodesEnvIsRegistered():
+    import qecc
+    # Once qecc is imported, it's init file should have registered the environment. We can check that by checking the registry of gymnasium.
+    import gymnasium as gym
+    allEnvs = gym.envs.registry.keys()
+    assert "bbcode-v0" in allEnvs
