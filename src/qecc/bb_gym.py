@@ -1,12 +1,12 @@
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from qecc.polynomialCodes import generateBicycleCode
+from qecc.polynomialCodes import generateBicycleCode, generateABmatrices
 from qecc.utils import decoderEvaluator
 import copy
 INT_DATA_TYPE = np.int16
 # Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
-class bb_env(gym.Env):
+class bicycleBivariateCodeEnvironment(gym.Env):
     """
     A gymnasium environment to learn bicycle bivariate codes as described in Bivariate Bicycle codes from High-threshold and low-overhead fault-tolerant quantum memory
     """
@@ -17,15 +17,21 @@ class bb_env(gym.Env):
         self._m = m
         self.seed = None
         self.errorRange = errorRange
-        self.action_space = spaces.Tuple( (spaces.MultiBinary(l*m), 
-                                           spaces.MultiBinary(l*m), 
-                                           spaces.MultiBinary(l*m), 
-                                           spaces.MultiBinary(l*m)))
+        # The action space is a flat array containing [aX,bX,aY,bY] in that order.
+        self.action_space = spaces.MultiBinary(4 * l * m)
+
         
         self.aX = np.zeros(l*m, INT_DATA_TYPE)
         self.bX = np.zeros(l*m, INT_DATA_TYPE)
         self.aY = np.zeros(l*m, INT_DATA_TYPE)
         self.bY = np.zeros(l*m, INT_DATA_TYPE)
+        
+        self.A, self.B = generateABmatrices(self._l, self._m,
+                                            np.where(self.aX !=0)[0], 
+                                            np.where(self.aY !=0)[0], 
+                                            np.where(self.bX !=0)[0], 
+                                            np.where(self.bY !=0)[0])
+        
         
         self.Hx, self.Hz = generateBicycleCode(self._l, self._m, 
                                                np.where(self.aX !=0)[0], 
@@ -39,20 +45,29 @@ class bb_env(gym.Env):
         #          "Hz": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
         #      }
         #  )
-        self.observation_space = spaces.MultiBinary(int(np.prod(self.Hx.shape) + np.prod(self.Hz.shape)))
+        self.flatObservationSize = ((self._l * self._m) ** 2) * 2
+        
+        self.observation_space = spaces.MultiBinary(self.flatObservationSize)
 
     def _getObservation(self):
         # Omer: There is a warning about the obs returned not within observation space. Tried int8 but didn't work.
         #return {"Hx": np.int8(self.Hx), "Hz": np.int8(self.Hz)}
         #return {"Hx": self.Hx, "Hz": self.Hz}
-        return np.vstack((self.Hx, self.Hz)).flatten() 
+        #return np.vstack((self.Hx, self.Hz)).flatten() 
+        return np.vstack((self.A, self.B)).flatten() 
     
-    def reset(self, seed = None, options = None):
+    def reset(self, seed=None, options = None):
         super().reset(seed = seed)
         self.aX = self.aX * 0
         self.aY = self.aY * 0
         self.bX = self.bX * 0
         self.bY = self.bY * 0
+        self.A, self.B = generateABmatrices(self._l, self._m,
+                                            np.where(self.aX !=0)[0], 
+                                               np.where(self.aY !=0)[0], 
+                                               np.where(self.bX !=0)[0], 
+                                               np.where(self.bY !=0)[0])
+        
         self.Hx, self.Hz = generateBicycleCode(self._l,self._m, 
                                                np.where(self.aX !=0)[0], 
                                                np.where(self.aY !=0)[0], 
@@ -66,12 +81,19 @@ class bb_env(gym.Env):
 
     
     def step(self, action):
+#        super().step(action)
+        # Unpack action from flat action
+        self.aX = action[0 : (self._l * self._m) ]
+        self.aY = action[(self._l * self._m) : 2 * (self._l * self._m)]
+        self.bX = action[2*(self._l * self._m) : 3 * (self._l * self._m)]
+        self.bY = action[3*(self._l * self._m) : 4 * (self._l * self._m)]
         
-        self.aX = action[0]
-        self.aY = action[1]
-        self.bX = action[2]
-        self.bY = action[3]
-        
+        self.A, self.B = generateABmatrices(self._l, self._m, 
+                                            np.where(self.aX !=0)[0], 
+                                            np.where(self.aY !=0)[0], 
+                                            np.where(self.bX !=0)[0], 
+                                            np.where(self.bY !=0)[0])
+
         self.Hx, self.Hz = generateBicycleCode(self._l,self._m, 
                                                np.where(self.aX !=0)[0], 
                                                np.where(self.aY !=0)[0], 
@@ -123,19 +145,24 @@ if __name__ == "__main__":
     
     env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
     env.reset()
+    print(env.action_space.shape)
+    #print(env.unwrapped.flatObservationSize)
     aX = np.zeros(l*m)
     aY = np.zeros(l*m)
     bX = np.zeros(l*m)
     bY = np.zeros(l*m)
+    print(env.action_space.shape)
     aX[3] = 1
     aY[1]=1
     aY[2] = 1
     bX[1] = 1
     bX[2] = 1
     bY[3] = 1
-    action = (aX,aY,bX,bY)
+    action = np.concatenate([aX,aY,bX,bY])
+    print(action)
     observation = env.step(action = action)
-    print(observation)
-    print(observation[0])
-    print(observation[1])
-    print(observation[2])
+
+    #print(observation)
+    #print(observation[0])
+    #print(observation[1])
+    #print(observation[2])

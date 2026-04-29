@@ -219,7 +219,8 @@ Rater ℓ,m A B
 [[756,16,≤34]] 1/95 21,18 x3+y10+y17 y5+x3+x19
 """
 
-def generateBicycleCode(l,m, aX, aY, bX, bY):
+
+def generateABmatrices(l,m, aX, aY, bX, bY):
      s_l = np.roll(np.eye(l), 1, axis = 1)
      s_m = np.roll(np.eye(m), 1, axis = 1)
      I_l = np.eye(l)
@@ -236,8 +237,13 @@ def generateBicycleCode(l,m, aX, aY, bX, bY):
           B = (B + (np.linalg.matrix_power(x, p) %2))%2
      for p in bY:
           B = (B + (np.linalg.matrix_power(y, p)%2) )%2
+     return A, B
+
+def generateBicycleCode(l,m, aX, aY, bX, bY):
+     A,B = generateABmatrices(l,m, aX, aY, bX, bY)
      H_X = np.hstack((A, B))
      H_Z = np.hstack((B.transpose(), A.transpose()))
+     
      return H_X.astype(int), H_Z.astype(int)
 
 
