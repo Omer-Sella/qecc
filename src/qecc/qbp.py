@@ -170,9 +170,9 @@ def refinedBPalgorithm3(H, s, initialValues, maxNumberOfIteration = 10):
 
 
 if __name__ == "__main__":
-    hX = codes["A1_HX"]
-    H = np.array(hX)
-    print(H[0:1,:])
-    solutions = generateSolutions(H[0:1,:])
+    pass
+    
+    
+    
 
     

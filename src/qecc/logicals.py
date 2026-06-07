@@ -22,30 +22,39 @@ def computeLogicals(stabilizerGeneratorsX, stabilizerGeneratorsZ):
     We first reduce all input matrices to their row echelon form.
 
     For a CSS code with parity-check matrices $H_X$ and $H_Z$ (over $F_2$), corresponding to stabilizerGeneratorsX and stabilizerGeneratorsZ we first find logical $Z$ operators. 
+
     The $Z$ logical operators are those $Z$ operators that commute with all $X$ stabilizers (i.e., they are in the normalizer of S), but are not in the span of the $Z$ stabilizers, i.e. in S.
+    
     We first look for all $Z$ operators that commute with all $X$ stabilizers by solving the equation $H_X z = 0$ over $F_2$ and obtaining a set of basis vectors for this space.
-    Some of them are $X$-stabilizers, some are logical $X$ operators. (Z stabilizers, Z operators)
-    To check if a logical $Z$ operator, v, is in the span of the matreix $H_X$ == stabilizerGeneratorsX, we test whether the rank of stabilizerGeneratorsX is strictly smaller than that of np.vstack((stabilizerGeneratorsX, v)). If yes, it means that v is in the row space of stabilizerGeneratorsX.
+    
+    Some of them are $Z$-stabilizers, some are logical $Z$ operators. (X stabilizers, X operators)
+    
+    To check if a logical $Z$ operator, v, is in the span of the matrix $H_Z$ == stabilizerGeneratorsZ, 
+    we test whether the rank of stabilizerGeneratorsZ is strictly smaller than that of np.vstack((stabilizerGeneratorsX, v)). 
+    If yes, it means that v is in the row space of stabilizerGeneratorsX.
     Any v that survived this test is a logical $Z$ operator. 
     """
     
-    stabilizerGeneratorsX, stabilizerGeneratorsXInverse, stabilizerGeneratorsXrank  = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(stabilizerGeneratorsX))
-    stabilizerGeneratorsZ, stabilizerGeneratorsZInverse, stabilizerGeneratorsZrank  = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(stabilizerGeneratorsZ))
+    # Step 1: Switch to reduced form: the stabilizer generators
+    stabilizerGeneratorsXReduced, stabilizerGeneratorsXInverse, stabilizerGeneratorsXrank  = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(stabilizerGeneratorsX))
+    stabilizerGeneratorsZReduced, stabilizerGeneratorsZInverse, stabilizerGeneratorsZrank  = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(stabilizerGeneratorsZ))
 
-    logicalOperatorsX = funWithMatrices.solveHomogenicBinaryLinearSystem(stabilizerGeneratorsZ)
-        
+    # Step 2: Find a basis to the null space of each (reduced) stabiliser matrix. The null space of the Z stabilisers are X operators, the null space of the X stabilizers are Z operators.
+    logicalOperatorsX = funWithMatrices.solveHomogenicBinaryLinearSystem(stabilizerGeneratorsZReduced)
+    logicalOperatorsZ = funWithMatrices.solveHomogenicBinaryLinearSystem(stabilizerGeneratorsXReduced)
+
+    # Step 3: Pick only the operators that are linearly independant of the stabilisers - this time we are checking the X operators that are linearly independent of the X stabilizers, and Z operators independent of the Z stabilizers. 
     newLogicalOperatorsX = []
     for i in range(logicalOperatorsX.shape[0]):
-        testMatrix = np.vstack( (stabilizerGeneratorsX, logicalOperatorsX[i,:]) )
+        testMatrix = np.vstack( (stabilizerGeneratorsXReduced, logicalOperatorsX[i,:]) )
         _, _, testRank = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(testMatrix))
         if testRank > stabilizerGeneratorsXrank:
             # This row is in the span of the X stabilizers, remove it
             newLogicalOperatorsX.append(logicalOperatorsX[i,:])
-    newLogicalOperatorsZ = []
     
-    logicalOperatorsZ = funWithMatrices.solveHomogenicBinaryLinearSystem(stabilizerGeneratorsX)
+    newLogicalOperatorsZ = []
     for i in range(logicalOperatorsZ.shape[0]):
-        testMatrix = np.vstack( (stabilizerGeneratorsZ, logicalOperatorsZ[i,:]) )
+        testMatrix = np.vstack( (stabilizerGeneratorsZReduced, logicalOperatorsZ[i,:]) )
         _, _, testRank = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(testMatrix))
         if testRank > stabilizerGeneratorsZrank:
             # This row is in the span of the stabilizers, remove it

@@ -8,3 +8,6 @@ __pycache__/
 .vs*
 notebooks/noise*
 *.npy
+postprocessing.ipynb
+/decoderComparisonData/*.*
+decoderComparisonData*
