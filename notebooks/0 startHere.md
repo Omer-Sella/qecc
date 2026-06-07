@@ -1,8 +1,10 @@
 # Quantum Error Correcting Codes, mainly decoding them
 
+June 2026 update - If you haven't already, I would urge you to look at Daniel Gottesman's book:  Surviving as a Quantum Computer in a Classical World.I 
+
 This is the entry point to this repository. Hopefully, it would allow the reader who knows some classical ECC and some linear algebra to understand how to carry their knowledge from classical ECC to quantum ECC.
 
-I found that most books teach Quantum computing, maybe some Quantum mechanics, and at the very end give some qECC examples.
+I found that most books teach Quantum computing, maybe some Quantum mechanics, and at the very end give some qECC examples (with the obvious exception of Daniel Gottesman's brilliant page turner:  [Surviving as a Quantum Computer in a Classical World](https://www.cs.umd.edu/~dgottesm/) which is not only very clear, but is also very funny and an absolute joy to read !).
 
 I'm hoping to do the opposite, i.e., first get the reader to master qECC, then learn some quantum computing where qECC are used.
 
