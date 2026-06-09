@@ -62,3 +62,12 @@ def computeLogicals(stabilizerGeneratorsX, stabilizerGeneratorsZ):
 
     return np.array(newLogicalOperatorsX), np.array(newLogicalOperatorsZ)
 
+
+def calculateCodeDimension(Hx,Hz):
+    if Hx.shape[1] != Hz.shape[1]:
+        print(f"Column dimensions of Hx and Hz should be the same, instead they are {Hx.shape[1]} and {Hz.shape[1]}.")
+        raise ValueError
+    else:
+        _, _, rankHx = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(Hx))
+        _, _, rankHz = funWithMatrices.binaryGaussianEliminationOnRows(copy.copy(Hz))
+        return Hx.shape[1] - rankHx - rankHz

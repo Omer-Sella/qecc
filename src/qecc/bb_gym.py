@@ -3,15 +3,24 @@ import gymnasium as gym
 from gymnasium import spaces
 from qecc.polynomialCodes import generateBicycleCode, generateABmatrices
 from qecc.utils import decoderEvaluator
+from qecc.logicals import calculateCodeDimension
 import copy
 INT_DATA_TYPE = np.int16
+NEGATIVE_REWARD = -1
 # Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
 class bicycleBivariateCodeEnvironment(gym.Env):
     """
     A gymnasium environment to learn bicycle bivariate codes as described in Bivariate Bicycle codes from High-threshold and low-overhead fault-tolerant quantum memory
+    Some parameters for BB codes from https://arxiv.org/pdf/2308.07915
+    [[72, 12, 6]]
+    [[90, 8, 10]]
+    [[108, 8, 10]]
+    [[144, 12,12]]
+    [[288, 12,18]]
     """
 
-    def __init__(self, l, m, evaluationDecoderFunction, errorRange):
+    def __init__(self, l, m, evaluationDecoderFunction, errorRange, minimumNumberOfLogicalQubits = 6):
+        self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
         self.decoder = evaluationDecoderFunction
         self._l = l
         self._m = m
@@ -101,9 +110,13 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                                np.where(self.bY !=0)[0])
         #self.Hx = Hx.astype(int)
         #self.Hz = Hz.astype(int)
-        
-        logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange)
-        reward = self._calculateReward(logicalErrorRate, decoderFailureRate)
+        # Omer: check that the resulting code admits the necessary logical qubits
+        if calculateCodeDimension(self.Hx, self.Hz) > self.minimumNumberOfLogicalQubits:    
+            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange)
+            reward = self._calculateReward(logicalErrorRate, decoderFailureRate)
+        else:
+            reward = NEGATIVE_REWARD
+
         terminated = False
         observation = self._getObservation()
         info = {}#None
@@ -162,7 +175,3 @@ if __name__ == "__main__":
     print(action)
     observation = env.step(action = action)
 
-    #print(observation)
-    #print(observation[0])
-    #print(observation[1])
-    #print(observation[2])
