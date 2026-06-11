@@ -55,9 +55,9 @@ num_cells = 256  # number of cells in each layer i.e. output dim.
 lr = 3e-4
 max_grad_norm = 1.0
 
-frames_per_batch = 1000
+frames_per_batch = 128 #1000
 
-total_frames = 50_000
+total_frames = 1_000 #50_000
 
 sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
 num_epochs = 10  # optimization steps per batch of data collected
