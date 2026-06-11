@@ -45,7 +45,10 @@ gamma = 0.99
 lmbda = 0.95
 entropy_eps = 1e-4
 
-base_env = GymEnv("qecc/bbcode-v0", device=device)
+from qecc.bb_gym import exampleDecoderFunction
+
+base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
+
 env = TransformedEnv(
     base_env,
     Compose(

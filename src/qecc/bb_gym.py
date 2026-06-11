@@ -167,6 +167,13 @@ def exampleDecoderFunction(Hx,Hz,errorRange):
 if __name__ == "__main__":
     l = 6
     m = 6
+    device = 'cpu'
+    
+    # Check the environment works with GymEnv
+    from torchrl.envs.libs.gym import GymEnv
+    from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
+    GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
+
     
     env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
     env.reset()
