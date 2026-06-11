@@ -1,4 +1,13 @@
+"""
+This module is a (almost) copy-past of the tutorial explained in:
 # https://docs.pytorch.org/tutorials/intermediate/reinforcement_ppo.html
+
+Some minor adjustments apply:
+1. No need to use random interactions to discover the observations range if you want to normalize them, they are just 0s and 1s.
+2. I needed to add a transform from int8 (multibinary) to float32.
+3. Instead of Box we have a multiBinary distribution (so there is also no need or sense to probe the rnvironment for boundaries).
+
+"""
 import qecc # Needed, to register bbgym with gymansium
 import warnings
 warnings.filterwarnings("ignore")
@@ -7,7 +16,8 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import torch
 from tensordict.nn import TensorDictModule
-from tensordict.nn.distributions import NormalParamExtractor
+#from tensordict.nn.distributions import NormalParamExtractor
+from torch.distributions import Bernoulli
 from torch import nn
 from torchrl.collectors import Collector as SyncDataCollector #Omer I dropped in Collector instead of SyncDataCollector
 from torchrl.data.replay_buffers import ReplayBuffer
@@ -21,6 +31,19 @@ from torchrl.modules import ProbabilisticActor, TanhNormal, ValueOperator
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 from tqdm import tqdm
+
+from torchrl.envs.transforms import Transform
+
+class CastToFloat(Transform):
+    def __init__(self):
+        super().__init__(in_keys=["observation"], out_keys=["observation"])
+    
+    def _apply_transform(self, obs):
+        return obs.to(torch.float32)
+    
+    def transform_observation_spec(self, observation_spec):
+        observation_spec["observation"] = observation_spec["observation"].to(torch.float32)
+        return observation_spec
 
 is_fork = multiprocessing.get_start_method() == "fork"
 device = (
@@ -46,23 +69,26 @@ lmbda = 0.95
 entropy_eps = 1e-4
 
 from qecc.bb_gym import exampleDecoderFunction
-
+print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
 base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
 
+print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
 env = TransformedEnv(
     base_env,
     Compose(
-        # normalize observations
-        ObservationNorm(in_keys=["observation"]),
+        CastToFloat(),                          # int8 → float32
+        ObservationNorm(in_keys=["observation"], loc = 0.5, scale = 0.5), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
         DoubleToFloat(),
         StepCounter(),
     ),
 )
 
-env.transform[0].init_stats(num_iter=1000, reduce_dim=0, cat_dim=0)
+#env.transform[1].init_stats(num_iter=1000, reduce_dim=0, cat_dim=0) #Omer: Don't use this random statistical way, it's time consuming and we know what the observations look like anyway.
 
 check_env_specs(env)
 
+print("Press enter to continue...")
+input()
 rollout = env.rollout(3)
 
 
@@ -73,25 +99,19 @@ actor_net = nn.Sequential(
     nn.Tanh(),
     nn.LazyLinear(num_cells, device=device),
     nn.Tanh(),
-    nn.LazyLinear(2 * env.action_spec.shape[-1], device=device),
-    NormalParamExtractor(),
+    nn.LazyLinear(env.action_spec.shape[-1], device=device),
 )
 
 policy_module = TensorDictModule(
-    actor_net, in_keys=["observation"], out_keys=["loc", "scale"]
+    actor_net, in_keys=["observation"], out_keys=["logits"]
 )
 
 policy_module = ProbabilisticActor(
     module=policy_module,
     spec=env.action_spec,
-    in_keys=["loc", "scale"],
-    distribution_class=TanhNormal,
-    distribution_kwargs={
-        "low": env.action_spec.space.low,
-        "high": env.action_spec.space.high,
-    },
+    in_keys=["logits"],
+    distribution_class=Bernoulli,
     return_log_prob=True,
-    # we'll need the log-prob for the numerator of the importance weights
 )
 
 value_net = nn.Sequential(
@@ -135,9 +155,9 @@ loss_module = ClipPPOLoss(
     critic_network=value_module,
     clip_epsilon=clip_epsilon,
     entropy_bonus=bool(entropy_eps),
-    entropy_coef=entropy_eps,
+    entropy_coeff=entropy_eps, #Note the move from coef to coeff
     # these keys match by default but we set this for completeness
-    critic_coef=1.0,
+    critic_coeff=1.0, # Note the move from coef to coeff
     loss_critic_type="smooth_l1",
 )
 
