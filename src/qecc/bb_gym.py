@@ -8,6 +8,7 @@ import copy
 INT_DATA_TYPE = np.int16
 NEGATIVE_REWARD = -1
 # Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
+
 class bicycleBivariateCodeEnvironment(gym.Env):
     metadata = {"render_modes" : []}
     """
