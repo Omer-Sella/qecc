@@ -172,9 +172,9 @@ if __name__ == "__main__":
     # Check the environment works with GymEnv
     from torchrl.envs.libs.gym import GymEnv
     from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
-    GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
+    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
 
-    
+    check_env_specs(base_env)
     env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
     env.reset()
     print(env.action_space.shape)

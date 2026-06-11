@@ -9,7 +9,7 @@ import torch
 from tensordict.nn import TensorDictModule
 from tensordict.nn.distributions import NormalParamExtractor
 from torch import nn
-from torchrl.collectors import SyncDataCollector
+from torchrl.collectors import Collector as SyncDataCollector #Omer I dropped in Collector instead of SyncDataCollector
 from torchrl.data.replay_buffers import ReplayBuffer
 from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
 from torchrl.data.replay_buffers.storages import LazyTensorStorage
