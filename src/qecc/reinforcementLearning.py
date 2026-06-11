@@ -44,14 +44,6 @@ class CastToFloat(Transform):
     def transform_observation_spec(self, observation_spec):
         observation_spec["observation"] = observation_spec["observation"].to(torch.float32)
         return observation_spec
-    
-# log_prob fix: When we ask a Bernoulli distribution to return log_prob, it returns an array, each element of which is a log_prob for that specific coordinate.
-# However, for computing the loss we need to sum them.
-from torch.distributions import Bernoulli, Independent
-class IndependentBernoulli(Independent):
-    def __init__(self, logits):
-        super().__init__(Bernoulli(logits=logits), 1)
-
 
 is_fork = multiprocessing.get_start_method() == "fork"
 device = (
@@ -95,6 +87,8 @@ env = TransformedEnv(
 
 check_env_specs(env)
 
+print("Press enter to continue...")
+input()
 rollout = env.rollout(3)
 
 
@@ -116,8 +110,7 @@ policy_module = ProbabilisticActor(
     module=policy_module,
     spec=env.action_spec,
     in_keys=["logits"],
-    #distribution_class=Bernoulli,
-    distribution_class=IndependentBernoulli, #Omer: note the change here. This is because we nee log_prob to be a single number, and a Bernoulli distribution returns one log_prob per coordinate.
+    distribution_class=Bernoulli,
     return_log_prob=True,
 )
 
