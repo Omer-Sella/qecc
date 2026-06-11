@@ -9,6 +9,7 @@ INT_DATA_TYPE = np.int16
 NEGATIVE_REWARD = -1
 # Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
 class bicycleBivariateCodeEnvironment(gym.Env):
+    metadata = {"render_modes" : []}
     """
     A gymnasium environment to learn bicycle bivariate codes as described in Bivariate Bicycle codes from High-threshold and low-overhead fault-tolerant quantum memory
     Some parameters for BB codes from https://arxiv.org/pdf/2308.07915
@@ -19,7 +20,9 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, evaluationDecoderFunction, errorRange, minimumNumberOfLogicalQubits = 6):
+    def __init__(self, l, m, evaluationDecoderFunction, errorRange, minimumNumberOfLogicalQubits = 6, render_mode = None):
+        
+        self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
         self.decoder = evaluationDecoderFunction
         self._l = l
@@ -57,13 +60,19 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         self.flatObservationSize = ((self._l * self._m) ** 2) * 2
         
         self.observation_space = spaces.MultiBinary(self.flatObservationSize)
+    
+    # Gymnasium spec requires a render function and a close function:
+    def render(self):
+        pass
+    def close(self):
+        pass
 
     def _getObservation(self):
         # Omer: There is a warning about the obs returned not within observation space. Tried int8 but didn't work.
         #return {"Hx": np.int8(self.Hx), "Hz": np.int8(self.Hz)}
         #return {"Hx": self.Hx, "Hz": self.Hz}
         #return np.vstack((self.Hx, self.Hz)).flatten() 
-        return np.vstack((self.A, self.B)).flatten() 
+        return np.vstack((self.A, self.B)).flatten().astype(np.int8)
     
     def reset(self, seed=None, options = None):
         super().reset(seed = seed)
@@ -130,7 +139,8 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         snr = np.array(copy.copy(self.errorRange))
         itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
         while itr < numberOfIterations:
-            p = np.polyfit(self.errorRange, ber, 1)
+            #p = np.polyfit(self.errorRange, ber, 1)
+            p = np.polyfit(snr, ber, 1)
             trendP = np.poly1d(p)
             mask = np.where(trendP(snr) > 0)[0]
             ber = ber[mask]
@@ -138,8 +148,9 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             itr = itr + 1
             # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
             # the constant 1 and the fitted line.            
-        pConst = np.poly1d([1])#p1 = np.poly1d(p)
-        pTotalInteg = (pConst - p).integ()
+        pConst = np.poly1d([1])
+        p1 = np.poly1d(p)
+        pTotalInteg = (pConst - p1).integ()
         reward = pTotalInteg(self.errorRange[-1]) - pTotalInteg(self.errorRange[0])
         return reward
 
