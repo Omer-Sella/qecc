@@ -46,7 +46,7 @@ def test_envPassesBasicChecks():
     
     # Check the environment works with GymEnv
     from torchrl.envs.libs.gym import GymEnv
-    from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
+    from torchrl.envs.utils import check_env_specs
     base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
     check_env_specs(base_env)
     
