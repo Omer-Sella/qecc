@@ -9,6 +9,7 @@ Some minor adjustments apply:
 
 """
 import qecc # Needed, to register bbgym with gymansium
+from qecc.loggerForReinforcementLearning import logger
 import warnings
 warnings.filterwarnings("ignore")
 from torch import multiprocessing
@@ -33,6 +34,19 @@ from torchrl.objectives.value import GAE
 from tqdm import tqdm
 
 from torchrl.envs.transforms import Transform
+
+#myKeys = ['Observation', 'actorEntropy', 'logP',
+myKeys = ['Reward', 
+        'epochNumber', 
+        'step_count', 
+        'lr',
+          "eval step count",
+          "eval reward sum",
+          "eval reward mean",
+          "eval step count"
+          ]
+myLogger = logger(keys = myKeys) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
+
 
 class CastToFloat(Transform):
     def __init__(self):
@@ -59,6 +73,10 @@ device = (
     if torch.cuda.is_available() and not is_fork
     else torch.device("cpu")
 )
+
+
+
+
 num_cells = 256  # number of cells in each layer i.e. output dim.
 lr = 3e-4
 max_grad_norm = 1.0
@@ -181,7 +199,8 @@ eval_str = ""
 # designed to collect:
 for i, tensordict_data in enumerate(collector):
     # we now have a batch of data to work with. Let's learn something from it.
-    for _ in range(num_epochs):
+    for epochNumber in range(num_epochs):
+        myLogger.keyValue("epochNumber", epochNumber)
         # We'll need an "advantage" signal to make PPO work.
         # We re-compute it at each epoch as its value depends on the value
         # network which is updated in the inner loop.
@@ -206,13 +225,17 @@ for i, tensordict_data in enumerate(collector):
             optim.zero_grad()
 
     logs["reward"].append(tensordict_data["next", "reward"].mean().item())
+    myLogger.keyValue("Reward", tensordict_data["next", "reward"].mean().item())
     pbar.update(tensordict_data.numel())
     cum_reward_str = (
         f"average reward={logs['reward'][-1]: 4.4f} (init={logs['reward'][0]: 4.4f})"
     )
     logs["step_count"].append(tensordict_data["step_count"].max().item())
+    myLogger.keyValue("step_count", tensordict_data["step_count"].max().item())
     stepcount_str = f"step count (max): {logs['step_count'][-1]}"
     logs["lr"].append(optim.param_groups[0]["lr"])
+    myLogger.keyValue("lr", optim.param_groups[0]["lr"])
+
     lr_str = f"lr policy: {logs['lr'][-1]: 4.4f}"
     if i % 10 == 0:
         # We evaluate the policy once every 10 batches of data.
@@ -225,16 +248,20 @@ for i, tensordict_data in enumerate(collector):
             # execute a rollout with the trained policy
             eval_rollout = env.rollout(1000, policy_module)
             logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
+            myLogger.keyValue("eval reward mean", eval_rollout["next", "reward"].mean().item())
             logs["eval reward (sum)"].append(
                 eval_rollout["next", "reward"].sum().item()
             )
+            myLogger.keyValue("eval reward sum", eval_rollout["next", "reward"].sum().item())
             logs["eval step_count"].append(eval_rollout["step_count"].max().item())
+            myLogger.keyValue("eval step count", eval_rollout["step_count"].max().item())
             eval_str = (
                 f"eval cumulative reward: {logs['eval reward (sum)'][-1]: 4.4f} "
                 f"(init: {logs['eval reward (sum)'][0]: 4.4f}), "
                 f"eval step-count: {logs['eval step_count'][-1]}"
             )
             del eval_rollout
+    myLogger.dumpLogger()
     pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
 
     # We're also using a learning rate scheduler. Like the gradient clipping,

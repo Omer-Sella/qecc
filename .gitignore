@@ -11,3 +11,4 @@ notebooks/noise*
 postprocessing.ipynb
 /decoderComparisonData/*.*
 decoderComparisonData*
+*experiment.txt*
