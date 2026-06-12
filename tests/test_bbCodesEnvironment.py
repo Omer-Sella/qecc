@@ -2,8 +2,6 @@ def test_bbCodesEnvIsWorking():
     
     from qecc.minSum import ldpcDecoderWrapper
     from qecc.utils import decoderEvaluator
-    import gymnasium as gym
-    import numpy as np
     def decoderFunction(Hx,Hz,errorRange):
         numberOfSamples = 30
         logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = numberOfSamples)
@@ -37,8 +35,8 @@ def test_bbCodesEnvIsRegistered():
     assert "qecc/bbcode-v0" in allEnvs
 
 def test_envPassesBasicChecks():
-    import gymnasium as gym
     import qecc
+    import gymnasium as gym
     from qecc.bb_gym import exampleDecoderFunction
     import torch
     import numpy as np

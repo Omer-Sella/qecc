@@ -10,7 +10,7 @@ I used the Reed Solomon code to verify the polynomials given in the paper, but I
 
 Then set an environment variable REEDSOLOMON to the root directory of the project.
 """
-import os, sys
+
 from qecc.arithmetic import polynomial
 from scipy.linalg import circulant
 import numpy as np
@@ -26,8 +26,10 @@ circulant size l.
 #A1 [[254, 28, d]] code (l = 127), 14 <=d<= 20.
 #a(x) = 1 + x15 + x20 + x28 + x66,
 #b(x) = 1 + x58 + x59 + x100 + x121.
-a_254_28 = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]
-b_254_28 = [1] + [0]*57 + [1,1] + [0]*40 + [1] + [0]*20 + [1]
+a_254_28 = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 
+            0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+b_254_28 = [1] + [0]*57 + [1, 1] + [0]*40 + [1] + [0]*20 + [1]
 a_254_28_padded = a_254_28 + [0]*(127 - len(a_254_28))
 A1_A = circulant(a_254_28_padded)#.transpose()
 b_254_28_padded = b_254_28 + [0]*(127 - len(b_254_28))
