@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch
 from torch.distributions import Categorical
 
+MODELS_BOOLEAN_TYPE = np.bool
 
 """
 qeccActorCritic
