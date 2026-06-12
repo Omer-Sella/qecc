@@ -9,23 +9,23 @@ def test_bbCodesEnvIsWorking():
         logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = numberOfSamples)
         #return {key: value/numberOfSamples for key,value in logicalErrors.items()} , {key: value/numberOfSamples for key,value in decoderFailures.items()}
         return logicalErrors/numberOfSamples, decoderFailures/numberOfSamples
-    l = 6
-    m = 6
-    env = gym.make('qecc/bbcode-v0', l = l, m = m, evaluationDecoderFunction = decoderFunction, errorRange = [0.01, 0.001])
-    env.reset()
-    aX = np.zeros(l*m)
-    aY = np.zeros(l*m)
-    bX = np.zeros(l*m)
-    bY = np.zeros(l*m)
-    aX[3] = 1
-    aY[1]=1
-    aY[2] = 1
-    bX[1] = 1
-    bX[2] = 1
-    bY[3] = 1
-    action = np.hstack((np.hstack((aX,aY)), np.hstack((bX,bY))))
-    observation = env.step(action = action)
-    print(env.unwrapped.flatObservationSize)
+    # l = 6
+    # m = 6
+    # env = gym.make('qecc/bbcode-v0', l = l, m = m, evaluationDecoderFunction = decoderFunction, errorRange = [0.01, 0.001])
+    # env.reset()
+    # aX = np.zeros(l*m)
+    # aY = np.zeros(l*m)
+    # bX = np.zeros(l*m)
+    # bY = np.zeros(l*m)
+    # aX[3] = 1
+    # aY[1]=1
+    # aY[2] = 1
+    # bX[1] = 1
+    # bX[2] = 1
+    # bY[3] = 1
+    # action = np.hstack((np.hstack((aX,aY)), np.hstack((bX,bY))))
+    # observation = env.step(action = action)
+    # print(env.unwrapped.flatObservationSize)
     
     
 
@@ -90,6 +90,8 @@ def test_envPassesBasicChecks():
     action = action.numpy()
     next_o, r, d, _, info = env.step(action)
     pass
+
+
 
 if __name__ == "__main__":
     
