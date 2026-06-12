@@ -9,6 +9,7 @@ import time
 import os
 import matplotlib.pyplot as plt
 import torch
+from matplotlib import animation
 #from mpi_tools import proc_id as mpiProcessID
 
 DATA_LOGGING_PATH = os.environ.get('QECC_DATA')

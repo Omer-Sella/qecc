@@ -1,6 +1,8 @@
 import numpy as np
 import torch.nn as nn
 import torch
+from torch.distributions import Categorical
+
 
 """
 qeccActorCritic
@@ -222,9 +224,9 @@ class qeccActorCritic(nn.Module):
     def __init__(self, observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice = 'cpu'):
         super().__init__()
         # Initialize a policy 
-        self.policy = qeccActor(observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, policyHiddenLayerParameters, actorCriticDevice)
+        self.policy = qeccActor(observationSpaceType, observationSpaceSize, actionSpaceType, actionSpaceSize, hiddenEncoderSize, maximumNumberOfHotBits, hiddenLayerParameters, actorCriticDevice)
         # Initialize a valuation
-        self.valuation  = explicitMLP(observationSpaceSize, observationSpaceSize, valuationHiddenLayerParameters)
+        self.valuation  = explicitMLP(observationSpaceSize, observationSpaceSize, hiddenLayerParameters)
 
     def step(self, observations, actions = None):
         actions, logProbabilityAction =  self.policy.step(observations, actions)
