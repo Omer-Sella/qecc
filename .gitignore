@@ -12,3 +12,5 @@ postprocessing.ipynb
 /decoderComparisonData/*.*
 decoderComparisonData*
 *experiment.txt*
+/postProcessing
+postProcessing.py

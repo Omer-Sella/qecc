@@ -14,7 +14,7 @@ import torch
 DATA_LOGGING_PATH = os.environ.get('QECC_DATA')
 if DATA_LOGGING_PATH is None:
     # Try to avoid relying on this, instead define a system variable
-    DATA_LOGGING_PATH = os.path.expanduser('~') + "/qeccReinforcementLearningData/"
+    DATA_LOGGING_PATH =  "/rds/general/user/osella/home/rl-qecc-data/"
 # When logging (printing, writing to csv etc.) numpy arrays, if there are 
 #"too many" elements the array will contain ellipsis look like this:
 #[0, 0, 0, ..., 0, 0, 0] so when using array2string we need to set a threshold
@@ -125,15 +125,20 @@ class logger():
 
 #        if  mpiProcessID() == 0:
         if logPath == None:
-            self.logPath = str(DATA_LOGGING_PATH) + "/temp/experiments/%i" %int(time.time())
+            date_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(time.time()))
+
+            self.logPath = str(DATA_LOGGING_PATH)  + "/" + date_string # "/%i" %int(time.time())
         else:
             self.logPath = logPath
         if os.path.exists(self.logPath):
             print("Warning: Log dir %s already exists."%self.logPath)
         else:
+            print(f"Creating log dir {self.logPath}...")
             os.makedirs(self.logPath)
+            print(f"Checking the directory was created: {os.path.exists(self.logPath)}")
         #self.fileName = os.path.join(self.logPath, fileName)
         self.fileName = fileName
+        self.fullPath = os.path.join(self.logPath, self.fileName)
         self.hdf5FileName = os.path.join(self.logPath, hdf5FileName)
         # else:
         #     self.logPath = None
@@ -148,7 +153,7 @@ class logger():
         for key in keys:
             self.columnKeys.append(key)
         #if mpiProcessID() == 0:            
-        with open(self.fileName, 'w') as fid:
+        with open(self.fullPath, 'w') as fid:
             fid.write("\t".join(self.columnKeys)+"\n")
             #with h5py.File(self.hdf5FileName, 'a') as fid:
             #    for key in self.columnKeys:
@@ -187,10 +192,11 @@ class logger():
             print(stringFormat%(key, valueString))
             values.append(valueString)
         print("-"*numberOfDashes, flush=True)
-        if self.fileName is not None:
-            with open(os.path.join(self.logPath, self.fileName), 'a') as fid:
-                fid.write("\t".join(map(str,values))+"\n")
-                fid.flush()
+        
+        print(self.fullPath)
+        with open(self.fullPath, 'a') as fid:
+            fid.write("\t".join(map(str,values))+"\n")
+            fid.flush()
             
             
             self.currentRow.clear()
@@ -204,6 +210,9 @@ def testLogger():
     myLogger = logger(keys)
     myLogger.logPrint("Hello world !")
     myLogger.logPrint("Hello world !", "red")
+    print(myLogger.fileName)
+    print(myLogger.logPath)
+    print(myLogger.fullPath)
     for i in range(10):
         myLogger.keyValue('minimum', np.random.random())
         myLogger.keyValue('maximum', 15 + np.random.random())
