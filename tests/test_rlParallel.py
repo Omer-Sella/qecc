@@ -25,5 +25,3 @@ def test_rlParallelRunsWith2Workers():
     assert result.returncode == 0
 
 
-if __name__ == "__main__":
-    test_rlParallelRunsWith1Worker()
