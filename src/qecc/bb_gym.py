@@ -77,6 +77,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     
     def reset(self, seed=None, options = None):
         super().reset(seed = seed)
+        self.seed = seed
         self.aX = self.aX * 0
         self.aY = self.aY * 0
         self.bX = self.bX * 0
@@ -122,7 +123,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         #self.Hz = Hz.astype(int)
         # Omer: check that the resulting code admits the necessary logical qubits
         if calculateCodeDimension(self.Hx, self.Hz) > self.minimumNumberOfLogicalQubits:    
-            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange)
+            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
             reward = self._calculateReward(logicalErrorRate, decoderFailureRate)
         else:
             reward = NEGATIVE_REWARD
@@ -155,12 +156,12 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         reward = pTotalInteg(self.errorRange[-1]) - pTotalInteg(self.errorRange[0])
         return reward
 
-def exampleDecoderFunction(Hx,Hz,errorRange):
+def exampleDecoderFunction(Hx,Hz,errorRange, seed = None):
     from qecc.minSum import ldpcDecoderWrapper
     from qecc.utils import decoderEvaluator
 
     numberOfSamples = 30
-    logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = numberOfSamples)
+    logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = numberOfSamples, seed = seed)
     #return {key: value/numberOfSamples for key,value in logicalErrors.items()} , {key: value/numberOfSamples for key,value in decoderFailures.items()}
     return logicalErrors/numberOfSamples, decoderFailures/numberOfSamples
 

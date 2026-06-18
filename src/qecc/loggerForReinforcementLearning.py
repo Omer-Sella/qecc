@@ -15,7 +15,7 @@ from matplotlib import animation
 DATA_LOGGING_PATH = os.environ.get('QECC_DATA')
 if DATA_LOGGING_PATH is None:
     # Try to avoid relying on this, instead define a system variable
-    DATA_LOGGING_PATH = os.path.expanduser('~') + "/qeccReinforcementLearningData/"
+    DATA_LOGGING_PATH =  "/rds/general/user/osella/home/rl-qecc-data/"
 # When logging (printing, writing to csv etc.) numpy arrays, if there are 
 #"too many" elements the array will contain ellipsis look like this:
 #[0, 0, 0, ..., 0, 0, 0] so when using array2string we need to set a threshold

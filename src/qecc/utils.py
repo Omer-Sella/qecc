@@ -124,7 +124,7 @@ def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion):
     result = bpDecoder.decode(syndrome)
     return result, True
 
-def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderStoppingCriterion, numberOfSamples):
+def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderStoppingCriterion, numberOfSamples, seed = None):
     """
     Arguments:
     Hx, Hz: A pair of binary matrices. Use the codes in polynomialCodes.py
@@ -139,7 +139,8 @@ def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderSto
     from qecc.gf4 import integerTraceProduct as tp
     from qecc.gf4 import integerToDualBinary, binaryDualToInteger
     from qecc.logicals import computeLogicals
-    seed = 7134066
+    if seed is None:
+        seed = 7134066
     localRandom = np.random.RandomState(seed)
     logicalX, logicalZ = computeLogicals(Hx, Hz)
 
