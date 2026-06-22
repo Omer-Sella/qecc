@@ -113,5 +113,5 @@ typing-extensions==4.15.0
     #   torch
 pandas==2.3.3
     # via qecc 
-seaborn=0.13.2
+seaborn==0.13.2
     # via qecc
