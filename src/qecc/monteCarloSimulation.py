@@ -11,7 +11,7 @@ import numpy as np
 from qecc.osd import osdDecoder
 
 
-def monteCarloSimulation(Hx, Hz, osdDecode = True, numberOfSamples = 100, pErrorList = np.linspace(0.001, 0.1, 10), maxIterations =50, seed = 777):
+def monteCarloSimulation(Hx, Hz, osdDecode = True, numberOfSamples = 100, pErrorList = np.linspace(0.0001, 0.1, 10), maxIterations =50, seed = 777):
     if Hx in polynomialCodes.codes.values():
         Hx = copy.copy(Hx.astype(np.int32))
     if Hz in polynomialCodes.codes.values():

@@ -110,6 +110,9 @@ def memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteration
     return berArray / (numberOfTransmissions * codewordSize)
 
 def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion):
+    """
+    Check description here: https://github.com/quantumgizmos/bp_osd/blob/main/README.ipynb
+    """
     from ldpc import BpOsdDecoder
     p_error = np.average(initialValues[:,1]) # initialValues[i,1] is the probability of error for the ith coordinate
     bpDecoder=BpOsdDecoder(H,#the parity check matrix
@@ -192,6 +195,8 @@ def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderSto
 
 
 def binaryDecoderToDualBinaryDecoderWrapper(binaryDecoderFunction):
+    # This wrapper was meant to take a binary decoder, and transform it into a dual-binary decoder. 
+    # There is no logic or calculation aside from the decoder.
     def dualDecoder(Hx, Hz, syndromeX, syndromeZ, initialValuesX, initialValuesZ, decoderStoppingCriterion):
         estimatedErrorZ, successZ = binaryDecoderFunction(Hx, syndromeX, initialValuesX,decoderStoppingCriterion)
         estimatedErrorX, successX = binaryDecoderFunction(Hz, syndromeZ, initialValuesZ,decoderStoppingCriterion)
@@ -240,22 +245,22 @@ if __name__ == "__main__":
     #errorRateDualBinaryMinSum = {}
     timeMeasured = {}
     dualRoffeDecoder = binaryDecoderToDualBinaryDecoderWrapper(wrapperForRoffesLdpc)
-    for key, value in bbCodes.items():
-    #value = bbCodes["72_12_6"]
-    #key = "72_12_6"
-        print(f"Characterizing code {key}")
-        start = time.time()
-        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
-        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
-        end = time.time()
-        #print(f"Logical error rate: {logicalER}")
-        #print(f"Decoder failure rate: {decoderFailureRate}")
-        #print(f"Time taken: {end - start}")
+    #for key, value in bbCodes.items():
+    value = bbCodes["72_12_6"]
+    key = "72_12_6"
+    print(f"Characterizing code {key}")
+    start = time.time()
+    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
+    logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
+    end = time.time()
+    #print(f"Logical error rate: {logicalER}")
+    #print(f"Decoder failure rate: {decoderFailureRate}")
+    #print(f"Time taken: {end - start}")
+
+# #logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
+    combinedErrors = logicalER + decoderFailureRate
+    errorRate[key] = combinedErrors
+    timeMeasured[key] = end-start
+    data = {"errorRange": errorRange, "errorRate": errorRate, "time": timeMeasured, "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, "Number of samples": NUMBER_OF_SAMPLES, "Decoder": "refinedBPalgorithm3" }
     
-    # #logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
-        combinedErrors = logicalER + decoderFailureRate
-        errorRate[key] = combinedErrors
-        timeMeasured[key] = end-start
-    data = {"errorRange": errorRange, "errorRate": errorRate, "time": timeMeasured, "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, "Number of samples": NUMBER_OF_SAMPLES}
-    
-    np.save("/rds/general/user/osella/home/qecc/decoderComparisonData/bbCodesQBP_50_100", data, allow_pickle=True)
+    np.save("c:/users/omer/qecc/decoderComparisonData/rbp3_bb_72_12_6.npy", data, allow_pickle=True)

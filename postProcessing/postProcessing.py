@@ -262,10 +262,50 @@ def drawPoly():
     print(p.integ().coefficients)
     return
 
+def plotReward(filePath, baseline = None):
+
+    df = pd.read_csv(filePath, sep='\t')
+    sns.set_theme()
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+
+    sns.lineplot(data=df, y="Reward", x=df.index, ax=axes[0, 0])
+    axes[0, 0].set_title("training rewards (average)")
+
+    sns.lineplot(data=df, y="step_count", x=df.index, ax=axes[0, 1])
+    axes[0, 1].set_title("Max step count (training)")
+
+    sns.lineplot(data=df, y="eval reward sum", x=df.index, ax=axes[1, 0])
+    axes[1, 0].set_title("Return (test)")
+
+    sns.lineplot(data=df, y="eval step count", x=df.index, ax=axes[1, 1])
+    axes[1, 1].set_title("Max step count (test)")
+
+    plt.tight_layout()
+    prefix = os.path.splitext(filePath)[0]
+    fig.savefig(prefix + ".png")
+    return df
+
+def plotLogicalErrorRate(filePath, baseline = None):
+    data = np.load(filePath, allow_pickle=True).item()
+    fig, ax = plt.subplots()
+    logicalErrorRate = data['errorRate']['72_12_6'] / data['Number of samples']
+    ax.plot(data['errorRange'], logicalErrorRate)
+    ax.set_title(f"Evaluation of 72 12 6 for {data['time']['72_12_6']} second")
+    ax.set_xlabel("Physical qubit error rate")
+    ax.set_ylabel("Bit error rate after decoding")
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.grid(True)
+
+    plt.show()
+
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Post-process QECC reinforcement learning results")
-    parser.add_argument('-p', '--pathToData', required=True, help='Path to data (experiment.txt file)')
-    parser.add_argument('-o', '--pathToOutput', required=True, help='Path to produce output figures')
-    args = parser.parse_args()
-    postMortem(args.pathToData)
+    # parser = argparse.ArgumentParser(description="Post-process QECC reinforcement learning results")
+    # parser.add_argument('-p', '--pathToData', required=True, help='Path to data (experiment.txt file)')
+    # parser.add_argument('-o', '--pathToOutput', required=True, help='Path to produce output figures')
+    # args = parser.parse_args()
+    # postMortem(args.pathToData)
+    # plotReward("c:/users/omer/experiment.txt")
+    plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/rbp3_bb_72_12_6.npy")
