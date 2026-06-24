@@ -1,6 +1,7 @@
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
+from scipy.integrate import trapezoid
 from qecc.polynomialCodes import generateBicycleCode, generateABmatrices
 from qecc.utils import decoderEvaluator
 from qecc.logicals import calculateCodeDimension
@@ -21,7 +22,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, evaluationDecoderFunction, errorRange, minimumNumberOfLogicalQubits = 6, render_mode = None):
+    def __init__(self, l, m, evaluationDecoderFunction, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ], minimumNumberOfLogicalQubits = 6, render_mode = None):
         
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
@@ -137,23 +138,24 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     
     def _calculateReward(self, logicalErrorRate, decoderFailureRate, numberOfIterations = 10):      
         #ber = (logicalErrorRate + decoderFailureRate)
-        ber = logicalErrorRate + decoderFailureRate
-        snr = np.array(copy.copy(self.errorRange))
-        itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
-        while itr < numberOfIterations:
-            #p = np.polyfit(self.errorRange, ber, 1)
-            p = np.polyfit(snr, ber, 1)
-            trendP = np.poly1d(p)
-            mask = np.where(trendP(snr) > 0)[0]
-            ber = ber[mask]
-            snr = snr[mask]
-            itr = itr + 1
-            # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
-            # the constant 1 and the fitted line.            
-        pConst = np.poly1d([1])
-        p1 = np.poly1d(p)
-        pTotalInteg = (pConst - p1).integ()
-        reward = pTotalInteg(self.errorRange[-1]) - pTotalInteg(self.errorRange[0])
+        outputBER = logicalErrorRate + decoderFailureRate
+        # snr = np.array(copy.copy(self.errorRange))
+        # itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
+        # while itr < numberOfIterations:
+        #     #p = np.polyfit(self.errorRange, ber, 1)
+        #     p = np.polyfit(snr, ber, 1)
+        #     trendP = np.poly1d(p)
+        #     mask = np.where(trendP(snr) > 0)[0]
+        #     ber = ber[mask]
+        #     snr = snr[mask]
+        #     itr = itr + 1
+        #     # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
+        #     # the constant 1 and the fitted line.            
+        # pConst = np.poly1d([1])
+        # p1 = np.poly1d(p)
+        # pTotalInteg = (pConst - p1).integ()
+        # reward = pTotalInteg(self.errorRange[-1]) - pTotalInteg(self.errorRange[0])
+        reward = trapezoid(1 - outputBER, self.errorRange)
         return reward
 
 def exampleDecoderFunction(Hx,Hz,errorRange, seed = None):
@@ -165,6 +167,7 @@ def exampleDecoderFunction(Hx,Hz,errorRange, seed = None):
     #return {key: value/numberOfSamples for key,value in logicalErrors.items()} , {key: value/numberOfSamples for key,value in decoderFailures.items()}
     return logicalErrors/numberOfSamples, decoderFailures/numberOfSamples
 
+
 if __name__ == "__main__":
     l = 6
     m = 6
@@ -173,10 +176,12 @@ if __name__ == "__main__":
     # Check the environment works with GymEnv
     from torchrl.envs.libs.gym import GymEnv
     from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
-    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
+    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ], minimumNumberOfLogicalQubits = 6)
 
     check_env_specs(base_env)
-    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
+    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ])
+
+    #env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = dualRoffeDecoder, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ])
     env.reset()
     print(env.action_space.shape)
     #print(env.unwrapped.flatObservationSize)

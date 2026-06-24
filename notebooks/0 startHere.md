@@ -33,7 +33,7 @@ relaybp.py is my own implementation of relay BP from a paper by IBM.
 
 2. The methodology to evaluate codes and decoders is explained first in the abscence of a decoder in the noise.ipynb nootebook.
 
-3. Evaluation of codes and decoders are done in utils.py, and saved to npy files, which are later post processed in postProcessing.py.
+3. Evaluation of codes and decoders are done in utils.py, and saved to npy files, which are later post processed in postProcessing.py. Note that a decoder can be evaluated as a classical binary decoder (so correction should match the error), or as a quantum decoder (correction + error should be a stabilizer).
 
 4. The logical operators of a code are computed in logicals.py
 

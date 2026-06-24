@@ -1,4 +1,5 @@
 import pandas as pd
+from scipy.integrate import trapezoid
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
@@ -236,10 +237,8 @@ def drawRewardSurface():
     slope, bias = np.meshgrid(slope, bias)
     reward = 0.5 * slope * (END_POINT ** 2)  + bias * END_POINT - ( 0.5 * slope * (START_POINT ** 2)  + bias * START_POINT)
     reward2 = 0.5 * slope * (END_POINT ** 2)  + bias * END_POINT - ( 0.5 * slope * (START_POINT ** 2)  + bias * START_POINT) + END_POINT - START_POINT
-    p = np.poly1d([slope, bias])
-    pConst = np.poly1d([1])
-    pTotalInteg = (pConst - p).integ()
-    reward3 = pTotalInteg(END_POINT) - pTotalInteg(START_POINT)
+    # integral of (1 - slope*x - bias) from START_POINT to END_POINT, vectorised over the meshgrid
+    reward3 = -slope / 2 * (END_POINT**2 - START_POINT**2) + (1 - bias) * (END_POINT - START_POINT)
     surf = ax.plot_surface(slope, bias, reward3, cmap='coolwarm', linewidth=0, antialiased=False)
     
     # Customize the z axis.
@@ -288,17 +287,31 @@ def plotReward(filePath, baseline = None):
 def plotLogicalErrorRate(filePath, baseline = None):
     data = np.load(filePath, allow_pickle=True).item()
     fig, ax = plt.subplots()
-    logicalErrorRate = data['errorRate']['72_12_6'] / data['Number of samples']
-    ax.plot(data['errorRange'], logicalErrorRate)
-    ax.set_title(f"Evaluation of 72 12 6 for {data['time']['72_12_6']} second")
+    combinedErrorRate = data['errorRate'] / data['Number of samples'] # This is an assumption, meaning that we want to treat all decoder failures as logical errors.
+    ax.plot(data['errorRange'], combinedErrorRate, marker='o', linestyle='-', color='b', label='Logical Error Rate')
+    if "Code name" in data.keys():
+        ax.set_title(f"Evaluation of {data["Code name"]} for {data['time']} seconds")
+    else:
+        ax.set_title(f"Evaluation for {data['time']} seconds")
     ax.set_xlabel("Physical qubit error rate")
     ax.set_ylabel("Bit error rate after decoding")
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.grid(True)
 
-    plt.show()
+    #plt.show()
+    return data['errorRange'], data['errorRate'] / data['Number of samples']
 
+def calculateReward(inputBER, outputBER):      
+    fig, ax = plt.subplots()
+    itr = 0 
+    ax.plot(inputBER, outputBER, marker='o', linestyle='-', color='b', label='Logical Error Rate + Decoder Failure Rate')
+    ax.fill_between(inputBER, outputBER, 1, alpha=0.3, color='g', label='Reward Area (pTotalInteg)')
+    reward = trapezoid(1 - outputBER, inputBER)
+    ax.axhline(y=reward, color='r', label='Reward')
+    plt.show()
+    
+    return reward
 
 
 if __name__ == "__main__":
@@ -308,4 +321,9 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # postMortem(args.pathToData)
     # plotReward("c:/users/omer/experiment.txt")
-    plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/rbp3_bb_72_12_6.npy")
+    
+    #plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/rbp3_bb_72_12_6.npy")
+    inputBER, outputBER = plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/dualBPOSD_90_8_10.npy")
+    print(f"Reward was calculated as {calculateReward(inputBER, outputBER)} ")
+    #plotLogicalErrorRate("C:/Users/Omer/qecc/decoderComparisonData/dualBPOSD_108_8_10.npy")
+                          
