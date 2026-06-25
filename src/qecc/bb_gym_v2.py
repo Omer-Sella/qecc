@@ -3,6 +3,7 @@ import gymnasium as gym
 from gymnasium import spaces
 from scipy.integrate import trapezoid
 from qecc.polynomialCodes import generateBicycleCode, generateABmatrices
+from qecc.logicals import calculateCodeDimension
 
 INT_DATA_TYPE = np.int16
 NEGATIVE_REWARD = -1
@@ -94,7 +95,41 @@ class bicycleBivariateCodeEnvironmentV2(gym.Env):
         return self._getObservation(), {}
 
     def step(self, action):
-        pass  # implemented in Task 3
+        idx_ax, idx_ay, idx_bx, idx_by = action
+
+        if idx_ax < self._max_ax:
+            self.aX[idx_ax] ^= 1
+        if idx_ay < self._max_ay:
+            self.aY[idx_ay] ^= 1
+        if idx_bx < self._max_bx:
+            self.bX[idx_bx] ^= 1
+        if idx_by < self._max_by:
+            self.bY[idx_by] ^= 1
+
+        self.A, self.B = generateABmatrices(
+            self._l, self._m,
+            np.where(self.aX != 0)[0],
+            np.where(self.aY != 0)[0],
+            np.where(self.bX != 0)[0],
+            np.where(self.bY != 0)[0],
+        )
+        self.Hx, self.Hz = generateBicycleCode(
+            self._l, self._m,
+            np.where(self.aX != 0)[0],
+            np.where(self.aY != 0)[0],
+            np.where(self.bX != 0)[0],
+            np.where(self.bY != 0)[0],
+        )
+
+        if calculateCodeDimension(self.Hx, self.Hz) >= self.minimumNumberOfLogicalQubits:
+            logicalErrorRate, decoderFailureRate = self.decoder(
+                self.Hx, self.Hz, self.errorRange, seed=None
+            )
+            reward = float(self._calculateReward(logicalErrorRate, decoderFailureRate))
+        else:
+            reward = float(NEGATIVE_REWARD)
+
+        return self._getObservation(), reward, False, False, {}
 
     def _calculateReward(self, logicalErrorRate, decoderFailureRate):
         outputBER = logicalErrorRate + decoderFailureRate
