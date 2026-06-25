@@ -26,4 +26,4 @@ def test_rlParallelRunsWith2Workers():
 
 
 if __name__ == "__main__":
-    test_rlParallelRunsWith1Worker()
+    pass
