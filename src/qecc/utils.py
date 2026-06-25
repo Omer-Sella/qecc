@@ -130,7 +130,7 @@ def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion, m
         osd_order=osd_order #the osd search depth
         )
     result = bpDecoder.decode(syndrome)
-    return result, True
+    return result, True # TODO: What does Roffe's decoder return in the case of decoder failure ? (assuming it counts it as a logical error)
 
 def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderStoppingCriterion, numberOfSamples, seed = None):
     """

@@ -168,6 +168,13 @@ def exampleDecoderFunction(Hx,Hz,errorRange, seed = None):
     return logicalErrors/numberOfSamples, decoderFailures/numberOfSamples
 
 
+def exampleDecoderFunction2(Hx,Hz,errorRange, seed = None):
+    from qecc.utils import decoderEvaluator, wrapperForRoffesLdpc, binaryDecoderToDualBinaryDecoderWrapper
+    decoder = binaryDecoderToDualBinaryDecoderWrapper(wrapperForRoffesLdpc) # So this will be ms_scaling_factor = 0.625, min-sum, osd0
+    NUMBER_OF_SAMPLES = 100
+    NUMBER_OF_DECODER_ITERATIONS = 50
+    logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = decoder, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES, seed = seed)
+    return logicalErrors / NUMBER_OF_SAMPLES, decoderFailures / NUMBER_OF_SAMPLES
 if __name__ == "__main__":
     l = 6
     m = 6

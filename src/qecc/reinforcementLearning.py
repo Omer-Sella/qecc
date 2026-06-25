@@ -8,6 +8,7 @@ Some minor adjustments apply:
 3. Instead of Box we have a multiBinary distribution (so there is also no need or sense to probe the rnvironment for boundaries).
 
 """
+import numpy as np
 import qecc # Needed, to register bbgym with gymansium
 from qecc.loggerForReinforcementLearning import logger
 import warnings
@@ -94,9 +95,9 @@ gamma = 0.99
 lmbda = 0.95
 entropy_eps = 1e-4
 
-from qecc.bb_gym import exampleDecoderFunction
+from qecc.bb_gym import exampleDecoderFunction, exampleDecoderFunction2
 print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
+base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.1,0.0001,50), minimumNumberOfLogicalQubits = 6)
 
 print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
 env = TransformedEnv(
