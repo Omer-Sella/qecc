@@ -118,7 +118,7 @@ def make_env():
         l=6,
         m=6,
         evaluationDecoderFunction=exampleDecoderFunction,
-        errorRange=[0.01, 0.001],
+        errorRange=np.linspace(0.0001,0.1,10),
         minimumNumberOfLogicalQubits=6,
     )
     return TransformedEnv(

@@ -224,12 +224,12 @@ if __name__ == "__main__":
     import json
     import time
     # Check quaternary BP is working
-    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001], decoderStoppingCriterion = 20, numberOfSamples = 10)
+    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.0001, 0.001, 0.01], decoderStoppingCriterion = 20, numberOfSamples = 10)
     #print(f"Logical error rate: {logicalER}")
     #print(f"Decoder failure rate: {decoderFailureRate}")
     
     # Check minsum decoder is working
-    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001], decoderStoppingCriterion = 20, numberOfSamples = 10)
+    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.0001, 0.001, 0.01], decoderStoppingCriterion = 20, numberOfSamples = 10)
     #print(f"Logical error rate: {logicalER}")
     #print(f"Decoder failure rate: {decoderFailureRate}")
     

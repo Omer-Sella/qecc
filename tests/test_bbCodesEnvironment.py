@@ -26,7 +26,7 @@ p_L(p) = k·p, where p and p_L are the physical and logical error rates respecti
 import numpy as np
 import qecc
 
-
+TEST_ERROR_RANGE = np.linspace(0.0001,0.1,10)
 
 def _make_action(l, m, aX_idx, aY_idx, bX_idx, bY_idx):
     """Build the flat MultiBinary action vector [aX, aY, bX, bY] from exponent lists."""
@@ -94,12 +94,12 @@ def test_envPassesBasicChecks():
     # Check the environment works with GymEnv
     from torchrl.envs.libs.gym import GymEnv
     from torchrl.envs.utils import check_env_specs
-    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001], minimumNumberOfLogicalQubits = 6)
+    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = TEST_ERROR_RANGE, minimumNumberOfLogicalQubits = 6)
     check_env_specs(base_env)
 
 
     # Check with gym.make
-    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
+    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = TEST_ERROR_RANGE)
     env.reset()
     print(env.action_space.shape)
     #print(env.unwrapped.flatObservationSize)
@@ -120,7 +120,7 @@ def test_envPassesBasicChecks():
 
 
     def environmentFunction():
-        return gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.01, 0.001])
+        return gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = TEST_ERROR_RANGE)
 
     env = environmentFunction()
     env.reset()
@@ -153,7 +153,7 @@ def test_IBM_72_12_6():
         'qecc/bbcode-v0',
         l=l, m=m,
         evaluationDecoderFunction=exampleDecoderFunction,
-        errorRange=[0.01, 0.001, 0.0001],
+        errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=12,
     )
     env.reset()
@@ -172,7 +172,7 @@ def test_IBM_90_8_10():
         'qecc/bbcode-v0',
         l=l, m=m,
         evaluationDecoderFunction=exampleDecoderFunction,
-        errorRange=[0.01, 0.001],
+        errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=8,
     )
     env.reset()
@@ -191,7 +191,7 @@ def test_IBM_108_8_10():
         'qecc/bbcode-v0',
         l=l, m=m,
         evaluationDecoderFunction=exampleDecoderFunction,
-        errorRange=[0.01, 0.001],
+        errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=8,
     )
     env.reset()
@@ -210,7 +210,7 @@ def test_IBM_144_12_12():
         'qecc/bbcode-v0',
         l=l, m=m,
         evaluationDecoderFunction=exampleDecoderFunction,
-        errorRange=[0.01, 0.001],
+        errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=12,
     )
     env.reset()
@@ -229,7 +229,7 @@ def test_IBM_288_12_18():
         'qecc/bbcode-v0',
         l=l, m=m,
         evaluationDecoderFunction=exampleDecoderFunction,
-        errorRange=[0.01, 0.001],
+        errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=12,
     )
     env.reset()
@@ -253,7 +253,7 @@ def test_IBM_72_12_6_positiveReward():
     l, m = 6, 6
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
                    evaluationDecoderFunction=_fast_decoder,
-                   errorRange=[0.001, 0.01, 0.1],
+                   errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
     _, reward, *_ = env.step(_make_action(l, m, [3], [1, 2], [1, 2], [3]))
@@ -266,7 +266,7 @@ def test_IBM_90_8_10_positiveReward():
     l, m = 15, 3
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
                    evaluationDecoderFunction=_fast_decoder,
-                   errorRange=[0.001, 0.01, 0.1],
+                   errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
     _, reward, *_ = env.step(_make_action(l, m, [9], [1, 2], [0, 2, 7], []))
@@ -279,7 +279,7 @@ def test_IBM_108_8_10_positiveReward():
     l, m = 9, 6
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
                    evaluationDecoderFunction=_fast_decoder,
-                   errorRange=[0.001, 0.01, 0.1],
+                   errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
     _, reward, *_ = env.step(_make_action(l, m, [3], [1, 2], [1, 2], [3]))
@@ -292,7 +292,7 @@ def test_IBM_144_12_12_positiveReward():
     l, m = 12, 6
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
                    evaluationDecoderFunction=_fast_decoder,
-                   errorRange=[0.001, 0.01, 0.1],
+                   errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
     _, reward, *_ = env.step(_make_action(l, m, [3], [1, 2], [1, 2], [3]))
@@ -305,7 +305,7 @@ def test_IBM_288_12_18_positiveReward():
     l, m = 12, 12
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
                    evaluationDecoderFunction=_fast_decoder,
-                   errorRange=[0.001, 0.01, 0.1],
+                   errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
     _, reward, *_ = env.step(_make_action(l, m, [3], [2, 7], [1, 2], [3]))
