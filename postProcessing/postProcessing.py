@@ -291,7 +291,7 @@ def plotLogicalErrorRate(filePath, baseline = None):
     
     ax.plot(data['errorRange'], combinedErrorRate, marker='o', linestyle='-', color='b', label='Logical Error Rate')
     if "Code name" in data.keys():
-        ax.set_title(f"Evaluation of {data["Code name"]} for {data['time']} seconds")
+        ax.set_title(f"Evaluation of {data['Code name']} for {data['time']} seconds")
     else:
         ax.set_title(f"Evaluation for {data['time']} seconds")
     ax.set_xlabel("Physical qubit error rate")
