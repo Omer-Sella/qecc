@@ -35,7 +35,7 @@ https://docs.pytorch.org/rl/stable/reference/generated/torchrl.envs.ParallelEnv.
 """
 import argparse
 import os
-
+import numpy as npnp.linspace(0.0001,0.1,10),
 import qecc  # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __init__.py
 from qecc.loggerForReinforcementLearning import logger
 import warnings
