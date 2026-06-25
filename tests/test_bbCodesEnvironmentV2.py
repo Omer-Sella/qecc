@@ -2,8 +2,6 @@ import numpy as np
 import qecc
 import gymnasium as gym
 
-NEGATIVE_REWARD = -1
-
 
 def _fast_decoder(Hx, Hz, errorRange, seed=None):
     n = len(errorRange)

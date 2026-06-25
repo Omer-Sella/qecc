@@ -3,7 +3,6 @@ import gymnasium as gym
 from gymnasium import spaces
 from scipy.integrate import trapezoid
 from qecc.polynomialCodes import generateBicycleCode, generateABmatrices
-from qecc.logicals import calculateCodeDimension
 
 INT_DATA_TYPE = np.int16
 NEGATIVE_REWARD = -1
@@ -29,7 +28,6 @@ class bicycleBivariateCodeEnvironmentV2(gym.Env):
         self.decoder = evaluationDecoderFunction
         self.errorRange = errorRange
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
-        self.seed = None
 
         self.action_space = spaces.MultiDiscrete(
             [max_ax + 1, max_ay + 1, max_bx + 1, max_by + 1]
@@ -75,7 +73,6 @@ class bicycleBivariateCodeEnvironmentV2(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        self.seed = seed
         self.aX = np.zeros(self._max_ax, INT_DATA_TYPE)
         self.aY = np.zeros(self._max_ay, INT_DATA_TYPE)
         self.bX = np.zeros(self._max_bx, INT_DATA_TYPE)
