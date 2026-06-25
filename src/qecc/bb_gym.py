@@ -22,7 +22,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, evaluationDecoderFunction, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ], minimumNumberOfLogicalQubits = 6, render_mode = None):
+    def __init__(self, l, m, evaluationDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None):
         
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
@@ -31,6 +31,10 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         self._m = m
         self.seed = None
         self.errorRange = errorRange
+        if any(a >= b for a, b in zip(errorRange, errorRange[1:])):
+            raise ValueError(
+                f"errorRange must be strictly increasing (e.g. [0.001, 0.01, 0.1]); got {list(errorRange)}"
+            )
         # The action space is a flat array containing [aX,bX,aY,bY] in that order.
         self.action_space = spaces.MultiBinary(4 * l * m)
 
@@ -123,7 +127,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         #self.Hx = Hx.astype(int)
         #self.Hz = Hz.astype(int)
         # Omer: check that the resulting code admits the necessary logical qubits
-        if calculateCodeDimension(self.Hx, self.Hz) > self.minimumNumberOfLogicalQubits:    
+        if calculateCodeDimension(self.Hx, self.Hz) >= self.minimumNumberOfLogicalQubits:    
             logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
             reward = self._calculateReward(logicalErrorRate, decoderFailureRate)
         else:
@@ -183,10 +187,10 @@ if __name__ == "__main__":
     # Check the environment works with GymEnv
     from torchrl.envs.libs.gym import GymEnv
     from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
-    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ], minimumNumberOfLogicalQubits = 6)
+    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
 
     check_env_specs(base_env)
-    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ])
+    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = np.linspace(0.0001,0.1,10))
 
     #env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = dualRoffeDecoder, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ])
     env.reset()

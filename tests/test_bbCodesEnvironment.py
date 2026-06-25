@@ -238,6 +238,80 @@ def test_IBM_288_12_18():
     # TODO: add assertions on reward / code parameters
 
 
+# ---------------------------------------------------------------------------
+# Positive reward checks using ascending errorRange and a fast decoder.
+# These use minimumNumberOfLogicalQubits=1 so the decoder is always called.
+# ---------------------------------------------------------------------------
+
+def _fast_decoder(Hx, Hz, errorRange, seed=None):
+    return np.zeros(len(errorRange)), np.zeros(len(errorRange))
+
+
+def test_IBM_72_12_6_positiveReward():
+    """[[72, 12, 6]]: l=6, m=6, A=x³+y+y², B=y³+x+x²"""
+    import gymnasium as gym
+    l, m = 6, 6
+    env = gym.make('qecc/bbcode-v0', l=l, m=m,
+                   evaluationDecoderFunction=_fast_decoder,
+                   errorRange=[0.001, 0.01, 0.1],
+                   minimumNumberOfLogicalQubits=1)
+    env.reset()
+    _, reward, *_ = env.step(_make_action(l, m, [3], [1, 2], [1, 2], [3]))
+    assert reward > 0
+
+
+def test_IBM_90_8_10_positiveReward():
+    """[[90, 8, 10]]: l=15, m=3, A=x⁹+y+y², B=1+x²+x⁷"""
+    import gymnasium as gym
+    l, m = 15, 3
+    env = gym.make('qecc/bbcode-v0', l=l, m=m,
+                   evaluationDecoderFunction=_fast_decoder,
+                   errorRange=[0.001, 0.01, 0.1],
+                   minimumNumberOfLogicalQubits=1)
+    env.reset()
+    _, reward, *_ = env.step(_make_action(l, m, [9], [1, 2], [0, 2, 7], []))
+    assert reward > 0
+
+
+def test_IBM_108_8_10_positiveReward():
+    """[[108, 8, 10]]: l=9, m=6, A=x³+y+y², B=y³+x+x²"""
+    import gymnasium as gym
+    l, m = 9, 6
+    env = gym.make('qecc/bbcode-v0', l=l, m=m,
+                   evaluationDecoderFunction=_fast_decoder,
+                   errorRange=[0.001, 0.01, 0.1],
+                   minimumNumberOfLogicalQubits=1)
+    env.reset()
+    _, reward, *_ = env.step(_make_action(l, m, [3], [1, 2], [1, 2], [3]))
+    assert reward > 0
+
+
+def test_IBM_144_12_12_positiveReward():
+    """[[144, 12, 12]]: l=12, m=6, A=x³+y+y², B=y³+x+x²"""
+    import gymnasium as gym
+    l, m = 12, 6
+    env = gym.make('qecc/bbcode-v0', l=l, m=m,
+                   evaluationDecoderFunction=_fast_decoder,
+                   errorRange=[0.001, 0.01, 0.1],
+                   minimumNumberOfLogicalQubits=1)
+    env.reset()
+    _, reward, *_ = env.step(_make_action(l, m, [3], [1, 2], [1, 2], [3]))
+    assert reward > 0
+
+
+def test_IBM_288_12_18_positiveReward():
+    """[[288, 12, 18]]: l=12, m=12, A=x³+y²+y⁷, B=y³+x+x²"""
+    import gymnasium as gym
+    l, m = 12, 12
+    env = gym.make('qecc/bbcode-v0', l=l, m=m,
+                   evaluationDecoderFunction=_fast_decoder,
+                   errorRange=[0.001, 0.01, 0.1],
+                   minimumNumberOfLogicalQubits=1)
+    env.reset()
+    _, reward, *_ = env.step(_make_action(l, m, [3], [2, 7], [1, 2], [3]))
+    assert reward > 0
+
+
 if __name__ == "__main__":
 
     test_bbCodesEnvIsWorking()

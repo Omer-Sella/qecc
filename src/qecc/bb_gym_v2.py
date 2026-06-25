@@ -18,7 +18,7 @@ class bicycleBivariateCodeEnvironmentV2(gym.Env):
                  minimumNumberOfLogicalQubits=6,
                  render_mode=None):
         if errorRange is None:
-            errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001]
+            errorRange = np.linspace(0.0001,0.1,10)
         self.render_mode = render_mode
         self._l = l
         self._m = m
@@ -28,6 +28,10 @@ class bicycleBivariateCodeEnvironmentV2(gym.Env):
         self._max_by = max_by
         self.decoder = evaluationDecoderFunction
         self.errorRange = errorRange
+        if any(a >= b for a, b in zip(errorRange, errorRange[1:])):
+            raise ValueError(
+                f"errorRange must be strictly increasing (e.g. [0.001, 0.01, 0.1]); got {list(errorRange)}"
+            )
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
 
         self.action_space = spaces.MultiDiscrete(

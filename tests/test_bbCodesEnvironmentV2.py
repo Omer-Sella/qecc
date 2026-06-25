@@ -18,7 +18,7 @@ def _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
         l=l, m=m,
         max_ax=max_ax, max_ay=max_ay, max_bx=max_bx, max_by=max_by,
         evaluationDecoderFunction=_fast_decoder,
-        errorRange=[0.01, 0.001],
+        errorRange=[0.001, 0.01],
         minimumNumberOfLogicalQubits=minimumNumberOfLogicalQubits,
     )
 
@@ -148,7 +148,72 @@ def test_v2EnvPassesGymSpecCheck():
         l=6, m=6,
         max_ax=5, max_ay=5, max_bx=5, max_by=5,
         evaluationDecoderFunction=_fast_decoder,
-        errorRange=[0.01, 0.001],
+        errorRange=[0.001, 0.01],
         minimumNumberOfLogicalQubits=6,
     )
     check_env_specs(base_env)
+
+
+# ---------------------------------------------------------------------------
+# IBM Table 1 codes — positive reward checks (ascending errorRange required)
+# A(x,y) = sum_{i in aX} x^i  +  sum_{j in aY} y^j
+# B(x,y) = sum_{i in bX} x^i  +  sum_{j in bY} y^j
+# ---------------------------------------------------------------------------
+
+def _build_IBM_code_v2(env, aX_idx, aY_idx, bX_idx, bY_idx, max_ax, max_ay, max_bx, max_by):
+    """Build a code by sequential single-bit flips."""
+    obs, reward = None, None
+    for idx in aX_idx:
+        obs, reward, *_ = env.step(np.array([idx, max_ay, max_bx, max_by]))
+    for idx in aY_idx:
+        obs, reward, *_ = env.step(np.array([max_ax, idx, max_bx, max_by]))
+    for idx in bX_idx:
+        obs, reward, *_ = env.step(np.array([max_ax, max_ay, idx, max_by]))
+    for idx in bY_idx:
+        obs, reward, *_ = env.step(np.array([max_ax, max_ay, max_bx, idx]))
+    return reward
+
+
+def test_v2_IBM_72_12_6_positiveReward():
+    """[[72, 12, 6]]: l=6, m=6, A=x³+y+y², B=y³+x+x²"""
+    env = _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
+                       minimumNumberOfLogicalQubits=1)
+    env.reset()
+    reward = _build_IBM_code_v2(env, [3], [1, 2], [1, 2], [3], 5, 5, 5, 5)
+    assert reward > 0
+
+
+def test_v2_IBM_90_8_10_positiveReward():
+    """[[90, 8, 10]]: l=15, m=3, A=x⁹+y+y², B=1+x²+x⁷"""
+    env = _make_v2_env(l=15, m=3, max_ax=10, max_ay=3, max_bx=8, max_by=1,
+                       minimumNumberOfLogicalQubits=1)
+    env.reset()
+    reward = _build_IBM_code_v2(env, [9], [1, 2], [0, 2, 7], [], 10, 3, 8, 1)
+    assert reward > 0
+
+
+def test_v2_IBM_108_8_10_positiveReward():
+    """[[108, 8, 10]]: l=9, m=6, A=x³+y+y², B=y³+x+x²"""
+    env = _make_v2_env(l=9, m=6, max_ax=4, max_ay=3, max_bx=3, max_by=4,
+                       minimumNumberOfLogicalQubits=1)
+    env.reset()
+    reward = _build_IBM_code_v2(env, [3], [1, 2], [1, 2], [3], 4, 3, 3, 4)
+    assert reward > 0
+
+
+def test_v2_IBM_144_12_12_positiveReward():
+    """[[144, 12, 12]]: l=12, m=6, A=x³+y+y², B=y³+x+x²"""
+    env = _make_v2_env(l=12, m=6, max_ax=4, max_ay=3, max_bx=3, max_by=4,
+                       minimumNumberOfLogicalQubits=1)
+    env.reset()
+    reward = _build_IBM_code_v2(env, [3], [1, 2], [1, 2], [3], 4, 3, 3, 4)
+    assert reward > 0
+
+
+def test_v2_IBM_288_12_18_positiveReward():
+    """[[288, 12, 18]]: l=12, m=12, A=x³+y²+y⁷, B=y³+x+x²"""
+    env = _make_v2_env(l=12, m=12, max_ax=4, max_ay=8, max_bx=3, max_by=4,
+                       minimumNumberOfLogicalQubits=1)
+    env.reset()
+    reward = _build_IBM_code_v2(env, [3], [2, 7], [1, 2], [3], 4, 8, 3, 4)
+    assert reward > 0
