@@ -314,6 +314,26 @@ def calculateReward(inputBER, outputBER):
     return reward
 
 
+def plotReward(filePath, baseline = None):
+    
+    df = pd.read_csv(filePath, sep='\t')
+    keys = df.columns.values   
+    plt.figure(figsize=(10, 10))
+    plt.subplot(2, 2, 1)
+    plt.plot(df["reward"])
+    plt.title("training rewards (average)")
+    plt.subplot(2, 2, 2)
+    plt.plot(df["step_count"])
+    plt.title("Max step count (training)")
+    plt.subplot(2, 2, 3)
+    plt.plot(df["eval reward (sum)"])
+    plt.title("Return (test)")
+    plt.subplot(2, 2, 4)
+    plt.plot(df["eval step_count"])
+    plt.title("Max step count (test)")
+    plt.show()
+
+
 if __name__ == "__main__":
     # parser = argparse.ArgumentParser(description="Post-process QECC reinforcement learning results")
     # parser.add_argument('-p', '--pathToData', required=True, help='Path to data (experiment.txt file)')
