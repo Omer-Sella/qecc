@@ -35,7 +35,7 @@ https://docs.pytorch.org/rl/stable/reference/generated/torchrl.envs.ParallelEnv.
 """
 import argparse
 import os
-import numpy as npnp.linspace(0.0001,0.1,10),
+import numpy as np
 import qecc  # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __init__.py
 from qecc.loggerForReinforcementLearning import logger
 import warnings
@@ -60,7 +60,7 @@ from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 from tqdm import tqdm
 
-from qecc.bb_gym import exampleDecoderFunction
+from qecc.bb_gym import exampleDecoderFunction, exampleDecoderFunction2
 
 myKeys = ['Reward',
         'epochNumber',
@@ -117,8 +117,8 @@ def make_env():
         device="cpu",
         l=6,
         m=6,
-        evaluationDecoderFunction=exampleDecoderFunction,
-        errorRange=np.linspace(0.0001,0.1,10),
+        evaluationDecoderFunction=exampleDecoderFunction2, # Omer: I changed this to Roffe's decoder
+        errorRange=np.linspace(0.0001,0.1,10),,
         minimumNumberOfLogicalQubits=6,
     )
     return TransformedEnv(
