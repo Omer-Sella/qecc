@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import qecc
 import gymnasium as gym
 
@@ -132,3 +133,22 @@ def test_stepCallsDecoderForValidCode():
         _, reward, *_ = env.step(action)
     # _fast_decoder returns zeros; reward != NEGATIVE_REWARD confirms decoder was called
     assert reward != NEGATIVE_REWARD
+
+
+def test_v2EnvPassesGymSpecCheck():
+    import qecc
+    torchrl_gym = pytest.importorskip("torchrl.envs.libs.gym", reason="torchrl not installed")
+    torchrl_utils = pytest.importorskip("torchrl.envs.utils", reason="torchrl not installed")
+    GymEnv = torchrl_gym.GymEnv
+    check_env_specs = torchrl_utils.check_env_specs
+
+    base_env = GymEnv(
+        "qecc/bbcode-v1",
+        device="cpu",
+        l=6, m=6,
+        max_ax=5, max_ay=5, max_bx=5, max_by=5,
+        evaluationDecoderFunction=_fast_decoder,
+        errorRange=[0.01, 0.001],
+        minimumNumberOfLogicalQubits=6,
+    )
+    check_env_specs(base_env)

@@ -134,3 +134,19 @@ class bicycleBivariateCodeEnvironmentV2(gym.Env):
     def _calculateReward(self, logicalErrorRate, decoderFailureRate):
         outputBER = logicalErrorRate + decoderFailureRate
         return trapezoid(1 - outputBER, self.errorRange)
+
+
+def exampleDecoderFunctionV2(Hx, Hz, errorRange, seed=None):
+    from qecc.minSum import ldpcDecoderWrapper
+    from qecc.utils import decoderEvaluator
+    numberOfSamples = 30
+    logicalErrors, decoderFailures = decoderEvaluator(
+        decoderFunction=ldpcDecoderWrapper,
+        dualBinary=True,
+        Hx=Hx, Hz=Hz,
+        errorRange=errorRange,
+        decoderStoppingCriterion=50,
+        numberOfSamples=numberOfSamples,
+        seed=seed,
+    )
+    return logicalErrors / numberOfSamples, decoderFailures / numberOfSamples
