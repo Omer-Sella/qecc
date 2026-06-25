@@ -118,7 +118,7 @@ def make_env():
         l=6,
         m=6,
         evaluationDecoderFunction=exampleDecoderFunction2, # Omer: I changed this to Roffe's decoder
-        errorRange=np.linspace(0.0001,0.1,10),,
+        errorRange=np.linspace(0.0001,0.1,10),
         minimumNumberOfLogicalQubits=6,
     )
     return TransformedEnv(
