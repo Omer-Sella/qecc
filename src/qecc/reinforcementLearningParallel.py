@@ -348,6 +348,8 @@ if __name__ == "__main__":
             # this is a nice-to-have but nothing necessary for PPO to work.
             scheduler.step()
     finally:
+        torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
+        torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
         collector.shutdown()
         if not env.is_closed:
             env.close()

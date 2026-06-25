@@ -268,3 +268,6 @@ for i, tensordict_data in enumerate(collector):
     # We're also using a learning rate scheduler. Like the gradient clipping,
     # this is a nice-to-have but nothing necessary for PPO to work.
     scheduler.step()
+
+torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
+torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
