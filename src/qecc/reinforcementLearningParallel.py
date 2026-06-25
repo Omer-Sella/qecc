@@ -60,7 +60,7 @@ from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 from tqdm import tqdm
 
-from qecc.bb_gym import exampleDecoderFunction
+from qecc.bb_gym import exampleDecoderFunction, exampleDecoderFunction2
 
 myKeys = ['Reward',
         'epochNumber',
