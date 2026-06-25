@@ -25,3 +25,31 @@ def _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
 def test_bbcodeV1IsRegistered():
     allEnvs = gym.envs.registry.keys()
     assert "qecc/bbcode-v1" in allEnvs
+
+
+def test_actionSpaceShape():
+    env = _make_v2_env(max_ax=5, max_ay=5, max_bx=5, max_by=5)
+    assert list(env.action_space.nvec) == [6, 6, 6, 6]  # max_p + 1 each
+
+
+def test_observationSpaceSize():
+    env = _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
+    expected = 2 * (6 * 6) ** 2 + 5 + 5 + 5 + 5  # = 2612
+    assert env.flatObservationSize == expected
+    assert env.observation_space.shape == (expected,)
+
+
+def test_resetReturnsCorrectShapes():
+    env = _make_v2_env()
+    obs, info = env.reset()
+    assert obs.shape == (env.flatObservationSize,)
+    assert isinstance(info, dict)
+
+
+def test_resetZerosPolynomials():
+    env = _make_v2_env()
+    env.reset()
+    assert np.all(env.aX == 0)
+    assert np.all(env.aY == 0)
+    assert np.all(env.bX == 0)
+    assert np.all(env.bY == 0)
