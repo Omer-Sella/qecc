@@ -15,6 +15,11 @@ register(
     id="qecc/bbcode-v0",
     entry_point="qecc.bb_gym:bicycleBivariateCodeEnvironment",
 )
+
+register(
+    id="qecc/bbcode-v1",
+    entry_point="qecc.bb_gym_v2:bicycleBivariateCodeEnvironmentV2",
+)
 # register(
 #     id="bbcode-v0",
 #     entry_point="qecc:bb_gym",
