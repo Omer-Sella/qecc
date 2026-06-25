@@ -15,3 +15,5 @@ decoderComparisonData*
 /postProcessing
 postProcessing.py
 /rlData
+*docs*
+/docs
