@@ -9,7 +9,7 @@ Some minor adjustments apply:
 
 """
 import numpy as np
-import qecc # Needed, to register bbgym with gymansium
+import qecc # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __init__.py # Needed, to register bbgym with gymansium
 from qecc.loggerForReinforcementLearning import logger
 import warnings
 warnings.filterwarnings("ignore")
