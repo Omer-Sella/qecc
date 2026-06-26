@@ -265,8 +265,8 @@ if __name__ == "__main__":
         #key = "72_12_6"
         print(f"Characterizing code {key}")
         start = time.time()
-        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
-        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
+        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
+        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
         end = time.time()
         #print(f"Logical error rate: {logicalER}")
         #print(f"Decoder failure rate: {decoderFailureRate}")
@@ -286,6 +286,6 @@ if __name__ == "__main__":
                 "decoderFER": decoderFailureRate,
                 "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, 
                 "Number of samples": NUMBER_OF_SAMPLES, 
-                "Decoder": "RBP3" }
+                "Decoder": "Dual binary BPOSD" }
         fileName = "c:/users/omer/qecc/decoderComparisonData/dualBPOSD_" + key + ".npy"
         np.save(fileName, data, allow_pickle=True)

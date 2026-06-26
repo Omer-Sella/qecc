@@ -143,14 +143,15 @@ class bicycleBivariateCodeEnvironmentV2(gym.Env):
 def exampleDecoderFunctionV2(Hx, Hz, errorRange, seed=None):
     from qecc.minSum import ldpcDecoderWrapper
     from qecc.utils import decoderEvaluator
-    numberOfSamples = 30
+    NUMBER_OF_SAMPLES = 100
+    NUMBER_OF_DECODER_ITERATIONS = 50
     logicalErrors, decoderFailures = decoderEvaluator(
         decoderFunction=ldpcDecoderWrapper,
         dualBinary=True,
         Hx=Hx, Hz=Hz,
         errorRange=errorRange,
-        decoderStoppingCriterion=50,
-        numberOfSamples=numberOfSamples,
+        decoderStoppingCriterion=NUMBER_OF_DECODER_ITERATIONS,
+        numberOfSamples=NUMBER_OF_SAMPLES,
         seed=seed,
     )
-    return logicalErrors / numberOfSamples, decoderFailures / numberOfSamples
+    return logicalErrors / NUMBER_OF_SAMPLES, decoderFailures / NUMBER_OF_SAMPLES

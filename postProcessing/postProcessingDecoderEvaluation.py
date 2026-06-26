@@ -46,7 +46,7 @@ def calculateReward(inputBER, outputBER):
 
 if __name__ == "__main__":
     #plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/rbp3_bb_72_12_6.npy")
-    inputBER, outputBER = plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/dualBPOSD_72_12_6.npy")
+    inputBER, outputBER = plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/dualBPOSD_90_8_10.npy")
     print(inputBER)
     print(f"Reward was calculated as {calculateReward(inputBER, outputBER)} ")
     #plotLogicalErrorRate("C:/Users/Omer/qecc/decoderComparisonData/dualBPOSD_108_8_10.npy")
