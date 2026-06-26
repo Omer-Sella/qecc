@@ -113,9 +113,9 @@ env = TransformedEnv(
 #env.transform[1].init_stats(num_iter=1000, reduce_dim=0, cat_dim=0) #Omer: Don't use this random statistical way, it's time consuming and we know what the observations look like anyway.
 
 check_env_specs(env)
-testAction = makeTestAction()
+testAction = makeTestAction_6_6()
 
-rollout = env.rollout(3, action = 3*[testAction])
+rollout = env.rollout(3, actions = 3*[testAction])
 print(rollout)
 
 actor_net = nn.Sequential(

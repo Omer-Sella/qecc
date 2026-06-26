@@ -322,7 +322,21 @@ def test_IBM_288_12_18_positiveReward():
     _, reward, *_ = env.step(_make_action(l, m, [3], [2, 7], [1, 2], [3]))
     assert reward > 0
 
-
+# def test_rollout():
+#     base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
+#     print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
+#     env = TransformedEnv(
+#         base_env,
+#         Compose(
+#             CastToFloat(),                          # int8 → float32
+#             ObservationNorm(in_keys=["observation"], loc = 0.5, scale = 0.5), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
+#             DoubleToFloat(),
+#             StepCounter(),
+#         ),
+#     )
+#     testAction = makeTestAction()
+#     rollout = env.rollout(3, action = 3*[testAction])
+    
 if __name__ == "__main__":
 
     test_bbCodesEnvIsWorking()
