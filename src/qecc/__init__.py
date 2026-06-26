@@ -17,7 +17,7 @@ register(
 )
 
 register(
-    id="qecc/bbcode-v1",
+    id="qecc/bbcode-bitflip-v0",
     entry_point="qecc.bb_gym_v2:bicycleBivariateCodeEnvironmentV2",
 )
 # register(
