@@ -15,7 +15,6 @@ import warnings
 warnings.filterwarnings("ignore")
 from torch import multiprocessing
 from collections import defaultdict
-import matplotlib.pyplot as plt
 import torch
 from tensordict.nn import TensorDictModule
 #from tensordict.nn.distributions import NormalParamExtractor
@@ -29,7 +28,7 @@ from torchrl.envs import (Compose, DoubleToFloat, ObservationNorm, StepCounter,
                           TransformedEnv)
 from torchrl.envs.libs.gym import GymEnv
 from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
-from torchrl.modules import ProbabilisticActor, TanhNormal, ValueOperator
+from torchrl.modules import ProbabilisticActor, ValueOperator
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 from tqdm import tqdm

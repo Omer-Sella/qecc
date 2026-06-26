@@ -1,16 +1,16 @@
 import pandas as pd
-from scipy.integrate import trapezoid
+
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.mplot3d import Axes3D
+
 import matplotlib.pyplot as plt
-from matplotlib import cm
+
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
-from numpy.polynomial import Polynomial
+
 import os
-import matplotlib.gridspec as gridspec
+
 import seaborn as sns
-import copy
+
 import argparse
 
 
@@ -251,74 +251,31 @@ def drawRewardSurface():
     plt.show()
     return slope, bias, reward
 
-def drawPoly():
-    example = [-0.03318342,  0.11585322] #Taken from running ldpcCUDA.py as standalone
-    x = np.linspace(0.0, 5.0, 100)
-    p = np.poly1d(example)
-    print(p)
-    print(p.coefficients)
-    p.integ()
-    print(p.integ().coefficients)
-    return
 
-def plotReward(filePath, baseline = None):
+# def plotReward(filePath, baseline = None):
 
-    df = pd.read_csv(filePath, sep='\t')
-    sns.set_theme()
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+#     df = pd.read_csv(filePath, sep='\t')
+#     sns.set_theme()
+#     fig, axes = plt.subplots(2, 2, figsize=(10, 10))
 
-    sns.lineplot(data=df, y="Reward", x=df.index, ax=axes[0, 0])
-    axes[0, 0].set_title("training rewards (average)")
+#     sns.lineplot(data=df, y="Reward", x=df.index, ax=axes[0, 0])
+#     axes[0, 0].set_title("training rewards (average)")
 
-    sns.lineplot(data=df, y="step_count", x=df.index, ax=axes[0, 1])
-    axes[0, 1].set_title("Max step count (training)")
+#     sns.lineplot(data=df, y="step_count", x=df.index, ax=axes[0, 1])
+#     axes[0, 1].set_title("Max step count (training)")
 
-    sns.lineplot(data=df, y="eval reward sum", x=df.index, ax=axes[1, 0])
-    axes[1, 0].set_title("Return (test)")
+#     sns.lineplot(data=df, y="eval reward sum", x=df.index, ax=axes[1, 0])
+#     axes[1, 0].set_title("Return (test)")
 
-    sns.lineplot(data=df, y="eval step count", x=df.index, ax=axes[1, 1])
-    axes[1, 1].set_title("Max step count (test)")
+#     sns.lineplot(data=df, y="eval step count", x=df.index, ax=axes[1, 1])
+#     axes[1, 1].set_title("Max step count (test)")
 
-    plt.tight_layout()
-    prefix = os.path.splitext(filePath)[0]
-    fig.savefig(prefix + ".png")
-    return df
+#     plt.tight_layout()
+#     prefix = os.path.splitext(filePath)[0]
+#     fig.savefig(prefix + ".png")
+#     return df
 
-def plotLogicalErrorRate(filePath, baseline = None):
-    data = np.load(filePath, allow_pickle=True).item()
-    fig, ax = plt.subplots()
-    combinedErrorRate = data['errorRate'] / data['Number of samples'] # This is an assumption, meaning that we want to treat all decoder failures as logical errors.
-    
-    ax.plot(data['errorRange'], combinedErrorRate, marker='o', linestyle='-', color='b', label='Logical Error Rate')
-    if "Code name" in data.keys():
-        ax.set_title(f"Evaluation of {data['Code name']} for {data['time']} seconds")
-    else:
-        ax.set_title(f"Evaluation for {data['time']} seconds")
-    ax.set_xlabel("Physical qubit error rate")
-    ax.set_ylabel("Combined logical error rate after decoding")
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.grid(True)
-    prefix = os.path.splitext(filePath)[0]
-    fig.savefig(prefix + "_plot.png")
-    #plt.show()
-    return data['errorRange'], data['errorRate'] / data['Number of samples']
 
-def calculateReward(inputBER, outputBER): 
-    # This is exactly as the plotLogicalErrorRate function, except we add the area which represents the reward. It may cause a change in the range of the y axis, making the figure look differently.    
-    fig, ax = plt.subplots()
-    ax.plot(inputBER, outputBER, marker='o', linestyle='-', color='b', label='Logical Error Rate + Decoder Failure Rate')
-    ax.fill_between(inputBER, outputBER, 1, alpha=0.3, color='g', label='Reward Area')
-    reward = trapezoid(1 - outputBER, inputBER)
-    ax.axhline(y=reward, color='r', label='Reward')
-    ax.set_xlabel("Physical qubit error rate")
-    ax.set_ylabel("Combined logical error rate after decoding")
-    ax.set_xscale('log')
-    ax.set_yscale('log')
-    ax.grid(True)
-    plt.show()
-    
-    return reward
 
 
 def plotReward(filePath, baseline = None):
@@ -327,30 +284,28 @@ def plotReward(filePath, baseline = None):
     keys = df.columns.values   
     plt.figure(figsize=(10, 10))
     plt.subplot(2, 2, 1)
-    plt.plot(df["reward"])
+    plt.plot(df["Reward"])
     plt.title("training rewards (average)")
     plt.subplot(2, 2, 2)
     plt.plot(df["step_count"])
     plt.title("Max step count (training)")
     plt.subplot(2, 2, 3)
-    plt.plot(df["eval reward (sum)"])
+    plt.plot(df["eval reward sum"])
     plt.title("Return (test)")
     plt.subplot(2, 2, 4)
-    plt.plot(df["eval step_count"])
+    plt.plot(df["eval step count.1"])
     plt.title("Max step count (test)")
     plt.show()
 
 
 if __name__ == "__main__":
-    # parser = argparse.ArgumentParser(description="Post-process QECC reinforcement learning results")
-    # parser.add_argument('-p', '--pathToData', required=True, help='Path to data (experiment.txt file)')
-    # parser.add_argument('-o', '--pathToOutput', required=True, help='Path to produce output figures')
-    # args = parser.parse_args()
-    # postMortem(args.pathToData)
-    # plotReward("c:/users/omer/experiment.txt")
+    #postMortem(r"C:\Users\Omer\qecc\rl-qecc-data\2026-06-25_18-30-02\experiment.txt")
+    #plotReward(r"C:\Users\Omer\qecc\rl-qecc-data\2026-06-25_18-30-02\experiment.txt")
+    parser = argparse.ArgumentParser(description="Post-process QECC reinforcement learning results")
+    parser.add_argument('-p', '--pathToData', required=True, help='Path to data (experiment.txt file)')
+    parser.add_argument('-o', '--pathToOutput', required=True, help='Path to produce output figures')
+    args = parser.parse_args()
+    postMortem(args.pathToData)
     
-    #plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/rbp3_bb_72_12_6.npy")
-    inputBER, outputBER = plotLogicalErrorRate("c:/users/omer/qecc/decoderComparisonData/dualBPOSD_72_12_6.npy")
-    print(f"Reward was calculated as {calculateReward(inputBER, outputBER)} ")
-    #plotLogicalErrorRate("C:/Users/Omer/qecc/decoderComparisonData/dualBPOSD_108_8_10.npy")
+
                           

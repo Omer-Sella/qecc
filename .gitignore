@@ -12,9 +12,8 @@ postprocessing.ipynb
 /decoderComparisonData/*.*
 decoderComparisonData*
 *experiment.txt*
-/postProcessing
-postProcessing.py
 /rlData
 *docs*
 /docs
 .claude
+/rl-qecc-data
