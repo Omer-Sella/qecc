@@ -32,8 +32,9 @@ from torchrl.modules import ProbabilisticActor, ValueOperator
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 from tqdm import tqdm
-
 from torchrl.envs.transforms import Transform
+from torch.distributions import Bernoulli, Independent
+from qecc.bb_gym import exampleDecoderFunction, exampleDecoderFunction2, makeTestAction_6_6
 
 #myKeys = ['Observation', 'actorEntropy', 'logP',
 myKeys = ['Reward', 
@@ -61,7 +62,7 @@ class CastToFloat(Transform):
     
 # log_prob fix: When we ask a Bernoulli distribution to return log_prob, it returns an array, each element of which is a log_prob for that specific coordinate.
 # However, for computing the loss we need to sum them.
-from torch.distributions import Bernoulli, Independent
+
 class IndependentBernoulli(Independent):
     def __init__(self, logits):
         super().__init__(Bernoulli(logits=logits), 1)
@@ -94,7 +95,7 @@ gamma = 0.99
 lmbda = 0.95
 entropy_eps = 1e-4
 
-from qecc.bb_gym import exampleDecoderFunction, exampleDecoderFunction2
+
 print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
 base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
 
@@ -112,9 +113,10 @@ env = TransformedEnv(
 #env.transform[1].init_stats(num_iter=1000, reduce_dim=0, cat_dim=0) #Omer: Don't use this random statistical way, it's time consuming and we know what the observations look like anyway.
 
 check_env_specs(env)
+testAction = makeTestAction()
 
-rollout = env.rollout(3)
-
+rollout = env.rollout(3, action = 3*[testAction])
+print(rollout)
 
 actor_net = nn.Sequential(
     nn.LazyLinear(num_cells, device=device),

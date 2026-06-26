@@ -179,6 +179,25 @@ def exampleDecoderFunction2(Hx,Hz,errorRange, seed = None):
     NUMBER_OF_DECODER_ITERATIONS = 50
     logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = decoder, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES, seed = seed)
     return logicalErrors / NUMBER_OF_SAMPLES, decoderFailures / NUMBER_OF_SAMPLES
+
+
+def makeTestAction_6_6():
+    l = 6
+    m = 6
+    aX = np.zeros(l*m)
+    aY = np.zeros(l*m)
+    bX = np.zeros(l*m)
+    bY = np.zeros(l*m)
+    aX[3] = 1
+    aY[1]=1
+    aY[2] = 1
+    bX[1] = 1
+    bX[2] = 1
+    bY[3] = 1
+    action = np.concatenate([aX,aY,bX,bY])
+    return action
+    
+
 if __name__ == "__main__":
     l = 6
     m = 6
