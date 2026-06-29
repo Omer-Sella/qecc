@@ -44,7 +44,11 @@ myKeys = ['Reward',
           "eval step count",
           "eval reward sum",
           "eval reward mean",
-          "eval step count"
+          "eval step count",
+          "eval observation",
+          "eval action",
+          "eval next observation",
+          "eval next reward"
           ]
 myLogger = logger(keys = myKeys) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
 
@@ -84,7 +88,7 @@ max_grad_norm = 1.0
 
 frames_per_batch = 1000
 
-total_frames = 50_000
+total_frames = 5_000 #50_000
 
 sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
 num_epochs = 10  # optimization steps per batch of data collected
@@ -104,7 +108,7 @@ env = TransformedEnv(
     base_env,
     Compose(
         CastToFloat(),                          # int8 → float32
-        ObservationNorm(in_keys=["observation"], loc = 0.5, scale = 0.5), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
+        ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
         DoubleToFloat(),
         StepCounter(),
     ),
@@ -112,21 +116,29 @@ env = TransformedEnv(
 
 #env.transform[1].init_stats(num_iter=1000, reduce_dim=0, cat_dim=0) #Omer: Don't use this random statistical way, it's time consuming and we know what the observations look like anyway.
 
-check_env_specs(env)
+#check_env_specs(env) - Omer: We are not expecting the env observations to pass checks anymore, since we changed them to -1,1 instead of 0,1
 testAction = makeTestAction_6_6()
 
+#observation, reward,_, _ ,_= env.step(testAction)
+
+
 rollout = env.rollout(3, actions = 3*[testAction])
-print(rollout)
+
 
 actor_net = nn.Sequential(
     nn.LazyLinear(num_cells, device=device),
-    nn.Tanh(),
+    nn.Identity(),
+    #nn.Tanh(),
     nn.LazyLinear(num_cells, device=device),
-    nn.Tanh(),
+    #nn.Tanh(),
+    nn.Identity(),
     nn.LazyLinear(num_cells, device=device),
-    nn.Tanh(),
+    #nn.Tanh(),
+    nn.Identity(),
     nn.LazyLinear(env.action_spec.shape[-1], device=device),
 )
+
+
 
 policy_module = TensorDictModule(
     actor_net, in_keys=["observation"], out_keys=["logits"]
@@ -143,11 +155,14 @@ policy_module = ProbabilisticActor(
 
 value_net = nn.Sequential(
     nn.LazyLinear(num_cells, device=device),
-    nn.Tanh(),
+    #nn.Tanh(),
+    nn.Identity(),
     nn.LazyLinear(num_cells, device=device),
-    nn.Tanh(),
+    #nn.Tanh(),
+    nn.Identity(),
     nn.LazyLinear(num_cells, device=device),
-    nn.Tanh(),
+    #nn.Tanh(),
+    nn.Identity(),
     nn.LazyLinear(1, device=device),
 )
 
@@ -257,11 +272,17 @@ for i, tensordict_data in enumerate(collector):
             myLogger.keyValue("eval reward sum", eval_rollout["next", "reward"].sum().item())
             logs["eval step_count"].append(eval_rollout["step_count"].max().item())
             myLogger.keyValue("eval step count", eval_rollout["step_count"].max().item())
+            #myLogger.keyValue("eval observation", eval_rollout["observation"].cpu().numpy())
+            myLogger.keyValue("eval action", eval_rollout["action"].cpu().numpy())
+            #myLogger.keyValue("eval next observation", eval_rollout["next"]["observation"].cpu().numpy())
+            myLogger.keyValue("eval next reward", eval_rollout["next"]["reward"].cpu().numpy())
             eval_str = (
                 f"eval cumulative reward: {logs['eval reward (sum)'][-1]: 4.4f} "
                 f"(init: {logs['eval reward (sum)'][0]: 4.4f}), "
                 f"eval step-count: {logs['eval step_count'][-1]}"
             )
+
+
             del eval_rollout
     myLogger.dumpLogger()
     pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))

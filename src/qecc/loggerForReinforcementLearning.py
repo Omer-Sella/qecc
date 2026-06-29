@@ -185,7 +185,7 @@ class logger():
         for key in self.columnKeys:
             value = self.currentRow.get(key, "")
             if isinstance(value, np.ndarray):
-                valueString = np.array2string(value, max_line_width = UTILITY_FUNCTIONS_BIG_NUMBER, threshold = UTILITY_FUNCTIONS_BIG_NUMBER)
+                valueString = np.array2string(value, max_line_width = UTILITY_FUNCTIONS_BIG_NUMBER, threshold = np.inf)
             elif hasattr(value, "__float__"):
                 valueString = str(value)# TODO Omer: I temporarily placed this under comment, need to figure out if we want all these logits."%8.3g"%value
             else:
@@ -205,34 +205,7 @@ class logger():
     def setupPytorchSave(self, parametersToSave):
         self.pytorchElementsToSave = parametersToSave
 
-def testLogger():
-    status = 'OK'
-    keys = ['minimum', 'maximum', 'average', 'serialNumber']
-    myLogger = logger(keys)
-    myLogger.logPrint("Hello world !")
-    myLogger.logPrint("Hello world !", "red")
-    print(myLogger.fileName)
-    print(myLogger.logPath)
-    print(myLogger.fullPath)
-    for i in range(10):
-        myLogger.keyValue('minimum', np.random.random())
-        myLogger.keyValue('maximum', 15 + np.random.random())
-        myLogger.keyValue('average', 20 +np.random.random())
-        myLogger.keyValue('serialNumber', 90210)
-        myLogger.dumpLogger()
-    return status
-
-def testPlotter():
-    
-    myPlotter = plotter(epochs = 50)
-    for i in range(50):
-        myPlotter.step(np.random.random())
-    fileName = DATA_LOGGING_PATH + "/localData/plotterTest/testingPlotter.mp4"
-    status = myPlotter.saveAnimation(fileName)
-    return status
 
 
 if __name__ == '__main__':
-    print(testLogger())
-    #print(status)
-    #status = testPlotter()
+    pass

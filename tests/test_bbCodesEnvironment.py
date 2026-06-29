@@ -322,6 +322,22 @@ def test_IBM_288_12_18_positiveReward():
     _, reward, *_ = env.step(_make_action(l, m, [3], [2, 7], [1, 2], [3]))
     assert reward > 0
 
+def test_observationSpaceIsBinary():
+    
+    import gymnasium as gym
+    l, m = 12, 12
+    env = gym.make('qecc/bbcode-v0', l=l, m=m,
+                   evaluationDecoderFunction=_fake_decoder,
+                   errorRange=TEST_ERROR_RANGE,
+                   minimumNumberOfLogicalQubits=1)
+    observation, info = env.reset()
+
+    assert np.all(observation == (observation%2))
+
+    observation, reward, terminated, _, _ = env.step(_make_action(l, m, [3], [2, 7], [1, 2], [3]))
+    
+    assert np.all(observation == (observation%2))
+
 # def test_rollout():
 #     base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
 #     print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
@@ -338,7 +354,7 @@ def test_IBM_288_12_18_positiveReward():
 #     rollout = env.rollout(3, action = 3*[testAction])
     
 if __name__ == "__main__":
-
+    test_observationSpaceIsBinary()
     test_bbCodesEnvIsWorking()
     test_bbCodesEnvIsRegistered()
     test_envPassesBasicChecks()
