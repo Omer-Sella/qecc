@@ -170,7 +170,7 @@ class logger():
             self.currentRow[key] = value
         return 'OK'
         
-    def dumpLogger(self):
+    def dumpLogger(self, printOut = True):
         #if mpiProcessID() == 0:
         values = []
         keyLengths = []
@@ -190,16 +190,15 @@ class logger():
                 valueString = str(value)# TODO Omer: I temporarily placed this under comment, need to figure out if we want all these logits."%8.3g"%value
             else:
                 valueString = value
-            print(stringFormat%(key, valueString))
+            if printOut:
+                print(stringFormat%(key, valueString))
             values.append(valueString)
-        print("-"*numberOfDashes, flush=True)
+        if printOut:
+            print("-"*numberOfDashes, flush=True)
         
-        print(self.fullPath)
         with open(self.fullPath, 'a') as fid:
             fid.write("\t".join(map(str,values))+"\n")
-            fid.flush()
-            
-            
+            fid.flush()    
             self.currentRow.clear()
                 
     def setupPytorchSave(self, parametersToSave):

@@ -261,9 +261,12 @@ for i, tensordict_data in enumerate(collector):
         # number of steps (1000, which is our ``env`` horizon).
         # The ``rollout`` method of the ``env`` can take a policy as argument:
         # it will then execute this policy at each step.
+        
         with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
             # execute a rollout with the trained policy
-            eval_rollout = env.rollout(1000, policy_module)
+            print(f"Value of i is: {i}, going into evaluation.")
+            myLogger.keyValue("epochNumber", i)  # i is not epochNumber, but this is purely for debug puposes.
+            eval_rollout = env.rollout(5, policy_module) # I changed the rollout from 1000 to 5
             logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
             myLogger.keyValue("eval reward mean", eval_rollout["next", "reward"].mean().item())
             logs["eval reward (sum)"].append(
@@ -282,9 +285,9 @@ for i, tensordict_data in enumerate(collector):
                 f"eval step-count: {logs['eval step_count'][-1]}"
             )
 
-
+            myLogger.dumpLogger(printOut = False)
             del eval_rollout
-            myLogger.dumpLogger()
+            
     pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
 
     # We're also using a learning rate scheduler. Like the gradient clipping,
