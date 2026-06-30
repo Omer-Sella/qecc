@@ -2,7 +2,7 @@
 
 [![Publish to TestPyPI](https://github.com/Omer-Sella/qecc/actions/workflows/python-publish.yml/badge.svg)](https://github.com/Omer-Sella/qecc/actions/workflows/python-publish.yml)
 
-![example workflow](https://github.com/Omer-Sella/qecc/actions/workflows/OSD.yml/badge.svg)
+[![Osd decoder](https://github.com/Omer-Sella/qecc/actions/workflows/OSD.yml/badge.svg)](https://github.com/Omer-Sella/qecc/actions/workflows/OSD.yml/badge.yml)
 
 
 
