@@ -217,7 +217,7 @@ eval_str = ""
 for i, tensordict_data in enumerate(collector):
     # we now have a batch of data to work with. Let's learn something from it.
     for epochNumber in range(num_epochs):
-        myLogger.keyValue("epochNumber", epochNumber)
+        # myLogger.keyValue("epochNumber", epochNumber)
         # We'll need an "advantage" signal to make PPO work.
         # We re-compute it at each epoch as its value depends on the value
         # network which is updated in the inner loop.
@@ -242,16 +242,16 @@ for i, tensordict_data in enumerate(collector):
             optim.zero_grad()
 
     logs["reward"].append(tensordict_data["next", "reward"].mean().item())
-    myLogger.keyValue("Reward", tensordict_data["next", "reward"].mean().item())
+    #myLogger.keyValue("Reward", tensordict_data["next", "reward"].mean().item())
     pbar.update(tensordict_data.numel())
     cum_reward_str = (
         f"average reward={logs['reward'][-1]: 4.4f} (init={logs['reward'][0]: 4.4f})"
     )
     logs["step_count"].append(tensordict_data["step_count"].max().item())
-    myLogger.keyValue("step_count", tensordict_data["step_count"].max().item())
+    #myLogger.keyValue("step_count", tensordict_data["step_count"].max().item())
     stepcount_str = f"step count (max): {logs['step_count'][-1]}"
     logs["lr"].append(optim.param_groups[0]["lr"])
-    myLogger.keyValue("lr", optim.param_groups[0]["lr"])
+    #myLogger.keyValue("lr", optim.param_groups[0]["lr"])
 
     lr_str = f"lr policy: {logs['lr'][-1]: 4.4f}"
     if i % 10 == 0:
@@ -284,7 +284,7 @@ for i, tensordict_data in enumerate(collector):
 
 
             del eval_rollout
-    myLogger.dumpLogger()
+            myLogger.dumpLogger()
     pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
 
     # We're also using a learning rate scheduler. Like the gradient clipping,
