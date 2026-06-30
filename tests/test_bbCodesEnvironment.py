@@ -30,6 +30,7 @@ TEST_ERROR_RANGE = np.linspace(0.0001,0.1,10)
 
 def _make_action(l, m, aX_idx, aY_idx, bX_idx, bY_idx):
     """Build the flat MultiBinary action vector [aX, aY, bX, bY] from exponent lists."""
+    
     aX = np.zeros(l * m, dtype=np.int8)
     aY = np.zeros(l * m, dtype=np.int8)
     bX = np.zeros(l * m, dtype=np.int8)
@@ -146,19 +147,22 @@ def test_envPassesBasicChecks():
 def test_IBM_72_12_6():
     """[[72, 12, 6]]: l=6, m=6, A=x³+y+y², B=y³+x+x²"""
     import gymnasium as gym
-    from qecc.bb_gym import exampleDecoderFunction
+    from qecc.bb_gym import exampleDecoderFunction2
 
     l, m = 6, 6
     env = gym.make(
         'qecc/bbcode-v0',
         l=l, m=m,
-        evaluationDecoderFunction=exampleDecoderFunction,
+        evaluationDecoderFunction=exampleDecoderFunction2,
         errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=12,
     )
     env.reset()
+    
+    
     action = _make_action(l, m, aX_idx=[3], aY_idx=[1, 2], bX_idx=[1, 2], bY_idx=[3])
     _, reward, *_ = env.step(action)
+    print(reward)
     # TODO: add assertions on reward / code parameters
 
 
