@@ -101,7 +101,7 @@ entropy_eps = 1e-4
 
 
 print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
+base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 1) 
 
 print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
 env = TransformedEnv(
