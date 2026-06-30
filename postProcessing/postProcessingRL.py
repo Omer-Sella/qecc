@@ -134,6 +134,9 @@ def postMortemHeatMaps(filePath = None, baseline = REWARD_FOR_NEAR_EARTH_3_0_TO_
 def postMortem(filePath, baseline = None):
     
     df = pd.read_csv(filePath, sep='\t')
+    df['Reward'] = pd.to_numeric(df['Reward'], errors = 'coerce')
+    df['epochNumber'] = pd.to_numeric(df['epochNumber'], errors = 'coerce')
+    df['step_count'] = pd.to_numeric(df['step_count'], errors = 'coerce')
     keys = df.columns.values
     
     
@@ -299,13 +302,14 @@ def plotReward(filePath, baseline = None):
 
 
 if __name__ == "__main__":
+    postMortem(r"C:\rds\general\user\osella\home\rl-qecc-data\2026-06-30_09-28-19\experiment.txt")
     #postMortem(r"C:\Users\Omer\qecc\rl-qecc-data\2026-06-25_18-30-02\experiment.txt")
     #plotReward(r"C:\Users\Omer\qecc\rl-qecc-data\2026-06-25_18-30-02\experiment.txt")
-    parser = argparse.ArgumentParser(description="Post-process QECC reinforcement learning results")
-    parser.add_argument('-p', '--pathToData', required=True, help='Path to data (experiment.txt file)')
-    parser.add_argument('-o', '--pathToOutput', required=True, help='Path to produce output figures')
-    args = parser.parse_args()
-    postMortem(args.pathToData)
+    #parser = argparse.ArgumentParser(description="Post-process QECC reinforcement learning results")
+    #parser.add_argument('-p', '--pathToData', required=True, help='Path to data (experiment.txt file)')
+    #parser.add_argument('-o', '--pathToOutput', required=True, help='Path to produce output figures')
+    #args = parser.parse_args()
+    #postMortem(args.pathToData)
     
 
                           
