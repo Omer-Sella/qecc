@@ -187,6 +187,8 @@ if __name__ == "__main__":
     actor_net = create_actor_value_nets(env.action_spec, num_cells, device=device)
     value_net = create_value_net(num_cells, device=device)
     
+    
+
     policy_module = TensorDictModule(
         actor_net, in_keys=["observation"], out_keys=["logits"]
     )
@@ -205,6 +207,11 @@ if __name__ == "__main__":
         module=value_net,
         in_keys=["observation"],
     )
+
+
+    policy_module(env.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
+    value_module(env.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
+
 
     collector = SyncDataCollector(
         env,
