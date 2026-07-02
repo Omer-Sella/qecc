@@ -143,6 +143,12 @@ if __name__ == "__main__":
         help="Epsilon for the entropy bonus."
     )
 
+    parser.add_argument(
+        "--reward-engineering", type=str, default = "False", choices = ["True", "False", "true", "false"],
+        help="Whether to exponentiate the already positive reward.",
+    )
+
+    reward_engineering = parser.parse_args().reward_engineering.lower() == "true"
     scaling_factor = parser.parse_args().scaling_factor
     total_frames = parser.parse_args().total_frames * scaling_factor
     frames_per_batch = parser.parse_args().frames_per_batch * scaling_factor
@@ -167,7 +173,7 @@ if __name__ == "__main__":
     )
 
     #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 1, rewardEngineering = True) 
+    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 1, rewardEngineering = reward_engineering) 
 
     #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
     env = TransformedEnv(
