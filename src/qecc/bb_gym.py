@@ -124,8 +124,6 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                                np.where(self.aY !=0)[0], 
                                                np.where(self.bX !=0)[0], 
                                                np.where(self.bY !=0)[0])
-        #self.Hx = Hx.astype(int)
-        #self.Hz = Hz.astype(int)
         # Omer: check that the resulting code admits the necessary logical qubits
         if calculateCodeDimension(self.Hx, self.Hz) >= self.minimumNumberOfLogicalQubits:    
             logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
@@ -141,24 +139,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
 
     
     def _calculateReward(self, logicalErrorRate, decoderFailureRate, numberOfIterations = 10):      
-        #ber = (logicalErrorRate + decoderFailureRate)
-        outputBER = logicalErrorRate + decoderFailureRate
-        # snr = np.array(copy.copy(self.errorRange))
-        # itr = 0 #Omer Sella: place holder - in the future we may want to return the iteration at which earlyStopping happened
-        # while itr < numberOfIterations:
-        #     #p = np.polyfit(self.errorRange, ber, 1)
-        #     p = np.polyfit(snr, ber, 1)
-        #     trendP = np.poly1d(p)
-        #     mask = np.where(trendP(snr) > 0)[0]
-        #     ber = ber[mask]
-        #     snr = snr[mask]
-        #     itr = itr + 1
-        #     # Omer Sella: 16/06/2021 decided to use np polynomials. Also changed the reward to the area between
-        #     # the constant 1 and the fitted line.            
-        # pConst = np.poly1d([1])
-        # p1 = np.poly1d(p)
-        # pTotalInteg = (pConst - p1).integ()
-        # reward = pTotalInteg(self.errorRange[-1]) - pTotalInteg(self.errorRange[0])
+        outputBER = logicalErrorRate + decoderFailureRate # Omer: this is a decision, it could be that in the future we want to put this into reward engineering.
         reward = trapezoid(1 - outputBER, self.errorRange)
         return reward
 

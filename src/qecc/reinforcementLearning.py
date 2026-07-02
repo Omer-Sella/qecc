@@ -50,7 +50,12 @@ myKeys = ['Reward',
           "eval next observation",
           "eval next reward"
           ]
-myLogger = logger(keys = myKeys) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
+
+myEvaluationKeys = ["evaluation number",
+                    "reward",
+                    "policy entropy"]
+
+myLogger = logger(keys = myEvaluationKeys) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
 
 
 class CastToFloat(Transform):
@@ -83,12 +88,13 @@ device = (
 
 
 num_cells = 256  # number of cells in each layer i.e. output dim.
-lr = 3e-4
+lr = 3e-4 # Learning rate
 max_grad_norm = 1.0
+eval_rollout_length = 5
+SCALING_FACTOR = 1 # Use 1 for logger testing
+frames_per_batch = 100 * SCALING_FACTOR
 
-frames_per_batch = 1000
-
-total_frames = 5_000 #50_000
+total_frames = 5_000 * SCALING_FACTOR #50_000
 
 sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
 num_epochs = 10  # optimization steps per batch of data collected
@@ -100,10 +106,10 @@ lmbda = 0.95
 entropy_eps = 1e-4
 
 
-print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
+#print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
 base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 1) 
 
-print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
+#print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
 env = TransformedEnv(
     base_env,
     Compose(
@@ -117,12 +123,12 @@ env = TransformedEnv(
 #env.transform[1].init_stats(num_iter=1000, reduce_dim=0, cat_dim=0) #Omer: Don't use this random statistical way, it's time consuming and we know what the observations look like anyway.
 
 #check_env_specs(env) - Omer: We are not expecting the env observations to pass checks anymore, since we changed them to -1,1 instead of 0,1
-testAction = makeTestAction_6_6()
+
 
 #observation, reward,_, _ ,_= env.step(testAction)
 
 
-rollout = env.rollout(3, actions = 3*[testAction])
+
 
 
 actor_net = nn.Sequential(
@@ -208,7 +214,7 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
     optim, total_frames // frames_per_batch, 0.0
 )
 
-logs = defaultdict(list)
+#logs = defaultdict(list)
 pbar = tqdm(total=total_frames)
 eval_str = ""
 
@@ -216,6 +222,7 @@ eval_str = ""
 # designed to collect:
 for i, tensordict_data in enumerate(collector):
     # we now have a batch of data to work with. Let's learn something from it.
+    print(f"i == {i}")
     for epochNumber in range(num_epochs):
         # myLogger.keyValue("epochNumber", epochNumber)
         # We'll need an "advantage" signal to make PPO work.
@@ -241,19 +248,19 @@ for i, tensordict_data in enumerate(collector):
             optim.step()
             optim.zero_grad()
 
-    logs["reward"].append(tensordict_data["next", "reward"].mean().item())
+    #logs["reward"].append(tensordict_data["next", "reward"].mean().item())
     #myLogger.keyValue("Reward", tensordict_data["next", "reward"].mean().item())
     pbar.update(tensordict_data.numel())
-    cum_reward_str = (
-        f"average reward={logs['reward'][-1]: 4.4f} (init={logs['reward'][0]: 4.4f})"
-    )
-    logs["step_count"].append(tensordict_data["step_count"].max().item())
+    #cum_reward_str = (
+    #    f"average reward={logs['reward'][-1]: 4.4f} (init={logs['reward'][0]: 4.4f})"
+    #)
+    #logs["step_count"].append(tensordict_data["step_count"].max().item())
     #myLogger.keyValue("step_count", tensordict_data["step_count"].max().item())
-    stepcount_str = f"step count (max): {logs['step_count'][-1]}"
-    logs["lr"].append(optim.param_groups[0]["lr"])
+    #stepcount_str = f"step count (max): {logs['step_count'][-1]}"
+    #logs["lr"].append(optim.param_groups[0]["lr"])
     #myLogger.keyValue("lr", optim.param_groups[0]["lr"])
 
-    lr_str = f"lr policy: {logs['lr'][-1]: 4.4f}"
+    #lr_str = f"lr policy: {logs['lr'][-1]: 4.4f}"
     if i % 10 == 0:
         # We evaluate the policy once every 10 batches of data.
         # Evaluation is rather simple: execute the policy without exploration
@@ -264,31 +271,37 @@ for i, tensordict_data in enumerate(collector):
         
         with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
             # execute a rollout with the trained policy
-            print(f"Value of i is: {i}, going into evaluation.")
-            myLogger.keyValue("epochNumber", i)  # i is not epochNumber, but this is purely for debug puposes.
-            eval_rollout = env.rollout(5, policy_module) # I changed the rollout from 1000 to 5
-            logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
-            myLogger.keyValue("eval reward mean", eval_rollout["next", "reward"].mean().item())
-            logs["eval reward (sum)"].append(
-                eval_rollout["next", "reward"].sum().item()
-            )
-            myLogger.keyValue("eval reward sum", eval_rollout["next", "reward"].sum().item())
-            logs["eval step_count"].append(eval_rollout["step_count"].max().item())
-            myLogger.keyValue("eval step count", eval_rollout["step_count"].max().item())
-            #myLogger.keyValue("eval observation", eval_rollout["observation"].cpu().numpy())
-            myLogger.keyValue("eval action", eval_rollout["action"].cpu().numpy())
-            #myLogger.keyValue("eval next observation", eval_rollout["next"]["observation"].cpu().numpy())
-            myLogger.keyValue("eval next reward", eval_rollout["next"]["reward"].cpu().numpy())
-            eval_str = (
-                f"eval cumulative reward: {logs['eval reward (sum)'][-1]: 4.4f} "
-                f"(init: {logs['eval reward (sum)'][0]: 4.4f}), "
-                f"eval step-count: {logs['eval step_count'][-1]}"
-            )
+            
+            
+            eval_rollout = env.rollout(eval_rollout_length, policy_module) # I changed the rollout from 1000 to 5
+            #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
+            dist = policy_module.get_dist(eval_rollout)
+            entropyDuringEvaluation = dist.entropy().cpu().numpy()
+            for k in range(eval_rollout_length):
+                myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
+                #myLogger.keyValue("observation", eval_rollout["observation"].cpu().numpy()[k])
+                #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
+                myLogger.keyValue("reward", eval_rollout["next", "reward"].cpu().numpy()[k].item())
+                myLogger.keyValue("policy entropy", entropyDuringEvaluation[k].item())
+                myLogger.dumpLogger(printOut = False)
+            #logs["eval reward (sum)"].append(
+            #    eval_rollout["next", "reward"].sum().item()
+            #)
+            #myLogger.keyValue("eval reward sum", eval_rollout["next", "reward"].sum().item())
+            #logs["eval step_count"].append(eval_rollout["step_count"].max().item())
+            
+            
+            
+            #eval_str = (
+            #    f"eval cumulative reward: {logs['eval reward (sum)'][-1]: 4.4f} "
+            #    f"(init: {logs['eval reward (sum)'][0]: 4.4f}), "
+            #    f"eval step-count: {logs['eval step_count'][-1]}"
+            #)
 
-            myLogger.dumpLogger(printOut = False)
+            
             del eval_rollout
             
-    pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
+    #pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
 
     # We're also using a learning rate scheduler. Like the gradient clipping,
     # this is a nice-to-have but nothing necessary for PPO to work.

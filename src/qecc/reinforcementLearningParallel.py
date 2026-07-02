@@ -200,11 +200,14 @@ if __name__ == "__main__":
 
     actor_net = nn.Sequential(
         nn.LazyLinear(num_cells, device=policy_device),
-        nn.Tanh(),
+        #nn.Tanh(),
+        nn.Identity(),
         nn.LazyLinear(num_cells, device=policy_device),
-        nn.Tanh(),
+        #nn.Tanh(),
+        nn.Identity(),
         nn.LazyLinear(num_cells, device=policy_device),
-        nn.Tanh(),
+        #nn.Tanh(),
+        nn.Identity(),
         nn.LazyLinear(action_size, device=policy_device),
     )
 

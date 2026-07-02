@@ -17,3 +17,6 @@ decoderComparisonData*
 /docs
 .claude
 /rl-qecc-data
+*ppo_multidiscrete.py
+*ppo_sb3.py
+*rewardInvestigation*
