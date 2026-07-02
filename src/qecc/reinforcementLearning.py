@@ -86,10 +86,7 @@ if __name__ == "__main__":
         help="Number of parallel environment worker processes. Defaults to "
              "$SLURM_CPUS_PER_TASK, then $QECC_NUM_WORKERS, then os.cpu_count().",
     )
-    parser.add_argument(
-        "--total-frames", type=int, default=1_000_000,
-        help="Total number of environment frames to collect across all workers.",
-    )
+    
     parser.add_argument(
         "--eval-horizon", type=int, default=1000,
         help="Number of steps in the periodic evaluation rollout (every 10 training iterations). "
@@ -151,8 +148,9 @@ if __name__ == "__main__":
         help="Epsilon for the entropy bonus."
     )
 
-    total_frames = parser.parse_args().total_frames
-    frames_per_batch = parser.parse_args().frames_per_batch
+    scaling_factor = parser.parse_args().scaling_factor
+    total_frames = parser.parse_args().total_frames * scaling_factor
+    frames_per_batch = parser.parse_args().frames_per_batch * scaling_factor
     max_grad_norm = parser.parse_args().max_grad_norm
     sub_batch_size = parser.parse_args().sub_batch_size
     num_epochs = parser.parse_args().num_epochs
