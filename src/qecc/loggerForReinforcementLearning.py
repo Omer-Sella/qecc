@@ -126,15 +126,20 @@ class logger():
 
 #        if  mpiProcessID() == 0:
         if logPath == None:
-            self.logPath = str(DATA_LOGGING_PATH) + "/temp/experiments/%i" %int(time.time())
+            date_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(time.time()))
+
+            self.logPath = str(DATA_LOGGING_PATH)  + "/" + date_string # "/%i" %int(time.time())
         else:
             self.logPath = logPath
         if os.path.exists(self.logPath):
             print("Warning: Log dir %s already exists."%self.logPath)
         else:
+            print(f"Creating log dir {self.logPath}...")
             os.makedirs(self.logPath)
+            print(f"Checking the directory was created: {os.path.exists(self.logPath)}")
         #self.fileName = os.path.join(self.logPath, fileName)
         self.fileName = fileName
+        self.fullPath = os.path.join(self.logPath, self.fileName)
         self.hdf5FileName = os.path.join(self.logPath, hdf5FileName)
         # else:
         #     self.logPath = None
@@ -149,7 +154,7 @@ class logger():
         for key in keys:
             self.columnKeys.append(key)
         #if mpiProcessID() == 0:            
-        with open(self.fileName, 'w') as fid:
+        with open(self.fullPath, 'w') as fid:
             fid.write("\t".join(self.columnKeys)+"\n")
             #with h5py.File(self.hdf5FileName, 'a') as fid:
             #    for key in self.columnKeys:
@@ -165,7 +170,7 @@ class logger():
             self.currentRow[key] = value
         return 'OK'
         
-    def dumpLogger(self):
+    def dumpLogger(self, printOut = True):
         #if mpiProcessID() == 0:
         values = []
         keyLengths = []
@@ -180,50 +185,26 @@ class logger():
         for key in self.columnKeys:
             value = self.currentRow.get(key, "")
             if isinstance(value, np.ndarray):
-                valueString = np.array2string(value, max_line_width = UTILITY_FUNCTIONS_BIG_NUMBER, threshold = UTILITY_FUNCTIONS_BIG_NUMBER)
+                valueString = np.array2string(value, max_line_width = UTILITY_FUNCTIONS_BIG_NUMBER, threshold = np.inf)
             elif hasattr(value, "__float__"):
                 valueString = str(value)# TODO Omer: I temporarily placed this under comment, need to figure out if we want all these logits."%8.3g"%value
             else:
                 valueString = value
-            print(stringFormat%(key, valueString))
+            if printOut:
+                print(stringFormat%(key, valueString))
             values.append(valueString)
-        print("-"*numberOfDashes, flush=True)
-        if self.fileName is not None:
-            with open(os.path.join(self.logPath, self.fileName), 'a') as fid:
-                fid.write("\t".join(map(str,values))+"\n")
-                fid.flush()
-            
-            
+        if printOut:
+            print("-"*numberOfDashes, flush=True)
+        
+        with open(self.fullPath, 'a') as fid:
+            fid.write("\t".join(map(str,values))+"\n")
+            fid.flush()    
             self.currentRow.clear()
                 
     def setupPytorchSave(self, parametersToSave):
         self.pytorchElementsToSave = parametersToSave
 
-def testLogger():
-    status = 'OK'
-    keys = ['minimum', 'maximum', 'average', 'serialNumber']
-    myLogger = logger(keys)
-    myLogger.logPrint("Hello world !")
-    myLogger.logPrint("Hello world !", "red")
-    for i in range(10):
-        myLogger.keyValue('minimum', np.random.random())
-        myLogger.keyValue('maximum', 15 + np.random.random())
-        myLogger.keyValue('average', 20 +np.random.random())
-        myLogger.keyValue('serialNumber', 90210)
-        myLogger.dumpLogger()
-    return status
-
-def testPlotter():
-    
-    myPlotter = plotter(epochs = 50)
-    for i in range(50):
-        myPlotter.step(np.random.random())
-    fileName = DATA_LOGGING_PATH + "/localData/plotterTest/testingPlotter.mp4"
-    status = myPlotter.saveAnimation(fileName)
-    return status
 
 
 if __name__ == '__main__':
-    print(testLogger())
-    #print(status)
-    #status = testPlotter()
+    pass

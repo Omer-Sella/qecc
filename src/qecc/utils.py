@@ -29,6 +29,8 @@ def minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteratio
 
     Notes
     -----
+    This is not an evalaution as a quantum code, meaning - we check that the result of the decoder is the same as the original error.
+    We do not check whether the residual error is a logical error or not. 
     Concurrent futures require the seed to be between 0 and 2**32 -1
     """
     codewordSize = H.shape[1]
@@ -82,6 +84,8 @@ def memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteration
 
     Notes
     -----
+    This is not an evalaution as a quantum code, meaning - we check that the result of the decoder is the same as the original error.
+    We do not check whether the residual error is a logical error or not. 
     Concurrent futures require the seed to be between 0 and 2**32 -1
     """
     codewordSize = H.shape[1]
@@ -109,7 +113,11 @@ def memBPEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteration
         print(numberOfBits / timeTotal)
     return berArray / (numberOfTransmissions * codewordSize)
 
-def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion):
+def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion, ms_scaling_factor = 0.625, osd_method = "osd0", osd_order = 0):
+    """
+    Check description here: https://github.com/quantumgizmos/bp_osd/blob/main/README.ipynb
+    Remember that Roffe's decoder is really a classical binary decoder !
+    """
     from ldpc import BpOsdDecoder
     p_error = np.average(initialValues[:,1]) # initialValues[i,1] is the probability of error for the ith coordinate
     bpDecoder=BpOsdDecoder(H,#the parity check matrix
@@ -117,15 +125,18 @@ def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion):
         channel_probs= initialValues[:,1], #assign error_rate to each qubit. This will override "error_rate" input variable
         max_iter=decoderStoppingCriterion, #the maximum number of iterations for BP)
         bp_method="ms",
-        ms_scaling_factor=0, #min sum scaling factor. If set to zero the variable scaling factor method is used
-        osd_method="osd0", #the OSD method. Choose from:  1) "osd_e", "osd_cs", "osd0"
-        osd_order=0 #the osd search depth
+        ms_scaling_factor=ms_scaling_factor, #min sum scaling factor. If set to zero the variable scaling factor method is used
+        osd_method=osd_method, #the OSD method. Choose from:  1) "osd_e", "osd_cs", "osd0"
+        osd_order=osd_order #the osd search depth
         )
     result = bpDecoder.decode(syndrome)
-    return result, True
+    return result, True # TODO: What does Roffe's decoder return in the case of decoder failure ? (assuming it counts it as a logical error)
 
 def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderStoppingCriterion, numberOfSamples, seed = None):
     """
+    A single function to evaluate quantum decoders over the depolarizing channel. 
+    What this means is, that the decoder spits out a correction, this is then added to the actual error, and tested for logical errors.
+    
     Arguments:
     Hx, Hz: A pair of binary matrices. Use the codes in polynomialCodes.py
     errorRange: A range of probabilities
@@ -173,7 +184,6 @@ def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderSto
             if not success:
                 decoderFailureRate[i] = decoderFailureRate[i] + 1
             else:
-
                 #If the decoder thinks it succeeded (success == True), then test the residual error, i.e.: the (gf(4)) sum of the estimated error and the original error, to see if either: 
                 #It does not amount to a 0 syndrome (this means the decoder is wrong, meaning - it thinks that the estimatedError + error is a stabilizer, and that it countered the effect of the error up to a stabilizer, but it didn't, and the result is not in the normalizer).
                 #It is a logical error.
@@ -192,11 +202,15 @@ def decoderEvaluator(decoderFunction, dualBinary, Hx, Hz, errorRange, decoderSto
 
 
 def binaryDecoderToDualBinaryDecoderWrapper(binaryDecoderFunction):
+    # This wrapper was meant to take a binary decoder, and transform it into a dual-binary decoder. 
+    # There is no logic or calculation aside from the decoder.
     def dualDecoder(Hx, Hz, syndromeX, syndromeZ, initialValuesX, initialValuesZ, decoderStoppingCriterion):
         estimatedErrorZ, successZ = binaryDecoderFunction(Hx, syndromeX, initialValuesX,decoderStoppingCriterion)
         estimatedErrorX, successX = binaryDecoderFunction(Hz, syndromeZ, initialValuesZ,decoderStoppingCriterion)
         return estimatedErrorX, estimatedErrorZ, successX and successZ
     return dualDecoder
+
+
 
 
 
@@ -210,12 +224,12 @@ if __name__ == "__main__":
     import json
     import time
     # Check quaternary BP is working
-    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001], decoderStoppingCriterion = 20, numberOfSamples = 10)
+    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.0001, 0.001, 0.01], decoderStoppingCriterion = 20, numberOfSamples = 10)
     #print(f"Logical error rate: {logicalER}")
     #print(f"Decoder failure rate: {decoderFailureRate}")
     
     # Check minsum decoder is working
-    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.01, 0.001, 0.0001], decoderStoppingCriterion = 20, numberOfSamples = 10)
+    #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = A1_HX, Hz = A1_HZ, errorRange = [0.0001, 0.001, 0.01], decoderStoppingCriterion = 20, numberOfSamples = 10)
     #print(f"Logical error rate: {logicalER}")
     #print(f"Decoder failure rate: {decoderFailureRate}")
     
@@ -240,22 +254,38 @@ if __name__ == "__main__":
     #errorRateDualBinaryMinSum = {}
     timeMeasured = {}
     dualRoffeDecoder = binaryDecoderToDualBinaryDecoderWrapper(wrapperForRoffesLdpc)
+    #bpOsdDecoder = wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion, ms_scaling_factor = 0.625, osd_method = "osd0", osd_order = 0)
+    
+    
     for key, value in bbCodes.items():
-    #value = bbCodes["72_12_6"]
-    #key = "72_12_6"
+        errorRate = {}
+        #errorRateDualBinaryMinSum = {}
+        timeMeasured = {}
+        #value = bbCodes["72_12_6"]
+        #key = "72_12_6"
         print(f"Characterizing code {key}")
         start = time.time()
-        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
-        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
+        logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = dualRoffeDecoder, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
+        #logicalER, decoderFailureRate = decoderEvaluator(decoderFunction = refinedBPalgorithm3, dualBinary = False, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES)
         end = time.time()
         #print(f"Logical error rate: {logicalER}")
         #print(f"Decoder failure rate: {decoderFailureRate}")
         #print(f"Time taken: {end - start}")
-    
-    # #logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
+
+        #logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
         combinedErrors = logicalER + decoderFailureRate
-        errorRate[key] = combinedErrors
-        timeMeasured[key] = end-start
-    data = {"errorRange": errorRange, "errorRate": errorRate, "time": timeMeasured, "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, "Number of samples": NUMBER_OF_SAMPLES}
-    
-    np.save("/rds/general/user/osella/home/qecc/decoderComparisonData/bbCodesQBP_50_100", data, allow_pickle=True)
+        errorRate = combinedErrors
+        
+        timeMeasured = end-start
+        data = {"Code name": key, 
+                "errorRange": errorRange, 
+                "logicalErrorRate": logicalER, 
+                "decoderFailureRate":decoderFailureRate, 
+                "errorRate": errorRate, "time": timeMeasured, 
+                "logicalER": logicalER,
+                "decoderFER": decoderFailureRate,
+                "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, 
+                "Number of samples": NUMBER_OF_SAMPLES, 
+                "Decoder": "Dual binary BPOSD" }
+        fileName = "c:/users/omer/qecc/decoderComparisonData/dualBPOSD_" + key + ".npy"
+        np.save(fileName, data, allow_pickle=True)

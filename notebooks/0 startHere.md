@@ -27,3 +27,22 @@ polinomialCodes.py contains codes that were introduced in a paper by Panteleev a
 relaybp.py is my own implementation of relay BP from a paper by IBM.
 
 
+## Where to find thing (glossary ?)
+
+1. Decoder outcomes (logical error rate, failure, error) discussed in quaternaryBeliefPropagationAndOsd.
+
+2. The methodology to evaluate codes and decoders is explained first in the abscence of a decoder in the noise.ipynb nootebook.
+
+3. Evaluation of codes and decoders are done in utils.py, and saved to npy files, which are later post processed in postProcessing.py. Note that a decoder can be evaluated as a classical binary decoder (so correction should match the error), or as a quantum decoder (correction + error should be a stabilizer).
+
+4. The logical operators of a code are computed in logicals.py
+
+5. A first attempt at an environment for bivariate bicycle codes is at bb_gym.py, this is a stateless environment. 
+
+6. A non parallel reinfocrement learning using PPO is at reinforcementLearning.py. This is then made into a PPO that uses multiple environments in parallel in reinforcementLearningParallel.py
+
+
+
+
+
+
