@@ -181,7 +181,8 @@ class logger():
         keyString = '%'+'%d'%maximalKeyLength
         stringFormat = "| " + keyString + "s | %15s |"
         numberOfDashes = 22 + maximalKeyLength
-        print("-"*numberOfDashes)
+        if printOut:
+            print("-"*numberOfDashes)
         for key in self.columnKeys:
             value = self.currentRow.get(key, "")
             if isinstance(value, np.ndarray):

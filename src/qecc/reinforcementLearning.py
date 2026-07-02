@@ -86,12 +86,7 @@ if __name__ == "__main__":
         help="Number of parallel environment worker processes. Defaults to "
              "$SLURM_CPUS_PER_TASK, then $QECC_NUM_WORKERS, then os.cpu_count().",
     )
-    
-    parser.add_argument(
-        "--eval-horizon", type=int, default=1000,
-        help="Number of steps in the periodic evaluation rollout (every 10 training iterations). "
-             "Reduce to a small value (e.g. 3) for smoke-testing.",
-    )
+
     
     parser.add_argument(
         "--num-cells", type=int, default=256,
