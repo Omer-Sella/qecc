@@ -9,7 +9,7 @@ device
 from torch import nn
 
 
-def create_actor_value_nets(num_cells, device):
+def create_actor_value_nets(action_spec, num_cells, device):
 
     actor_net = nn.Sequential(
         nn.LazyLinear(num_cells, device=device),
@@ -21,7 +21,7 @@ def create_actor_value_nets(num_cells, device):
         nn.LazyLinear(num_cells, device=device),
         #nn.Tanh(),
         nn.Identity(),
-        nn.LazyLinear(env.action_spec.shape[-1], device=device),
+        nn.LazyLinear(action_spec.shape[-1], device=device),
     )
     return actor_net
 

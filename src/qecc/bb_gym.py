@@ -3,9 +3,8 @@ import gymnasium as gym
 from gymnasium import spaces
 from scipy.integrate import trapezoid
 from qecc.polynomialCodes import generateBicycleCode, generateABmatrices
-from qecc.utils import decoderEvaluator
 from qecc.logicals import calculateCodeDimension
-import copy
+
 INT_DATA_TYPE = np.int16
 NEGATIVE_REWARD = -1
 # Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
@@ -22,7 +21,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, evaluationDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None):
+    def __init__(self, l, m, evaluationDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, rewardEngineering = None):
         
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
@@ -66,6 +65,12 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         self.flatObservationSize = ((self._l * self._m) ** 2) * 2
         
         self.observation_space = spaces.MultiBinary(self.flatObservationSize)
+        if rewardEngineering is not None:
+            def rewardEngineeringFunction(plainReward):
+                return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
+            self.rewardEngineering = rewardEngineeringFunction
+        else:
+            self.rewardEngineering = lambda x: x
     
     # Gymnasium spec requires a render function and a close function:
     def render(self):
@@ -125,11 +130,13 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                                np.where(self.bX !=0)[0], 
                                                np.where(self.bY !=0)[0])
         # Omer: check that the resulting code admits the necessary logical qubits
-        if calculateCodeDimension(self.Hx, self.Hz) >= self.minimumNumberOfLogicalQubits:    
+        
+        numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
+        if  numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:    
             logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
-            reward = self._calculateReward(logicalErrorRate, decoderFailureRate)
+            reward = self.rewardEngineering(self._calculateReward(logicalErrorRate, decoderFailureRate))
         else:
-            reward = NEGATIVE_REWARD
+            reward = np.exp(self.minimumNumberOfLogicalQubits - numberOfLogicalQubits)
 
         terminated = False
         observation = self._getObservation()
@@ -180,13 +187,15 @@ def makeTestAction_6_6():
     
 
 if __name__ == "__main__":
+
+    # Some basic examples of how to use:
     l = 6
     m = 6
     device = 'cpu'
     
     # Check the environment works with GymEnv
     from torchrl.envs.libs.gym import GymEnv
-    from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
+    from torchrl.envs.utils import check_env_specs
     base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
 
     check_env_specs(base_env)

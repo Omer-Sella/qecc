@@ -54,14 +54,14 @@ def test_observationSpaceSize():
 
 
 def test_resetReturnsCorrectShapes():
-    env = _make_v2_env_with_dualBinaryBPOSDDecoder
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     obs, info = env.reset()
     assert obs.shape == (env.flatObservationSize,)
     assert isinstance(info, dict)
 
 
 def test_resetZerosPolynomials():
-    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     env.reset()
     assert np.all(env.aX == 0)
     assert np.all(env.aY == 0)
@@ -70,7 +70,7 @@ def test_resetZerosPolynomials():
 
 
 def test_bitFlipChangesPolynomial():
-    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     env.reset()
     # flip aX[2]; no-op on aY (5), bX (5), bY (5)
     env.step(np.array([2, 5, 5, 5]))
@@ -82,7 +82,7 @@ def test_bitFlipChangesPolynomial():
 
 
 def test_doubleFlipRestores():
-    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     env.reset()
     env.step(np.array([2, 5, 5, 5]))
     env.step(np.array([2, 5, 5, 5]))
@@ -90,7 +90,7 @@ def test_doubleFlipRestores():
 
 
 def test_noOpLeavesAllPolynomialsUnchanged():
-    env = _make_v2_env_with_dualBinaryBPOSDDecoder(max_ax=5, max_ay=5, max_bx=5, max_by=5)
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     env.reset()
     env.step(np.array([5, 5, 5, 5]))  # all no-ops
     assert np.all(env.aX == 0)
@@ -100,7 +100,7 @@ def test_noOpLeavesAllPolynomialsUnchanged():
 
 
 def test_stepReturnSignature():
-    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     env.reset()
     obs, reward, terminated, truncated, info = env.step(np.array([2, 1, 3, 4]))
     assert obs.shape == (env.flatObservationSize,)
@@ -123,7 +123,7 @@ def test_observationIncludesPolynomialCoefficients():
 
 def test_stepReturnsNegativeRewardWhenDimensionTooLow():
     # Use an impossibly high threshold so no code can satisfy it
-    env = _make_v2_env_with_dualBinaryBPOSDDecoder(minimumNumberOfLogicalQubits=10000)
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,minimumNumberOfLogicalQubits=10000)
     env.reset()
     _, reward, *_ = env.step(np.array([2, 1, 3, 4]))
     assert reward == NEGATIVE_REWARD

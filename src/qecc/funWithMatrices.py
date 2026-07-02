@@ -2,14 +2,13 @@
 Fun with matrices, in honour of Dr. James Wotton's brilliant video lecture
 """
 
-from sympy.matrices import Matrix, eye, zeros, ones, diag, GramSchmidt
-from sympy import symbols, shape, init_printing, Basic, And, Xor, Not, simplify_logic
+from sympy.matrices import Matrix
+from sympy import symbols, And, Xor
 import numpy as np
-import matplotlib.pyplot as plt
 
 seed = 777
 localRandom = np.random.RandomState(seed)
-from numpy.linalg import matrix_rank
+
 import copy
 BINARY_DATA_TYPE = np.int32
 
@@ -161,7 +160,7 @@ def binaryDeterminant(matrix, rowNumber = 0):
 
     
     if not (matrix.shape[0] == matrix.shape[1]):
-        raise("Determinant of matrices is only supported for squrae matrices.")
+        raise ValueError("Determinant of matrices is only supported for square matrices.")
     
     if matrix.shape[0] == 2:
         determinantResult =  (matrix[0,0] * matrix[1,1]) + (matrix[0,1] * matrix[1,0]) %2

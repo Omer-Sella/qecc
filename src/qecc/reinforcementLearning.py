@@ -14,12 +14,10 @@ from qecc.loggerForReinforcementLearning import logger
 import warnings
 warnings.filterwarnings("ignore")
 from torch import multiprocessing
-from collections import defaultdict
 import torch
 from tensordict.nn import TensorDictModule
 #from tensordict.nn.distributions import NormalParamExtractor
 from torch.distributions import Bernoulli
-from torch import nn
 from torchrl.collectors import Collector as SyncDataCollector #Omer I dropped in Collector instead of SyncDataCollector
 from torchrl.data.replay_buffers import ReplayBuffer
 from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
@@ -27,14 +25,17 @@ from torchrl.data.replay_buffers.storages import LazyTensorStorage
 from torchrl.envs import (Compose, DoubleToFloat, ObservationNorm, StepCounter,
                           TransformedEnv)
 from torchrl.envs.libs.gym import GymEnv
-from torchrl.envs.utils import check_env_specs, ExplorationType, set_exploration_type
+from torchrl.envs.utils import ExplorationType, set_exploration_type
 from torchrl.modules import ProbabilisticActor, ValueOperator
 from torchrl.objectives import ClipPPOLoss
 from torchrl.objectives.value import GAE
 from tqdm import tqdm
 from torchrl.envs.transforms import Transform
 from torch.distributions import Bernoulli, Independent
-from qecc.bb_gym import exampleDecoderFunction, exampleDecoderFunction2, makeTestAction_6_6
+from qecc.bb_gym import exampleDecoderFunction2
+import argparse
+from qecc.modelArchitectures import create_actor_value_nets, create_value_net
+
 
 #myKeys = ['Observation', 'actorEntropy', 'logP',
 myKeys = ['Reward', 
@@ -77,235 +78,233 @@ class IndependentBernoulli(Independent):
         super().__init__(Bernoulli(logits=logits), 1)
 
 
-is_fork = multiprocessing.get_start_method() == "fork"
-device = (
-    torch.device(0)
-    if torch.cuda.is_available() and not is_fork
-    else torch.device("cpu")
-)
 
-
-
-
-num_cells = 256  # number of cells in each layer i.e. output dim.
-lr = 3e-4 # Learning rate
-max_grad_norm = 1.0
-eval_rollout_length = 5
-SCALING_FACTOR = 1 # Use 1 for logger testing
-frames_per_batch = 100 * SCALING_FACTOR
-
-total_frames = 5_000 * SCALING_FACTOR #50_000
-
-sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
-num_epochs = 10  # optimization steps per batch of data collected
-clip_epsilon = (
-    0.2  # clip value for PPO loss: see the equation in the intro for more context.
-)
-gamma = 0.99
-lmbda = 0.95
-entropy_eps = 1e-4
-
-
-#print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 1) 
-
-#print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
-env = TransformedEnv(
-    base_env,
-    Compose(
-        CastToFloat(),                          # int8 → float32
-        ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
-        DoubleToFloat(),
-        StepCounter(),
-    ),
-)
-
-#env.transform[1].init_stats(num_iter=1000, reduce_dim=0, cat_dim=0) #Omer: Don't use this random statistical way, it's time consuming and we know what the observations look like anyway.
-
-#check_env_specs(env) - Omer: We are not expecting the env observations to pass checks anymore, since we changed them to -1,1 instead of 0,1
-
-
-#observation, reward,_, _ ,_= env.step(testAction)
-
-
-
-
-
-actor_net = nn.Sequential(
-    nn.LazyLinear(num_cells, device=device),
-    nn.Identity(),
-    #nn.Tanh(),
-    nn.LazyLinear(num_cells, device=device),
-    #nn.Tanh(),
-    nn.Identity(),
-    nn.LazyLinear(num_cells, device=device),
-    #nn.Tanh(),
-    nn.Identity(),
-    nn.LazyLinear(env.action_spec.shape[-1], device=device),
-)
-
-
-
-policy_module = TensorDictModule(
-    actor_net, in_keys=["observation"], out_keys=["logits"]
-)
-
-policy_module = ProbabilisticActor(
-    module=policy_module,
-    spec=env.action_spec,
-    in_keys=["logits"],
-    #distribution_class=Bernoulli,
-    distribution_class=IndependentBernoulli, #Omer: note the change here. This is because we nee log_prob to be a single number, and a Bernoulli distribution returns one log_prob per coordinate.
-    return_log_prob=True,
-)
-
-value_net = nn.Sequential(
-    nn.LazyLinear(num_cells, device=device),
-    #nn.Tanh(),
-    nn.Identity(),
-    nn.LazyLinear(num_cells, device=device),
-    #nn.Tanh(),
-    nn.Identity(),
-    nn.LazyLinear(num_cells, device=device),
-    #nn.Tanh(),
-    nn.Identity(),
-    nn.LazyLinear(1, device=device),
-)
-
-value_module = ValueOperator(
-    module=value_net,
-    in_keys=["observation"],
-)
-
-print("Running policy:", policy_module(env.reset()))
-print("Running value:", value_module(env.reset()))
-
-collector = SyncDataCollector(
-    env,
-    policy_module,
-    frames_per_batch=frames_per_batch,
-    total_frames=total_frames,
-    split_trajs=False,
-    device=device,
-)
-
-replay_buffer = ReplayBuffer(
-    storage=LazyTensorStorage(max_size=frames_per_batch),
-    sampler=SamplerWithoutReplacement(),
-)
-
-advantage_module = GAE(
-    gamma=gamma, lmbda=lmbda, value_network=value_module, average_gae=True, device=device,
-)
-
-loss_module = ClipPPOLoss(
-    actor_network=policy_module,
-    critic_network=value_module,
-    clip_epsilon=clip_epsilon,
-    entropy_bonus=bool(entropy_eps),
-    entropy_coeff=entropy_eps, #Note the move from coef to coeff
-    # these keys match by default but we set this for completeness
-    critic_coeff=1.0, # Note the move from coef to coeff
-    loss_critic_type="smooth_l1",
-)
-
-optim = torch.optim.Adam(loss_module.parameters(), lr)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-    optim, total_frames // frames_per_batch, 0.0
-)
-
-#logs = defaultdict(list)
-pbar = tqdm(total=total_frames)
-eval_str = ""
-
-# We iterate over the collector until it reaches the total number of frames it was
-# designed to collect:
-for i, tensordict_data in enumerate(collector):
-    # we now have a batch of data to work with. Let's learn something from it.
-    print(f"i == {i}")
-    for epochNumber in range(num_epochs):
-        # myLogger.keyValue("epochNumber", epochNumber)
-        # We'll need an "advantage" signal to make PPO work.
-        # We re-compute it at each epoch as its value depends on the value
-        # network which is updated in the inner loop.
-        advantage_module(tensordict_data)
-        data_view = tensordict_data.reshape(-1)
-        replay_buffer.extend(data_view.cpu())
-        for _ in range(frames_per_batch // sub_batch_size):
-            subdata = replay_buffer.sample(sub_batch_size)
-            loss_vals = loss_module(subdata.to(device))
-            loss_value = (
-                loss_vals["loss_objective"]
-                + loss_vals["loss_critic"]
-                + loss_vals["loss_entropy"]
-            )
-
-            # Optimization: backward, grad clipping and optimization step
-            loss_value.backward()
-            # this is not strictly mandatory but it's good practice to keep
-            # your gradient norm bounded
-            torch.nn.utils.clip_grad_norm_(loss_module.parameters(), max_grad_norm)
-            optim.step()
-            optim.zero_grad()
-
-    #logs["reward"].append(tensordict_data["next", "reward"].mean().item())
-    #myLogger.keyValue("Reward", tensordict_data["next", "reward"].mean().item())
-    pbar.update(tensordict_data.numel())
-    #cum_reward_str = (
-    #    f"average reward={logs['reward'][-1]: 4.4f} (init={logs['reward'][0]: 4.4f})"
-    #)
-    #logs["step_count"].append(tensordict_data["step_count"].max().item())
-    #myLogger.keyValue("step_count", tensordict_data["step_count"].max().item())
-    #stepcount_str = f"step count (max): {logs['step_count'][-1]}"
-    #logs["lr"].append(optim.param_groups[0]["lr"])
-    #myLogger.keyValue("lr", optim.param_groups[0]["lr"])
-
-    #lr_str = f"lr policy: {logs['lr'][-1]: 4.4f}"
-    if i % 10 == 0:
-        # We evaluate the policy once every 10 batches of data.
-        # Evaluation is rather simple: execute the policy without exploration
-        # (take the expected value of the action distribution) for a given
-        # number of steps (1000, which is our ``env`` horizon).
-        # The ``rollout`` method of the ``env`` can take a policy as argument:
-        # it will then execute this policy at each step.
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--num-workers", type=int, default=None,
+        help="Number of parallel environment worker processes. Defaults to "
+             "$SLURM_CPUS_PER_TASK, then $QECC_NUM_WORKERS, then os.cpu_count().",
+    )
+    parser.add_argument(
+        "--total-frames", type=int, default=1_000_000,
+        help="Total number of environment frames to collect across all workers.",
+    )
+    parser.add_argument(
+        "--eval-horizon", type=int, default=1000,
+        help="Number of steps in the periodic evaluation rollout (every 10 training iterations). "
+             "Reduce to a small value (e.g. 3) for smoke-testing.",
+    )
+    
+    parser.add_argument(
+        "--num-cells", type=int, default=256,
+        help="Number of cells in each layer of the actor and value networks.", #  num_cells = 256  # number of cells in each layer i.e. output dim.
+    )
         
-        with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
-            # execute a rollout with the trained policy
-            
-            
-            eval_rollout = env.rollout(eval_rollout_length, policy_module) # I changed the rollout from 1000 to 5
-            #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
-            dist = policy_module.get_dist(eval_rollout)
-            entropyDuringEvaluation = dist.entropy().cpu().numpy()
-            for k in range(eval_rollout_length):
-                myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
-                #myLogger.keyValue("observation", eval_rollout["observation"].cpu().numpy()[k])
-                #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
-                myLogger.keyValue("reward", eval_rollout["next", "reward"].cpu().numpy()[k].item())
-                myLogger.keyValue("policy entropy", entropyDuringEvaluation[k].item())
-                myLogger.dumpLogger(printOut = False)
-            #logs["eval reward (sum)"].append(
-            #    eval_rollout["next", "reward"].sum().item()
-            #)
-            #myLogger.keyValue("eval reward sum", eval_rollout["next", "reward"].sum().item())
-            #logs["eval step_count"].append(eval_rollout["step_count"].max().item())
-            
-            
-            
-            #eval_str = (
-            #    f"eval cumulative reward: {logs['eval reward (sum)'][-1]: 4.4f} "
-            #    f"(init: {logs['eval reward (sum)'][0]: 4.4f}), "
-            #    f"eval step-count: {logs['eval step_count'][-1]}"
-            #)
+    parser.add_argument(
+        "--lr", type=float, default=3e-4,
+        help="Learning rate for the Adam optimizer.", #lr = 3e-4 # Learning rate
+    )
+    parser.add_argument(
+        "--max-grad-norm", type=float, default=1.0, #max_grad_norm = 1.0
+    )
 
-            
-            del eval_rollout
-            
-    #pbar.set_description(", ".join([eval_str, cum_reward_str, stepcount_str, lr_str]))
+    parser.add_argument(
+        "--eval-rollout-length", type=int, default=50,
+        help="Length of the evaluation rollout.",
+    )
+    parser.add_argument(
+        "--scaling-factor", type=int, default=1, #SCALING_FACTOR = 1 # Use 1 for logger testing
+        help="Scaling factor for frames per batch and total frames. Use 1 for logger testing, or checking that everything works"
+    )
+    parser.add_argument(
+        "--frames-per-batch", type=int, default=100, #frames_per_batch = 100 * SCALING_FACTOR
+        help="Number of frames to collect per batch. Will be multiplied by the scaling factor."
+    )
+    parser.add_argument(
+        "--sub-batch-size", type=int, default=64, #sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
+        help="Size of the sub-batches for optimization. Will be multiplied by the scaling factor."
+    )
+    parser.add_argument(
+        "--num-epochs", type=int, default=10, #num_epochs = 10
+    )
+    parser.add_argument(
+        "--total-frames", type=int, default=5_000, #total_frames = 5_000 * SCALING_FACTOR #50_000
+        help="Total number of environment frames to collect across all environments in the collector. Will be multiplied by the scaling factor."
+    )
 
-    # We're also using a learning rate scheduler. Like the gradient clipping,
-    # this is a nice-to-have but nothing necessary for PPO to work.
-    scheduler.step()
+    parser.add_argument(
+        "--clip-epsilon", type=float, default=0.2, #clip_epsilon = 0.2  # clip value for PPO loss: see the equation in the intro for more context.
+        help = "Clip value for PPO loss."
+    )
 
-torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
-torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
+    parser.add_argument(
+        "--gamma", type=float, default=0.99, #gamma = 0.99
+        help="Discount factor for the RL algorithm."
+    )
+    parser.add_argument(
+        "--lmbda", type=float, default=0.95, #lmbda = 0.95
+        help="Lambda parameter for GAE."
+    )
+    parser.add_argument(
+        "--entropy-eps", type=float, default=1e-4, #entropy_eps = 1e-4
+        help="Epsilon for the entropy bonus."
+    )
+
+    total_frames = parser.parse_args().total_frames
+    frames_per_batch = parser.parse_args().frames_per_batch
+    max_grad_norm = parser.parse_args().max_grad_norm
+    sub_batch_size = parser.parse_args().sub_batch_size
+    num_epochs = parser.parse_args().num_epochs
+    eval_rollout_length = parser.parse_args().eval_rollout_length
+    lr = parser.parse_args().lr
+    num_cells = parser.parse_args().num_cells
+    clip_epsilon = (
+        parser.parse_args().clip_epsilon
+        )
+    gamma = parser.parse_args().gamma
+    lmbda = parser.parse_args().lmbda
+    entropy_eps = parser.parse_args().entropy_eps
+
+    is_fork = multiprocessing.get_start_method() == "fork"
+    device = (
+        torch.device(0)
+        if torch.cuda.is_available() and not is_fork
+        else torch.device("cpu")
+    )
+
+    #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
+    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 1, rewardEngineering = True) 
+
+    #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
+    env = TransformedEnv(
+        base_env,
+        Compose(
+            CastToFloat(),                          # int8 → float32
+            ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
+            DoubleToFloat(),
+            StepCounter(),
+        ),
+    )
+    actor_net = create_actor_value_nets(env.action_spec, num_cells, device=device)
+    value_net = create_value_net(num_cells, device=device)
+    
+    policy_module = TensorDictModule(
+        actor_net, in_keys=["observation"], out_keys=["logits"]
+    )
+
+    policy_module = ProbabilisticActor(
+        module=policy_module,
+        spec=env.action_spec,
+        in_keys=["logits"],
+        #distribution_class=Bernoulli,
+        distribution_class=IndependentBernoulli, #Omer: note the change here. This is because we nee log_prob to be a single number, and a Bernoulli distribution returns one log_prob per coordinate.
+        return_log_prob=True,
+    )
+
+    
+    value_module = ValueOperator(
+        module=value_net,
+        in_keys=["observation"],
+    )
+
+    collector = SyncDataCollector(
+        env,
+        policy_module,
+        frames_per_batch=frames_per_batch,
+        total_frames=total_frames,
+        split_trajs=False,
+        device=device,
+    )
+
+    replay_buffer = ReplayBuffer(
+        storage=LazyTensorStorage(max_size=frames_per_batch),
+        sampler=SamplerWithoutReplacement(),
+    )
+
+    advantage_module = GAE(
+        gamma=gamma, lmbda=lmbda, value_network=value_module, average_gae=True, device=device,
+    )
+
+    loss_module = ClipPPOLoss(
+        actor_network=policy_module,
+        critic_network=value_module,
+        clip_epsilon=clip_epsilon,
+        entropy_bonus=bool(entropy_eps),
+        entropy_coeff=entropy_eps, #Note the move from coef to coeff
+        # these keys match by default but we set this for completeness
+        critic_coeff=1.0, # Note the move from coef to coeff
+        loss_critic_type="smooth_l1",
+    )
+
+    optim = torch.optim.Adam(loss_module.parameters(), lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optim, total_frames // frames_per_batch, 0.0
+    )
+
+    #logs = defaultdict(list)
+    pbar = tqdm(total=total_frames)
+    eval_str = ""
+
+    # We iterate over the collector until it reaches the total number of frames it was
+    # designed to collect:
+    for i, tensordict_data in enumerate(collector):
+        # we now have a batch of data to work with. Let's learn something from it.
+        for epochNumber in range(num_epochs):
+            # myLogger.keyValue("epochNumber", epochNumber)
+            # We'll need an "advantage" signal to make PPO work.
+            # We re-compute it at each epoch as its value depends on the value
+            # network which is updated in the inner loop.
+            advantage_module(tensordict_data)
+            data_view = tensordict_data.reshape(-1)
+            replay_buffer.extend(data_view.cpu())
+            for _ in range(frames_per_batch // sub_batch_size):
+                subdata = replay_buffer.sample(sub_batch_size)
+                loss_vals = loss_module(subdata.to(device))
+                loss_value = (
+                    loss_vals["loss_objective"]
+                    + loss_vals["loss_critic"]
+                    + loss_vals["loss_entropy"]
+                )
+
+                # Optimization: backward, grad clipping and optimization step
+                loss_value.backward()
+                # this is not strictly mandatory but it's good practice to keep
+                # your gradient norm bounded
+                torch.nn.utils.clip_grad_norm_(loss_module.parameters(), max_grad_norm)
+                optim.step()
+                optim.zero_grad()
+
+        pbar.update(tensordict_data.numel())
+        
+        if i % 10 == 0:
+            # We evaluate the policy once every 10 batches of data.
+            # Evaluation is rather simple: execute the policy without exploration
+            # (take the expected value of the action distribution) for a given
+            # number of steps (1000, which is our ``env`` horizon).
+            # The ``rollout`` method of the ``env`` can take a policy as argument:
+            # it will then execute this policy at each step.
+            
+            with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
+                # execute a rollout with the trained policy        
+                eval_rollout = env.rollout(eval_rollout_length, policy_module) # I changed the rollout from 1000 to 5
+                #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
+                dist = policy_module.get_dist(eval_rollout)
+                entropyDuringEvaluation = dist.entropy().cpu().numpy()
+                for k in range(eval_rollout_length):
+                    myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
+                    #myLogger.keyValue("observation", eval_rollout["observation"].cpu().numpy()[k])
+                    #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
+                    myLogger.keyValue("reward", eval_rollout["next", "reward"].cpu().numpy()[k].item())
+                    myLogger.keyValue("policy entropy", entropyDuringEvaluation[k].item())
+                    myLogger.dumpLogger(printOut = False)
+                
+                del eval_rollout
+        # We're also using a learning rate scheduler. Like the gradient clipping,
+        # this is a nice-to-have but nothing necessary for PPO to work.
+        scheduler.step()
+
+    torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
+    torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
+
+

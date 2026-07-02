@@ -1,4 +1,5 @@
 from qecc.loggerForReinforcementLearning import logger
+import numpy as np
 def test_logger():
     status = 'OK'
     keys = ['minimum', 'maximum', 'average', 'serialNumber']
