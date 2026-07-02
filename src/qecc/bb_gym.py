@@ -132,8 +132,9 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         # Omer: check that the resulting code admits the necessary logical qubits
         
         numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
-        if  numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:    
-            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
+        if  numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
+            seedForEvaluation = self.np_random.integers(0, 2**32 - 1)
+            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = seedForEvaluation)
             reward = self.rewardEngineering(self._calculateReward(logicalErrorRate, decoderFailureRate))
         else:
             reward = np.exp(self.minimumNumberOfLogicalQubits - numberOfLogicalQubits)
