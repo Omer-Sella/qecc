@@ -4,51 +4,64 @@ import qecc
 import gymnasium as gym
 
 NEGATIVE_REWARD = -1
+TEST_ERROR_RANGE = np.linspace(10**-4, 10**-1, 10)
 
-
-def _fast_decoder(Hx, Hz, errorRange, seed=None):
+def _fake_decoder(Hx, Hz, errorRange, seed=None):
     n = len(errorRange)
     return np.zeros(n), np.zeros(n)
 
 
-def _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
+def _make_v2_env_with_fake_decoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
                  minimumNumberOfLogicalQubits=6):
     from qecc.bb_gym_v2 import bicycleBivariateCodeEnvironmentV2
     return bicycleBivariateCodeEnvironmentV2(
         l=l, m=m,
         max_ax=max_ax, max_ay=max_ay, max_bx=max_bx, max_by=max_by,
-        evaluationDecoderFunction=_fast_decoder,
-        errorRange=[0.001, 0.01],
+        evaluationDecoderFunction=_fake_decoder,
+        errorRange=TEST_ERROR_RANGE,
+        minimumNumberOfLogicalQubits=minimumNumberOfLogicalQubits,
+    )
+
+def _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
+                 minimumNumberOfLogicalQubits=6):
+    from qecc.bb_gym_v2 import bicycleBivariateCodeEnvironmentV2
+    from qecc.bb_gym import exampleDecoderFunction2
+    return bicycleBivariateCodeEnvironmentV2(
+        l=l, m=m,
+        max_ax=max_ax, max_ay=max_ay, max_bx=max_bx, max_by=max_by,
+        evaluationDecoderFunction=exampleDecoderFunction2,
+        errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=minimumNumberOfLogicalQubits,
     )
 
 
 def test_bbcodeV1IsRegistered():
+    import qecc #noqa
     allEnvs = gym.envs.registry.keys()
-    assert "qecc/bbcode-v1" in allEnvs
+    assert "qecc/bbcode-bitflip-v0" in allEnvs
 
 
 def test_actionSpaceShape():
-    env = _make_v2_env(max_ax=5, max_ay=5, max_bx=5, max_by=5)
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(max_ax=5, max_ay=5, max_bx=5, max_by=5)
     assert list(env.action_space.nvec) == [6, 6, 6, 6]  # max_p + 1 each
 
 
 def test_observationSpaceSize():
-    env = _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     expected = 2 * (6 * 6) ** 2 + 5 + 5 + 5 + 5  # = 2612
     assert env.flatObservationSize == expected
     assert env.observation_space.shape == (expected,)
 
 
 def test_resetReturnsCorrectShapes():
-    env = _make_v2_env()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder
     obs, info = env.reset()
     assert obs.shape == (env.flatObservationSize,)
     assert isinstance(info, dict)
 
 
 def test_resetZerosPolynomials():
-    env = _make_v2_env()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
     env.reset()
     assert np.all(env.aX == 0)
     assert np.all(env.aY == 0)
@@ -57,7 +70,7 @@ def test_resetZerosPolynomials():
 
 
 def test_bitFlipChangesPolynomial():
-    env = _make_v2_env()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
     env.reset()
     # flip aX[2]; no-op on aY (5), bX (5), bY (5)
     env.step(np.array([2, 5, 5, 5]))
@@ -69,7 +82,7 @@ def test_bitFlipChangesPolynomial():
 
 
 def test_doubleFlipRestores():
-    env = _make_v2_env()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
     env.reset()
     env.step(np.array([2, 5, 5, 5]))
     env.step(np.array([2, 5, 5, 5]))
@@ -77,7 +90,7 @@ def test_doubleFlipRestores():
 
 
 def test_noOpLeavesAllPolynomialsUnchanged():
-    env = _make_v2_env(max_ax=5, max_ay=5, max_bx=5, max_by=5)
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(max_ax=5, max_ay=5, max_bx=5, max_by=5)
     env.reset()
     env.step(np.array([5, 5, 5, 5]))  # all no-ops
     assert np.all(env.aX == 0)
@@ -87,7 +100,7 @@ def test_noOpLeavesAllPolynomialsUnchanged():
 
 
 def test_stepReturnSignature():
-    env = _make_v2_env()
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder()
     env.reset()
     obs, reward, terminated, truncated, info = env.step(np.array([2, 1, 3, 4]))
     assert obs.shape == (env.flatObservationSize,)
@@ -98,7 +111,7 @@ def test_stepReturnSignature():
 
 
 def test_observationIncludesPolynomialCoefficients():
-    env = _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5)
     env.reset()
     obs, *_ = env.step(np.array([2, 5, 5, 5]))  # flip aX[2]
     # Polynomial part starts at index 2*(6*6)^2 = 2592
@@ -110,7 +123,7 @@ def test_observationIncludesPolynomialCoefficients():
 
 def test_stepReturnsNegativeRewardWhenDimensionTooLow():
     # Use an impossibly high threshold so no code can satisfy it
-    env = _make_v2_env(minimumNumberOfLogicalQubits=10000)
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(minimumNumberOfLogicalQubits=10000)
     env.reset()
     _, reward, *_ = env.step(np.array([2, 1, 3, 4]))
     assert reward == NEGATIVE_REWARD
@@ -119,7 +132,7 @@ def test_stepReturnsNegativeRewardWhenDimensionTooLow():
 def test_stepCallsDecoderForValidCode():
     # IBM [[72,12,6]]: l=6,m=6, aX=[3], aY=[1,2], bX=[1,2], bY=[3]
     # Build this code by sequential single-bit flips; require k>=12
-    env = _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
                        minimumNumberOfLogicalQubits=12)
     env.reset()
     for action in [
@@ -131,7 +144,7 @@ def test_stepCallsDecoderForValidCode():
         np.array([5, 5, 5, 3]),   # bY[3] = 1
     ]:
         _, reward, *_ = env.step(action)
-    # _fast_decoder returns zeros; reward != NEGATIVE_REWARD confirms decoder was called
+    # _fake_decoder returns zeros; reward != NEGATIVE_REWARD confirms decoder was called
     assert reward != NEGATIVE_REWARD
 
 
@@ -141,14 +154,14 @@ def test_v2EnvPassesGymSpecCheck():
     torchrl_utils = pytest.importorskip("torchrl.envs.utils", reason="torchrl not installed")
     GymEnv = torchrl_gym.GymEnv
     check_env_specs = torchrl_utils.check_env_specs
-
+    from qecc.bb_gym import exampleDecoderFunction2
     base_env = GymEnv(
-        "qecc/bbcode-v1",
+        "qecc/bbcode-bitflip-v0",
         device="cpu",
         l=6, m=6,
         max_ax=5, max_ay=5, max_bx=5, max_by=5,
-        evaluationDecoderFunction=_fast_decoder,
-        errorRange=[0.001, 0.01],
+        evaluationDecoderFunction=exampleDecoderFunction2,
+        errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=6,
     )
     check_env_specs(base_env)
@@ -176,44 +189,63 @@ def _build_IBM_code_v2(env, aX_idx, aY_idx, bX_idx, bY_idx, max_ax, max_ay, max_
 
 def test_v2_IBM_72_12_6_positiveReward():
     """[[72, 12, 6]]: l=6, m=6, A=x³+y+y², B=y³+x+x²"""
-    env = _make_v2_env(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=6, m=6, max_ax=5, max_ay=5, max_bx=5, max_by=5,
                        minimumNumberOfLogicalQubits=1)
     env.reset()
     reward = _build_IBM_code_v2(env, [3], [1, 2], [1, 2], [3], 5, 5, 5, 5)
-    assert reward > 0
+    assert reward > 0.029
 
 
 def test_v2_IBM_90_8_10_positiveReward():
     """[[90, 8, 10]]: l=15, m=3, A=x⁹+y+y², B=1+x²+x⁷"""
-    env = _make_v2_env(l=15, m=3, max_ax=10, max_ay=3, max_bx=8, max_by=1,
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=15, m=3, max_ax=10, max_ay=3, max_bx=8, max_by=1,
                        minimumNumberOfLogicalQubits=1)
     env.reset()
     reward = _build_IBM_code_v2(env, [9], [1, 2], [0, 2, 7], [], 10, 3, 8, 1)
-    assert reward > 0
+    assert reward > 0.035
 
 
 def test_v2_IBM_108_8_10_positiveReward():
     """[[108, 8, 10]]: l=9, m=6, A=x³+y+y², B=y³+x+x²"""
-    env = _make_v2_env(l=9, m=6, max_ax=4, max_ay=3, max_bx=3, max_by=4,
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=9, m=6, max_ax=4, max_ay=3, max_bx=3, max_by=4,
                        minimumNumberOfLogicalQubits=1)
     env.reset()
     reward = _build_IBM_code_v2(env, [3], [1, 2], [1, 2], [3], 4, 3, 3, 4)
-    assert reward > 0
+    assert reward > 0.035
 
 
 def test_v2_IBM_144_12_12_positiveReward():
     """[[144, 12, 12]]: l=12, m=6, A=x³+y+y², B=y³+x+x²"""
-    env = _make_v2_env(l=12, m=6, max_ax=4, max_ay=3, max_bx=3, max_by=4,
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=12, m=6, max_ax=4, max_ay=3, max_bx=3, max_by=4,
                        minimumNumberOfLogicalQubits=1)
     env.reset()
     reward = _build_IBM_code_v2(env, [3], [1, 2], [1, 2], [3], 4, 3, 3, 4)
-    assert reward > 0
+    assert reward > 0.03
 
 
 def test_v2_IBM_288_12_18_positiveReward():
     """[[288, 12, 18]]: l=12, m=12, A=x³+y²+y⁷, B=y³+x+x²"""
-    env = _make_v2_env(l=12, m=12, max_ax=4, max_ay=8, max_bx=3, max_by=4,
+    env = _make_v2_env_with_dualBinaryBPOSDDecoder(l=12, m=12, max_ax=4, max_ay=8, max_bx=3, max_by=4,
                        minimumNumberOfLogicalQubits=1)
     env.reset()
     reward = _build_IBM_code_v2(env, [3], [2, 7], [1, 2], [3], 4, 8, 3, 4)
-    assert reward > 0
+    assert reward > 0.03
+
+
+
+
+if __name__ == "__main__":
+    test_actionSpaceShape()
+    test_bbcodeV1IsRegistered()
+    test_bitFlipChangesPolynomial()
+    test_doubleFlipRestores()
+    test_v2EnvPassesGymSpecCheck()
+    test_v2_IBM_90_8_10_positiveReward()
+    test_v2_IBM_72_12_6_positiveReward()
+    test_v2_IBM_144_12_12_positiveReward()
+    test_v2_IBM_108_8_10_positiveReward()
+    test_stepReturnsNegativeRewardWhenDimensionTooLow()
+    test_noOpLeavesAllPolynomialsUnchanged()
+    
+    
+    

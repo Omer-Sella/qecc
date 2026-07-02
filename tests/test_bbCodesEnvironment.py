@@ -26,7 +26,7 @@ p_L(p) = k·p, where p and p_L are the physical and logical error rates respecti
 import numpy as np
 import qecc
 
-TEST_ERROR_RANGE = np.linspace(0.0001,0.1,10)
+TEST_ERROR_RANGE = np.linspace(10**-4, 10**-1, 10)
 
 def _make_action(l, m, aX_idx, aY_idx, bX_idx, bY_idx):
     """Build the flat MultiBinary action vector [aX, aY, bX, bY] from exponent lists."""
@@ -161,85 +161,95 @@ def test_IBM_72_12_6():
     
     
     action = _make_action(l, m, aX_idx=[3], aY_idx=[1, 2], bX_idx=[1, 2], bY_idx=[3])
-    _, reward, *_ = env.step(action)
-    print(reward)
-    # TODO: add assertions on reward / code parameters
+    _, reward, *_ = env.step(action) # Should come back close to 0.033189 if the error range is np.linspace(10**-4, 10**-1, 10) 
+    
+    assert float(reward) > 0.029 # TODO: I'm not sure why the reward comes back as SupportsFloat instead of float flag this for inspection.
 
 
 def test_IBM_90_8_10():
     """[[90, 8, 10]]: l=15, m=3, A=x⁹+y+y², B=1+x²+x⁷"""
     import gymnasium as gym
-    from qecc.bb_gym import exampleDecoderFunction
+    from qecc.bb_gym import exampleDecoderFunction2
 
     l, m = 15, 3
     env = gym.make(
         'qecc/bbcode-v0',
         l=l, m=m,
-        evaluationDecoderFunction=exampleDecoderFunction,
+        evaluationDecoderFunction=exampleDecoderFunction2,
         errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=8,
     )
     env.reset()
     action = _make_action(l, m, aX_idx=[9], aY_idx=[1, 2], bX_idx=[0, 2, 7], bY_idx=[])
-    _, reward, *_ = env.step(action)
-    # TODO: add assertions on reward / code parameters
-
+    _, reward, *_ = env.step(action) # should come back roughly 0.04218
+    assert float(reward) > 0.035
+# def test_IBM_90_8_10_rewardInvestigation()
+#     action = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#        0, 0, 0, 0])
+    
 
 def test_IBM_108_8_10():
     """[[108, 8, 10]]: l=9, m=6, A=x³+y+y², B=y³+x+x²"""
     import gymnasium as gym
-    from qecc.bb_gym import exampleDecoderFunction
+    from qecc.bb_gym import exampleDecoderFunction2
 
     l, m = 9, 6
     env = gym.make(
         'qecc/bbcode-v0',
         l=l, m=m,
-        evaluationDecoderFunction=exampleDecoderFunction,
+        evaluationDecoderFunction=exampleDecoderFunction2,
         errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=8,
     )
     env.reset()
     action = _make_action(l, m, aX_idx=[3], aY_idx=[1, 2], bX_idx=[1, 2], bY_idx=[3])
-    _, reward, *_ = env.step(action)
-    # TODO: add assertions on reward / code parameters
+    _, reward, *_ = env.step(action) # Should come back as ~ 0.040959 
+    assert float(reward) > 0.035
 
 
 def test_IBM_144_12_12():
     """[[144, 12, 12]]: l=12, m=6, A=x³+y+y², B=y³+x+x²"""
     import gymnasium as gym
-    from qecc.bb_gym import exampleDecoderFunction
+    from qecc.bb_gym import exampleDecoderFunction2
 
     l, m = 12, 6
     env = gym.make(
         'qecc/bbcode-v0',
         l=l, m=m,
-        evaluationDecoderFunction=exampleDecoderFunction,
+        evaluationDecoderFunction=exampleDecoderFunction2,
         errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=12,
     )
     env.reset()
     action = _make_action(l, m, aX_idx=[3], aY_idx=[1, 2], bX_idx=[1, 2], bY_idx=[3])
-    _, reward, *_ = env.step(action)
-    # TODO: add assertions on reward / code parameters
+    _, reward, *_ = env.step(action) #Should come back as ~ 0.038739
+    assert float(reward) > 0.03
 
 
 def test_IBM_288_12_18():
     """[[288, 12, 18]]: l=12, m=12, A=x³+y²+y⁷, B=y³+x+x²"""
     import gymnasium as gym
-    from qecc.bb_gym import exampleDecoderFunction
+    from qecc.bb_gym import exampleDecoderFunction2
 
     l, m = 12, 12
     env = gym.make(
         'qecc/bbcode-v0',
         l=l, m=m,
-        evaluationDecoderFunction=exampleDecoderFunction,
+        evaluationDecoderFunction=exampleDecoderFunction2,
         errorRange=TEST_ERROR_RANGE,
         minimumNumberOfLogicalQubits=12,
     )
     env.reset()
     action = _make_action(l, m, aX_idx=[3], aY_idx=[2, 7], bX_idx=[1, 2], bY_idx=[3])
-    _, reward, *_ = env.step(action)
-    # TODO: add assertions on reward / code parameters
+    _, reward, *_ = env.step(action) # Should come back as ~ 0.0414
+    assert float(reward) > 0.035 
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +257,7 @@ def test_IBM_288_12_18():
 # These use minimumNumberOfLogicalQubits=1 so the decoder is always called.
 # ---------------------------------------------------------------------------
 
-def _fast_decoder(Hx, Hz, errorRange, seed=None):
+def _fake_decoder(Hx, Hz, errorRange, seed=None):
     return np.zeros(len(errorRange)), np.zeros(len(errorRange))
 
 
@@ -256,7 +266,7 @@ def test_IBM_72_12_6_positiveReward():
     import gymnasium as gym
     l, m = 6, 6
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
-                   evaluationDecoderFunction=_fast_decoder,
+                   evaluationDecoderFunction=_fake_decoder,
                    errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
@@ -269,7 +279,7 @@ def test_IBM_90_8_10_positiveReward():
     import gymnasium as gym
     l, m = 15, 3
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
-                   evaluationDecoderFunction=_fast_decoder,
+                   evaluationDecoderFunction=_fake_decoder,
                    errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
@@ -282,7 +292,7 @@ def test_IBM_108_8_10_positiveReward():
     import gymnasium as gym
     l, m = 9, 6
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
-                   evaluationDecoderFunction=_fast_decoder,
+                   evaluationDecoderFunction=_fake_decoder,
                    errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
@@ -295,7 +305,7 @@ def test_IBM_144_12_12_positiveReward():
     import gymnasium as gym
     l, m = 12, 6
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
-                   evaluationDecoderFunction=_fast_decoder,
+                   evaluationDecoderFunction=_fake_decoder,
                    errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
@@ -308,16 +318,46 @@ def test_IBM_288_12_18_positiveReward():
     import gymnasium as gym
     l, m = 12, 12
     env = gym.make('qecc/bbcode-v0', l=l, m=m,
-                   evaluationDecoderFunction=_fast_decoder,
+                   evaluationDecoderFunction=_fake_decoder,
                    errorRange=TEST_ERROR_RANGE,
                    minimumNumberOfLogicalQubits=1)
     env.reset()
     _, reward, *_ = env.step(_make_action(l, m, [3], [2, 7], [1, 2], [3]))
     assert reward > 0
 
+def test_observationSpaceIsBinary():
+    
+    import gymnasium as gym
+    l, m = 12, 12
+    env = gym.make('qecc/bbcode-v0', l=l, m=m,
+                   evaluationDecoderFunction=_fake_decoder,
+                   errorRange=TEST_ERROR_RANGE,
+                   minimumNumberOfLogicalQubits=1)
+    observation, info = env.reset()
 
+    assert np.all(observation == (observation%2))
+
+    observation, reward, terminated, _, _ = env.step(_make_action(l, m, [3], [2, 7], [1, 2], [3]))
+    
+    assert np.all(observation == (observation%2))
+
+# def test_rollout():
+#     base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
+#     print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
+#     env = TransformedEnv(
+#         base_env,
+#         Compose(
+#             CastToFloat(),                          # int8 → float32
+#             ObservationNorm(in_keys=["observation"], loc = 0.5, scale = 0.5), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
+#             DoubleToFloat(),
+#             StepCounter(),
+#         ),
+#     )
+#     testAction = makeTestAction()
+#     rollout = env.rollout(3, action = 3*[testAction])
+    
 if __name__ == "__main__":
-
+    test_observationSpaceIsBinary()
     test_bbCodesEnvIsWorking()
     test_bbCodesEnvIsRegistered()
     test_envPassesBasicChecks()
