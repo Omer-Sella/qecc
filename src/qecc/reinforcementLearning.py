@@ -92,7 +92,11 @@ if __name__ == "__main__":
         "--num-cells", type=int, default=256,
         help="Number of cells in each layer of the actor and value networks.", #  num_cells = 256  # number of cells in each layer i.e. output dim.
     )
-        
+    
+    parser.add_argument(
+        "--seed-for-environment", type=int, default=7134066,
+        help="Random seed for reproducibility. NOT SUPPORTED YET AS THIS IS DONE INTERNALLY", #  num_cells = 256  # number of cells in each layer i.e. output dim.
+    )
     parser.add_argument(
         "--lr", type=float, default=3e-4,
         help="Learning rate for the Adam optimizer.", #lr = 3e-4 # Learning rate
@@ -107,11 +111,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--scaling-factor", type=int, default=1, #SCALING_FACTOR = 1 # Use 1 for logger testing
-        help="Scaling factor for frames per batch and total frames. Use 1 for logger testing, or checking that everything works"
+        help="Scaling factor for total frames, which is calculated as: total_frames = frames_per_batch * scaling_factor. This is so total_frames / frames_per_batch is an integer. Use 1 for logger testing, or checking that everything works. "
     )
     parser.add_argument(
         "--frames-per-batch", type=int, default=100, #frames_per_batch = 100 * SCALING_FACTOR
-        help="Number of frames to collect per batch. Will be multiplied by the scaling factor."
+        help="Number of frames to collect per batch. Use 1000 (or bigger) for actuall runs, or 10 for testing. This also determines total_frames since total_frames = frames_per_batch * scaling_factor."
     )
     parser.add_argument(
         "--sub-batch-size", type=int, default=64, #sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
@@ -120,10 +124,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-epochs", type=int, default=10, #num_epochs = 10
     )
-    parser.add_argument(
-        "--total-frames", type=int, default=5_000, #total_frames = 5_000 * SCALING_FACTOR #50_000
-        help="Total number of environment frames to collect across all environments in the collector. Will be multiplied by the scaling factor."
-    )
+    
 
     parser.add_argument(
         "--clip-epsilon", type=float, default=0.2, #clip_epsilon = 0.2  # clip value for PPO loss: see the equation in the intro for more context.
@@ -148,10 +149,18 @@ if __name__ == "__main__":
         help="Whether to exponentiate the already positive reward.",
     )
 
+    parser.add_argument(
+        "--minimum-number-of-qubits", type=int, default=1,
+        help="Number of logical qubits from which the reward will be calculated as a code-decoder evaluation. If the code has fewer qubits, say k, the reward will exp(k-minimum_number_of_qubits). If the code has more qubits, say k, the reward will be exp(minimum_number_of_qubits-k).",
+    )
+
+    [myLogger.addComment(f"{key} = {value}") for key, value in vars(parser.parse_args()).items()]
+    minimum_number_of_qubits = parser.parse_args().minimum_number_of_qubits
+    seed_for_environment = parser.parse_args().seed_for_environment
     reward_engineering = parser.parse_args().reward_engineering.lower() == "true"
     scaling_factor = parser.parse_args().scaling_factor
-    total_frames = parser.parse_args().total_frames * scaling_factor
     frames_per_batch = parser.parse_args().frames_per_batch * scaling_factor
+    total_frames = frames_per_batch * scaling_factor
     max_grad_norm = parser.parse_args().max_grad_norm
     sub_batch_size = parser.parse_args().sub_batch_size
     num_epochs = parser.parse_args().num_epochs
@@ -173,14 +182,14 @@ if __name__ == "__main__":
     )
 
     #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 1, rewardEngineering = reward_engineering) 
+    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering) 
 
     #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
     env = TransformedEnv(
         base_env,
         Compose(
             CastToFloat(),                          # int8 → float32
-            ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = 0.5 and scale = 0.5 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
+            ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = -1.5 and scale = 2.0 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
             DoubleToFloat(),
             StepCounter(),
         ),
@@ -222,6 +231,7 @@ if __name__ == "__main__":
         split_trajs=False,
         device=device,
     )
+    collector.set_seed(seed_for_environment) # This is not really necessary, but it is a good practice to set the seed for reproducibility. Note that this is not the same as setting the seed for the environment, which is done internally by the collector.
 
     replay_buffer = ReplayBuffer(
         storage=LazyTensorStorage(max_size=frames_per_batch),
@@ -293,7 +303,7 @@ if __name__ == "__main__":
             
             with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
                 # execute a rollout with the trained policy        
-                eval_rollout = env.rollout(eval_rollout_length, policy_module) # I changed the rollout from 1000 to 5
+                eval_rollout = env.rollout(eval_rollout_length, policy_module) 
                 #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
                 dist = policy_module.get_dist(eval_rollout)
                 entropyDuringEvaluation = dist.entropy().cpu().numpy()

@@ -141,24 +141,15 @@ class logger():
         self.fileName = fileName
         self.fullPath = os.path.join(self.logPath, self.fileName)
         self.hdf5FileName = os.path.join(self.logPath, hdf5FileName)
-        # else:
-        #     self.logPath = None
-        #     self.fileName = None
-        #     self.hdf5FileName = None
+        
         self.currentRow = {}
         self.columnKeys = []
-        # if agentSeed != None:
-        #     self.environmentSeed = environmentSeed
-        # if environmentSeed != None:
-        #     self.agentSeed = agentSeed
+        
         for key in keys:
             self.columnKeys.append(key)
-        #if mpiProcessID() == 0:            
-        with open(self.fullPath, 'w') as fid:
-            fid.write("\t".join(self.columnKeys)+"\n")
-            #with h5py.File(self.hdf5FileName, 'a') as fid:
-            #    for key in self.columnKeys:
-            #        fid.create_group(key)
+        
+        self.headerWritten = False
+            
         self.dataSet = 0
         
     def logPrint(self, message, colour='green'):
@@ -172,6 +163,10 @@ class logger():
         
     def dumpLogger(self, printOut = True):
         #if mpiProcessID() == 0:
+        if self.headerWritten == False:
+            with open(self.fullPath, 'a') as fid:
+                fid.write("\t".join(self.columnKeys)+"\n")
+            self.headerWritten = True
         values = []
         keyLengths = []
         for key in self.columnKeys:
@@ -201,7 +196,14 @@ class logger():
             fid.write("\t".join(map(str,values))+"\n")
             fid.flush()    
             self.currentRow.clear()
-                
+    
+
+    def addComment(self, comment):
+        # comment is assumed to be a string, each string is a comment
+        with open(self.fullPath, 'a') as fid:
+            fid.write("# " + comment + "\n")
+            fid.flush()    
+        
     def setupPytorchSave(self, parametersToSave):
         self.pytorchElementsToSave = parametersToSave
 
