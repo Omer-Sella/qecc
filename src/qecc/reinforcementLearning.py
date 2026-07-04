@@ -314,7 +314,8 @@ if __name__ == "__main__":
                     myLogger.keyValue("reward", eval_rollout["next", "reward"].cpu().numpy()[k].item())
                     myLogger.keyValue("policy entropy", entropyDuringEvaluation[k].item())
                     myLogger.dumpLogger(printOut = False)
-                
+                torch.save(policy_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_policy_weights.pth")
+                torch.save(value_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_value_weights.pth")
                 del eval_rollout
         # We're also using a learning rate scheduler. Like the gradient clipping,
         # this is a nice-to-have but nothing necessary for PPO to work.
