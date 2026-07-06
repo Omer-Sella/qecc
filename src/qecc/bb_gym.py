@@ -137,7 +137,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = seedForEvaluation)
             reward = self.rewardEngineering(self._calculateReward(logicalErrorRate, decoderFailureRate))
         else:
-            reward = np.exp(self.minimumNumberOfLogicalQubits - numberOfLogicalQubits)
+            reward = np.exp(numberOfLogicalQubits - self.minimumNumberOfLogicalQubits)
 
         terminated = False
         observation = self._getObservation()
