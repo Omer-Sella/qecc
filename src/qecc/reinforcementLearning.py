@@ -56,7 +56,7 @@ myEvaluationKeys = ["evaluation number",
                     "reward",
                     "policy entropy"]
 
-myLogger = logger(keys = myEvaluationKeys) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
+
 
 
 class CastToFloat(Transform):
@@ -154,7 +154,11 @@ if __name__ == "__main__":
         help="Number of logical qubits from which the reward will be calculated as a code-decoder evaluation. If the code has fewer qubits, say k, the reward will exp(k-minimum_number_of_qubits). If the code has more qubits, say k, the reward will be exp(minimum_number_of_qubits-k).",
     )
 
-    [myLogger.addComment(f"{key} = {value}") for key, value in vars(parser.parse_args()).items()]
+    parser.add_argument(
+        "--log-name", type=str, default=None,
+        help="Name of the log file. All logs are saved in the directory specified by the environment variable QECC_DATA. If not specified, the file name will be experiment.txt.",
+    )
+    
     minimum_number_of_qubits = parser.parse_args().minimum_number_of_qubits
     seed_for_environment = parser.parse_args().seed_for_environment
     reward_engineering = parser.parse_args().reward_engineering.lower() == "true"
@@ -167,6 +171,7 @@ if __name__ == "__main__":
     eval_rollout_length = parser.parse_args().eval_rollout_length
     lr = parser.parse_args().lr
     num_cells = parser.parse_args().num_cells
+    log_name = parser.parse_args().log_name
     clip_epsilon = (
         parser.parse_args().clip_epsilon
         )
@@ -180,6 +185,14 @@ if __name__ == "__main__":
         if torch.cuda.is_available() and not is_fork
         else torch.device("cpu")
     )
+
+    log_name = parser.parse_args().log_name
+    if log_name is not None:
+        myLogger = logger(keys = myEvaluationKeys, fileName=log_name) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
+    else:
+        myLogger = logger(keys = myEvaluationKeys) 
+        
+    [myLogger.addComment(f"{key} = {value}") for key, value in vars(parser.parse_args()).items()]
 
     #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
     base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering) 
