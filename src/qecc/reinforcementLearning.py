@@ -7,7 +7,32 @@ Some minor adjustments apply:
 2. I needed to add a transform from int8 (multibinary) to float32.
 3. Instead of Box we have a multiBinary distribution (so there is also no need or sense to probe the rnvironment for boundaries).
 
+
+Multiprocessing notes:
+
+There are A LOT of fine issues here.
+TorchRL provides a parallel env class, and also a distributed data collector.
+To make the most out of multiprocessing, you actually need to fine tune between them.
+
+
+For seeding multiple environments, see the explanation in the following link:
+https://github.com/pytorch/rl/blob/main/tutorials/sphinx-tutorials/torchrl_envs.py
+
+
+For documentation on using ParallelEnv see the following link:
+https://docs.pytorch.org/rl/stable/reference/generated/torchrl.envs.ParallelEnv.html).
+https://deepwiki.com/pytorch/rl/3.4-batched-and-parallel-environments
+
+For a clairifcation on using ParallelEnv and multiSyncDataCollector see the following link:
+https://github.com/pytorch/rl/issues/809
+
+On data collectors:
+https://deepwiki.com/pytorch/rl/4.2-distributed-collection-strategies
+
+
 """
+import os
+
 import numpy as np
 import qecc # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __init__.py # Needed, to register bbgym with gymansium
 from qecc.loggerForReinforcementLearning import logger
@@ -19,11 +44,12 @@ from tensordict.nn import TensorDictModule
 #from tensordict.nn.distributions import NormalParamExtractor
 from torch.distributions import Bernoulli
 from torchrl.collectors import Collector as SyncDataCollector #Omer I dropped in Collector instead of SyncDataCollector
+from torchrl.collectors import MultiSyncCollector
 from torchrl.data.replay_buffers import ReplayBuffer
 from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
 from torchrl.data.replay_buffers.storages import LazyTensorStorage
 from torchrl.envs import (Compose, DoubleToFloat, ObservationNorm, StepCounter,
-                          TransformedEnv)
+                          TransformedEnv, ParallelEnv)
 from torchrl.envs.libs.gym import GymEnv
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 from torchrl.modules import ProbabilisticActor, ValueOperator
@@ -82,12 +108,19 @@ class IndependentBernoulli(Independent):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--num-workers", type=int, default=None,
-        help="Number of parallel environment worker processes. Defaults to "
-             "$SLURM_CPUS_PER_TASK, then $QECC_NUM_WORKERS, then os.cpu_count().",
+        "--num-workers", type=int, default=1,
+        help="Number of CPUs for the whole run. ",
     )
 
-    
+    parser.add_argument(
+        "--num-gpus", type=int, default=1, choices=[0, 1, 2, 4],
+        help="Number of data collectors to use. Each collector will have its own environment and policy. The number of workers will be divided among the collectors.",
+    )
+    parser.add_argument(
+        "--env-level-parallelism", type=int, default = 2,
+        help="Number of parallel environments for each data collector to work on.",
+    )
+
     parser.add_argument(
         "--num-cells", type=int, default=256,
         help="Number of cells in each layer of the actor and value networks.", #  num_cells = 256  # number of cells in each layer i.e. output dim.
@@ -149,6 +182,8 @@ if __name__ == "__main__":
         help="Whether to exponentiate the already positive reward.",
     )
 
+    
+
     parser.add_argument(
         "--minimum-number-of-qubits", type=int, default=1,
         help="Number of logical qubits from which the reward will be calculated as a code-decoder evaluation. If the code has fewer qubits, say k, the reward will exp(k-minimum_number_of_qubits). If the code has more qubits, say k, the reward will be exp(minimum_number_of_qubits-k).",
@@ -172,19 +207,35 @@ if __name__ == "__main__":
     lr = parser.parse_args().lr
     num_cells = parser.parse_args().num_cells
     log_name = parser.parse_args().log_name
+    num_workers = parser.parse_args().num_workers
     clip_epsilon = (
         parser.parse_args().clip_epsilon
         )
     gamma = parser.parse_args().gamma
     lmbda = parser.parse_args().lmbda
     entropy_eps = parser.parse_args().entropy_eps
+    num_workers = parser.parse_args().num_workers
+    num_gpus = parser.parse_args().num_gpus
+    
+    cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    env_level_paralleism = parser.parse_args().env_level_parallelism
+    if num_gpus > 0:
+        num_collectors = num_gpus
+        collectorDevices = cudaDeviceNames[:num_gpus]
+        device = torch.device(0)
+    else:
+        num_collectors = max(1, num_workers // env_level_paralleism)
+        device = torch.device("cpu")
+        collectorDevices = [device] * num_collectors        
+    
+    
 
-    is_fork = multiprocessing.get_start_method() == "fork"
-    device = (
-        torch.device(0)
-        if torch.cuda.is_available() and not is_fork
-        else torch.device("cpu")
-    )
+    #is_fork = multiprocessing.get_start_method() == "fork"
+    #device = ( 
+    #    torch.device(0)
+    #    if torch.cuda.is_available() and not is_fork
+    #    else torch.device("cpu")
+    #)
 
     log_name = parser.parse_args().log_name
     if log_name is not None:
@@ -193,22 +244,36 @@ if __name__ == "__main__":
         myLogger = logger(keys = myEvaluationKeys) 
         
     [myLogger.addComment(f"{key} = {value}") for key, value in vars(parser.parse_args()).items()]
+    
+    if os.environ.get("SLURM_CPUS_PER_TASK") is not None:
+        myLogger.addComment(f"Just for information, not used in actual run: SLURM CPUS queried from os environment: {os.environ.get('SLURM_CPUS_PER_TASK')}")
+    
+    myLogger.addComment(f"Does torch identify cuda: {torch.cuda.is_available()}")
 
     #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering) 
+    
+    def environmentCreatorForParallelEnv():
+        base_env = GymEnv("qecc/bbcode-v0", l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
 
-    #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
-    env = TransformedEnv(
-        base_env,
-        Compose(
-            CastToFloat(),                          # int8 → float32
-            ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = -1.5 and scale = 2.0 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
-            DoubleToFloat(),
-            StepCounter(),
-        ),
-    )
-    actor_net = create_actor_value_nets(env.action_spec, num_cells, device=device)
-    value_net = create_value_net(num_cells, device=device)
+        #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
+        env = TransformedEnv(
+            base_env,
+            Compose(
+                CastToFloat(),                          # int8 → float32
+                ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = -1.5 and scale = 2.0 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
+                DoubleToFloat(),
+                StepCounter(),
+            ),
+        )
+        return env
+
+    def environmentCreatorForCollector():
+        return ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv)
+    
+    env = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv)
+    
+    actor_net = create_actor_value_nets(env.action_spec, num_cells) # removed device selecting leave it to the collector
+    value_net = create_value_net(num_cells)
     
     
 
@@ -236,15 +301,16 @@ if __name__ == "__main__":
     value_module(env.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
 
 
-    collector = SyncDataCollector(
-        env,
-        policy_module,
+    
+    collector = MultiSyncCollector(
+        create_env_fn= [environmentCreatorForCollector] * num_collectors,
+        policy = policy_module,
         frames_per_batch=frames_per_batch,
         total_frames=total_frames,
         split_trajs=False,
-        device=device,
+        device=collectorDevices,
     )
-    collector.set_seed(seed_for_environment) # This is not really necessary, but it is a good practice to set the seed for reproducibility. Note that this is not the same as setting the seed for the environment, which is done internally by the collector.
+    collector.set_seed(seed_for_environment) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
 
     replay_buffer = ReplayBuffer(
         storage=LazyTensorStorage(max_size=frames_per_batch),
