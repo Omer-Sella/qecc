@@ -32,16 +32,13 @@ https://deepwiki.com/pytorch/rl/4.2-distributed-collection-strategies
 
 """
 import os
-
 import numpy as np
 import qecc # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __init__.py # Needed, to register bbgym with gymansium
-from qecc.loggerForReinforcementLearning import logger
+import argparse
 import warnings
-warnings.filterwarnings("ignore")
-from torch import multiprocessing
+from qecc.loggerForReinforcementLearning import logger
 import torch
 from tensordict.nn import TensorDictModule
-#from tensordict.nn.distributions import NormalParamExtractor
 from torch.distributions import Bernoulli
 from torchrl.collectors import Collector as SyncDataCollector #Omer I dropped in Collector instead of SyncDataCollector
 from torchrl.collectors import MultiSyncCollector
@@ -59,9 +56,8 @@ from tqdm import tqdm
 from torchrl.envs.transforms import Transform
 from torch.distributions import Bernoulli, Independent
 from qecc.bb_gym import exampleDecoderFunction2
-import argparse
 from qecc.modelArchitectures import create_actor_value_nets, create_value_net
-
+warnings.filterwarnings("ignore")
 
 #myKeys = ['Observation', 'actorEntropy', 'logP',
 myKeys = ['Reward', 
@@ -113,11 +109,11 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--num-gpus", type=int, default=1, choices=[0, 1, 2, 4],
+        "--num-gpus", type=int, default=0, choices=[0, 1, 2, 4],
         help="Number of data collectors to use. Each collector will have its own environment and policy. The number of workers will be divided among the collectors.",
     )
     parser.add_argument(
-        "--env-level-parallelism", type=int, default = 2,
+        "--env-level-parallelism", type=int, default = 1,
         help="Number of parallel environments for each data collector to work on.",
     )
 
@@ -220,6 +216,7 @@ if __name__ == "__main__":
     cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     env_level_paralleism = parser.parse_args().env_level_parallelism
     if num_gpus > 0:
+        # If GPUS are provided, then the number of collectors will be equal to the number of GPUs, and each collector will be assigned to a different GPU. 
         num_collectors = num_gpus
         collectorDevices = cudaDeviceNames[:num_gpus]
         device = torch.device(0)
@@ -248,8 +245,16 @@ if __name__ == "__main__":
     if os.environ.get("SLURM_CPUS_PER_TASK") is not None:
         myLogger.addComment(f"Just for information, not used in actual run: SLURM CPUS queried from os environment: {os.environ.get('SLURM_CPUS_PER_TASK')}")
     
+    myLogger.addComment(f"Number of workers: {num_workers}")
+
     myLogger.addComment(f"Does torch identify cuda: {torch.cuda.is_available()}")
 
+    myLogger.addComment(f"Number of collectors: {num_collectors}")
+
+    myLogger.addComment(f"Collector device list: {collectorDevices}")
+
+    
+    
     #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
     
     def environmentCreatorForParallelEnv():
