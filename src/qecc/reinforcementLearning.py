@@ -163,7 +163,7 @@ if __name__ == "__main__":
     seed_for_environment = parser.parse_args().seed_for_environment
     reward_engineering = parser.parse_args().reward_engineering.lower() == "true"
     scaling_factor = parser.parse_args().scaling_factor
-    frames_per_batch = parser.parse_args().frames_per_batch * scaling_factor
+    frames_per_batch = parser.parse_args().frames_per_batch
     total_frames = frames_per_batch * scaling_factor
     max_grad_norm = parser.parse_args().max_grad_norm
     sub_batch_size = parser.parse_args().sub_batch_size

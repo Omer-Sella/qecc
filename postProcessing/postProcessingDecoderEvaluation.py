@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import argparse    
+
 
 def plotLogicalErrorRate(filePath, baseline = None):
     data = np.load(filePath, allow_pickle=True).item()
