@@ -21,14 +21,14 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, evaluationDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, rewardEngineering = None):
+    def __init__(self, l, m, evaluationDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, rewardEngineering = None, seed = None):
         
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
         self.decoder = evaluationDecoderFunction
         self._l = l
         self._m = m
-        self.seed = None
+        self.seed = seed # Omer: WARNING ! The assumption is that either on init, or later in reset, or parallelEnv or collector will set a seed.
         self.errorRange = errorRange
         if any(a >= b for a, b in zip(errorRange, errorRange[1:])):
             raise ValueError(
@@ -86,7 +86,14 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         return np.vstack((self.A, self.B)).flatten().astype(np.int8)
     
     def reset(self, seed=None, options = None):
-        super().reset(seed = seed)
+        if seed == None:
+            if self.seed == None:
+                self.seed = np.random.randint(0, 2**31 - 1)
+            else:
+                self.seed = self.seed + 1
+        else:
+            self.seed = seed
+        super().reset(seed = self.seed)
         self.seed = seed
         self.aX = self.aX * 0
         self.aY = self.aY * 0
@@ -106,7 +113,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
 
         observation = self._getObservation()
         #info = self._getInfo()
-        info = {}#None
+        info = {"seed": self.seed}
         return observation, info
 
     
@@ -133,8 +140,8 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         
         numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
         if  numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
-            seedForEvaluation = self.np_random.integers(0, 2**32 - 1)
-            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = seedForEvaluation)
+            #seedForEvaluation = self.np_random.integers(0, 2**32 - 1) #Changed to environment seed
+            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
             reward = self.rewardEngineering(self._calculateReward(logicalErrorRate, decoderFailureRate))
         else:
             reward = np.exp(numberOfLogicalQubits - self.minimumNumberOfLogicalQubits)
@@ -150,6 +157,9 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         outputBER = logicalErrorRate + decoderFailureRate # Omer: this is a decision, it could be that in the future we want to put this into reward engineering.
         reward = trapezoid(1 - outputBER, self.errorRange)
         return reward
+    
+    def getSeed(self):
+        return self.seed
 
 def exampleDecoderFunction(Hx,Hz,errorRange, seed = None):
     from qecc.minSum import ldpcDecoderWrapper
