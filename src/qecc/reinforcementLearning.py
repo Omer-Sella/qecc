@@ -309,6 +309,7 @@ if __name__ == "__main__":
 
     # In case there is a cuda device, we move the policy and value modules to "the" cuda device
     if num_gpus > 0:
+        print(f"num_gpus is {num_gpus} so moving the policy module and value module to device {device}")
         policy_module = policy_module.to(device)
         value_module = value_module.to(device)
     
