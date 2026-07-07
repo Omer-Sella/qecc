@@ -35,6 +35,7 @@ import os
 import numpy as np
 import qecc # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __init__.py # Needed, to register bbgym with gymansium
 import argparse
+import copy
 import warnings
 from qecc.loggerForReinforcementLearning import logger
 import torch
@@ -76,7 +77,8 @@ myKeys = ['Reward',
 
 myEvaluationKeys = ["evaluation number",
                     "reward",
-                    "policy entropy"]
+                    "policy entropy",
+                    "environment index"]
 
 
 
@@ -154,7 +156,6 @@ if __name__ == "__main__":
         "--num-epochs", type=int, default=10, #num_epochs = 10
     )
     
-
     parser.add_argument(
         "--clip-epsilon", type=float, default=0.2, #clip_epsilon = 0.2  # clip value for PPO loss: see the equation in the intro for more context.
         help = "Clip value for PPO loss."
@@ -178,8 +179,6 @@ if __name__ == "__main__":
         help="Whether to exponentiate the already positive reward.",
     )
 
-    
-
     parser.add_argument(
         "--minimum-number-of-qubits", type=int, default=1,
         help="Number of logical qubits from which the reward will be calculated as a code-decoder evaluation. If the code has fewer qubits, say k, the reward will exp(k-minimum_number_of_qubits). If the code has more qubits, say k, the reward will be exp(minimum_number_of_qubits-k).",
@@ -190,31 +189,33 @@ if __name__ == "__main__":
         help="Name of the log file. All logs are saved in the directory specified by the environment variable QECC_DATA. If not specified, the file name will be experiment.txt.",
     )
     
-    minimum_number_of_qubits = parser.parse_args().minimum_number_of_qubits
-    seed_for_environment = parser.parse_args().seed_for_environment
-    reward_engineering = parser.parse_args().reward_engineering.lower() == "true"
-    scaling_factor = parser.parse_args().scaling_factor
-    frames_per_batch = parser.parse_args().frames_per_batch
+    parsedArguments = parser.parse_args()
+    minimum_number_of_qubits = parsedArguments.minimum_number_of_qubits
+    seed_for_environment = parsedArguments.seed_for_environment
+    reward_engineering = parsedArguments.reward_engineering.lower() == "true"
+    scaling_factor = parsedArguments.scaling_factor
+    frames_per_batch = parsedArguments.frames_per_batch
     total_frames = frames_per_batch * scaling_factor
-    max_grad_norm = parser.parse_args().max_grad_norm
-    sub_batch_size = parser.parse_args().sub_batch_size
-    num_epochs = parser.parse_args().num_epochs
-    eval_rollout_length = parser.parse_args().eval_rollout_length
-    lr = parser.parse_args().lr
-    num_cells = parser.parse_args().num_cells
-    log_name = parser.parse_args().log_name
-    num_workers = parser.parse_args().num_workers
+    max_grad_norm = parsedArguments.max_grad_norm
+    sub_batch_size = parsedArguments.sub_batch_size
+    num_epochs = parsedArguments.num_epochs
+    eval_rollout_length = parsedArguments.eval_rollout_length
+    lr = parsedArguments.lr
+    num_cells = parsedArguments.num_cells
+    log_name = parsedArguments.log_name
     clip_epsilon = (
-        parser.parse_args().clip_epsilon
+        parsedArguments.clip_epsilon
         )
-    gamma = parser.parse_args().gamma
-    lmbda = parser.parse_args().lmbda
-    entropy_eps = parser.parse_args().entropy_eps
-    num_workers = parser.parse_args().num_workers
-    num_gpus = parser.parse_args().num_gpus
+    gamma = parsedArguments.gamma
+    lmbda = parsedArguments.lmbda
+    entropy_eps = parsedArguments.entropy_eps
+    num_workers = parsedArguments.num_workers
+    num_gpus = parsedArguments.num_gpus
     
     cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
-    env_level_paralleism = parser.parse_args().env_level_parallelism
+    env_level_paralleism = parsedArguments.env_level_parallelism
+    if frames_per_batch // sub_batch_size == 0:
+        raise ValueError(f"frames_per_batch == {frames_per_batch} and sub_batch_size == {sub_batch_size} which means frames_per_batch // sub_batch_size == 0, not a valid configuration.")
     if num_gpus > 0:
         # If GPUS are provided, then the number of collectors will be equal to the number of GPUs, and each collector will be assigned to a different GPU. 
         num_collectors = num_gpus
@@ -227,22 +228,14 @@ if __name__ == "__main__":
         device = torch.device("cpu")
         collectorDevices = [device] * num_collectors        
     
-    
-
-    #is_fork = multiprocessing.get_start_method() == "fork"
-    #device = ( 
-    #    torch.device(0)
-    #    if torch.cuda.is_available() and not is_fork
-    #    else torch.device("cpu")
-    #)
-
-    log_name = parser.parse_args().log_name
+   
+    log_name = parsedArguments.log_name
     if log_name is not None:
         myLogger = logger(keys = myEvaluationKeys, fileName=log_name) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
     else:
         myLogger = logger(keys = myEvaluationKeys) 
         
-    [myLogger.addComment(f"{key} = {value}") for key, value in vars(parser.parse_args()).items()]
+    [myLogger.addComment(f"{key} = {value}") for key, value in vars(parsedArguments).items()]
     
     if os.environ.get("SLURM_CPUS_PER_TASK") is not None:
         myLogger.addComment(f"Just for information, not used in actual run: SLURM CPUS queried from os environment: {os.environ.get('SLURM_CPUS_PER_TASK')}")
@@ -392,18 +385,24 @@ if __name__ == "__main__":
             # it will then execute this policy at each step.
             
             with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
+                eval_policy = policy_module
+                if num_gpus > 0:
+                    eval_policy = copy.deepcopy(policy_module).to("cpu")
                 # execute a rollout with the trained policy        
-                eval_rollout = env.rollout(eval_rollout_length, policy_module) 
+                eval_rollout = env.rollout(eval_rollout_length, eval_policy) 
                 #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
-                dist = policy_module.get_dist(eval_rollout)
-                entropyDuringEvaluation = dist.entropy().cpu().numpy()
-                for k in range(eval_rollout_length):
-                    myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
-                    #myLogger.keyValue("observation", eval_rollout["observation"].cpu().numpy()[k])
-                    #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
-                    myLogger.keyValue("reward", eval_rollout["next", "reward"].cpu().numpy()[k].item())
-                    myLogger.keyValue("policy entropy", entropyDuringEvaluation[k].item())
-                    myLogger.dumpLogger(printOut = False)
+                dist = eval_policy.get_dist(eval_rollout)
+                entropiesDuringEvaluation = dist.entropy().cpu().numpy()
+                rewards = eval_rollout["next", "reward"].cpu().numpy() 
+                for envIndex in range(env_level_paralleism):
+                    for timeIndex in range(eval_rollout_length):
+                        myLogger.keyValue(f"environment index", envIndex)
+                        myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
+                        #myLogger.keyValue("observation", eval_rollout["observation"].cpu().numpy()[k])
+                        #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
+                        myLogger.keyValue("reward", rewards[envIndex, timeIndex].item())
+                        myLogger.keyValue("policy entropy", entropiesDuringEvaluation[envIndex, timeIndex].item())
+                        myLogger.dumpLogger(printOut = False)
                 torch.save(policy_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_policy_weights.pth")
                 torch.save(value_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_value_weights.pth")
                 del eval_rollout

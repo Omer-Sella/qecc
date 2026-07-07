@@ -65,7 +65,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         self.flatObservationSize = ((self._l * self._m) ** 2) * 2
         
         self.observation_space = spaces.MultiBinary(self.flatObservationSize)
-        if rewardEngineering is not None:
+        if rewardEngineering:
             def rewardEngineeringFunction(plainReward):
                 return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
             self.rewardEngineering = rewardEngineeringFunction
@@ -94,7 +94,6 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         else:
             self.seed = seed
         super().reset(seed = self.seed)
-        self.seed = seed
         self.aX = self.aX * 0
         self.aY = self.aY * 0
         self.bX = self.bX * 0
@@ -113,7 +112,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
 
         observation = self._getObservation()
         #info = self._getInfo()
-        info = {"seed": self.seed}
+        info = {}
         return observation, info
 
     
@@ -144,7 +143,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
             reward = self.rewardEngineering(self._calculateReward(logicalErrorRate, decoderFailureRate))
         else:
-            reward = np.exp(numberOfLogicalQubits - self.minimumNumberOfLogicalQubits)
+            reward = np.exp(numberOfLogicalQubits - self.minimumNumberOfLogicalQubits) - 1 # Note the -1, to make sure that exp(minimumNumberOfQubits - minimumNumberOfQubits) - 1 == 0
 
         terminated = False
         observation = self._getObservation()
