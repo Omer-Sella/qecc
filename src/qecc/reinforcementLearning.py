@@ -220,6 +220,8 @@ if __name__ == "__main__":
         num_collectors = num_gpus
         collectorDevices = cudaDeviceNames[:num_gpus]
         device = torch.device(0)
+        if num_workers != env_level_paralleism:
+            raise ValueError("If GPUS are provided, then the number of workers should be the same as environment level parallelism")
     else:
         num_collectors = max(1, num_workers // env_level_paralleism)
         device = torch.device("cpu")
@@ -305,7 +307,10 @@ if __name__ == "__main__":
     policy_module(env.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
     value_module(env.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
 
-
+    # In case there is a cuda device, we move the policy and value modules to "the" cuda device
+    if num_gpus > 0:
+        policy_module = policy_module.to(device)
+        value_module = value_module.to(device)
     
     collector = MultiSyncCollector(
         create_env_fn= [environmentCreatorForCollector] * num_collectors,
