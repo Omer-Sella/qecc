@@ -17,9 +17,9 @@ _skip_non_linux_fork = pytest.mark.skipif(
 @_skip_non_linux_fork
 def test_rlParallelRunsWith2Workers():
     # This test should pass on Linux with fork start method, and should not be run on Windows or MacOS.
-    script = pathlib.Path(__file__).parent.parent / "src" / "qecc" / "reinforcementLearningParallel.py"
+    script = pathlib.Path(__file__).parent.parent / "src" / "qecc" / "reinforcementLearning.py"
     result = subprocess.run(
-        [sys.executable, str(script), "--num-workers", "2", "--total-frames", "256", "--eval-horizon", "1"],
+        [sys.executable, str(script), "--num-workers", "2"],
         timeout=600,
     )
     assert result.returncode == 0

@@ -4,9 +4,12 @@ from gymnasium import spaces
 from scipy.integrate import trapezoid
 from qecc.polynomialCodes import generateBicycleCode, generateABmatrices, bicycleCodeFromAB
 from qecc.logicals import calculateCodeDimension
+from qecc.gf4 import integerToDualBinary
+from ldpc import BpOsdDecoder
+from qecc.logicals import computeLogicals
 
 INT_DATA_TYPE = np.int16
-NEGATIVE_REWARD = -1
+
 # Following https://gymnasium.farama.org/tutorials/gymnasium_basics/environment_creation/
 
 class bicycleBivariateCodeEnvironment(gym.Env):
@@ -21,11 +24,13 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, evaluationDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, rewardEngineering = None, seed = None):
+    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0):
         
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
-        self.decoder = evaluationDecoderFunction
+        self.numberOfIterations = numberOfIterations
+        self.numberOfSamples = numberOfSamples
+        self.ms_scaling_factor = 0.625
         self._l = l
         self._m = m
         self.seed = seed # Omer: WARNING ! The assumption is that either on init, or later in reset, or parallelEnv or collector will set a seed.
@@ -82,11 +87,8 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         return np.vstack((self.A, self.B)).flatten().astype(np.int8)
     
     def reset(self, seed=None, options = None):
-        if seed == None:
-            if self.seed == None:
-                self.seed = np.random.randint(0, 2**31 - 1)
-            else:
-                self.seed = self.seed + 1
+        if seed is None:
+            self.seed = self.seed + 1
         else:
             self.seed = seed
         super().reset(seed = self.seed)
@@ -121,21 +123,15 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                             np.where(self.bX !=0)[0], 
                                             np.where(self.bY !=0)[0])
 
-        # self.Hx, self.Hz = generateBicycleCode(self._l,self._m, 
-        #                                        np.where(self.aX !=0)[0], 
-        #                                        np.where(self.aY !=0)[0], 
-        #                                        np.where(self.bX !=0)[0], 
-        #                                        np.where(self.bY !=0)[0])
-        # # Omer: check that the resulting code admits the necessary logical qubits
-        
         self.Hx, self.Hz = bicycleCodeFromAB(self.A, self.B)
+        # Omer: check that the resulting code admits the necessary logical qubits
         
-
         numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
         if  numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
             #seedForEvaluation = self.np_random.integers(0, 2**32 - 1) #Changed to environment seed
-            logicalErrorRate, decoderFailureRate = self.decoder(self.Hx, self.Hz, self.errorRange, seed = self.seed)
-            reward = self.rewardEngineering(self._calculateReward(logicalErrorRate, decoderFailureRate))
+            self.seed = self.seed + 1
+            logicalErrorRate = self.decoderEvaluation(self.seed)
+            reward = self.rewardEngineering(self._calculateReward(logicalErrorRate))
         else:
             reward = np.exp(numberOfLogicalQubits - self.minimumNumberOfLogicalQubits) - 1 # Note the -1, to make sure that exp(minimumNumberOfQubits - minimumNumberOfQubits) - 1 == 0
 
@@ -144,33 +140,64 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         info = {}#None
         return observation, reward, terminated, False, info
     
+    def decoderEvaluation(self, seed):
 
+        
+        localRandom = np.random.RandomState(seed) 
+        logicalX, logicalZ = computeLogicals(self.Hx, self.Hz)
+
+        bpDecoderHx=BpOsdDecoder(self.Hx,#the parity check matrix
+                                        error_rate=1.0,
+                                        #channel_probs= initialValues[:,1], #assign error_rate to each qubit. This will override "error_rate" input variable
+                                        max_iter=self.numberOfIterations, #the maximum number of iterations for BP)
+                                        bp_method="ms",
+                                        ms_scaling_factor=self.ms_scaling_factor, #min sum scaling factor. If set to zero the variable scaling factor method is used
+                                        osd_method="osd0", #the OSD method. Choose from:  1) "osd_e", "osd_cs", "osd0"
+                                        osd_order=0 #the osd search depth
+                                        )
+        bpDecoderHz=BpOsdDecoder(self.Hz,#the parity check matrix
+                                        error_rate=1.0,
+                                        #channel_probs= initialValues[:,1], #assign error_rate to each qubit. This will override "error_rate" input variable
+                                        max_iter=self.numberOfIterations, #the maximum number of iterations for BP)
+                                        bp_method="ms",
+                                        ms_scaling_factor=self.ms_scaling_factor, #min sum scaling factor. If set to zero the variable scaling factor method is used
+                                        osd_method="osd0", #the OSD method. Choose from:  1) "osd_e", "osd_cs", "osd0"
+                                        osd_order=0 #the osd search depth
+                                        )
+        logicalErrorRate = np.zeros(len(self.errorRange))
+        for i in range(len(self.errorRange)):
+            p = float(self.errorRange[i])
+            bpDecoderHx.error_rate = p
+            bpDecoderHz.error_rate = p
+            logicalErrorRate[i] = 0
+            for _ in range(self.numberOfSamples):
+                #Sample (some number of times) an error, which is a vector over {0,1,2,3} representing I,X,Z,Y (to be consistent check with the documentation in gf4.py)
+                error = localRandom.choice([0,1,2,3], size=self.Hx.shape[1], replace=True, p=[1 - 3*p, p, p, p])
+                errorX, errorZ = integerToDualBinary(error)
+                #Calculate the syndrome for this error
+                estimatedErrorX = bpDecoderHz.decode(self.Hz.dot(errorX)%2)
+                estimatedErrorZ = bpDecoderHx.decode(self.Hx.dot(errorZ)%2)
+                residualErrorX = (estimatedErrorX + errorX) % 2
+                residualErrorZ = (estimatedErrorZ + errorZ) % 2
+                # Check whether the residual error gives 0 syndrome:
+                if not ( np.all((np.dot(self.Hx,residualErrorZ)) % 2 ==0) and np.all((np.dot(self.Hz, residualErrorX)%2) == 0)):
+                    #print("Decoder failure: the residual error does not give 0 syndrome, meaning the decoder is wrong")
+                    logicalErrorRate[i] += 1
+                else: # So we are in the case that the residual error commutes with all stabilizers, i.e., it is in the normalizer. So let's check if it is a stabilizer (commutes with all logicals), or a logical error (anticommutes with some logical operator)
+                    if not ( np.all((np.dot(logicalZ,residualErrorX) % 2 )== 0) and np.all((np.dot(logicalX, residualErrorZ) % 2)==0)):
+                        #print(f"Logical error: the residual error commutes with all stabilizers but anticommutes with some logical operator")
+                        logicalErrorRate[i] += 1
+        logicalErrorRate = logicalErrorRate / self.numberOfSamples            
+        return logicalErrorRate
     
-    def _calculateReward(self, logicalErrorRate, decoderFailureRate, numberOfIterations = 10):      
-        outputBER = logicalErrorRate + decoderFailureRate # Omer: this is a decision, it could be that in the future we want to put this into reward engineering.
-        reward = trapezoid(1 - outputBER, self.errorRange)
+    def _calculateReward(self, logicalErrorRate):      
+        reward = trapezoid(1 - logicalErrorRate , self.errorRange)
         return reward
     
     def getSeed(self):
         return self.seed
 
-def exampleDecoderFunction(Hx,Hz,errorRange, seed = None):
-    from qecc.minSum import ldpcDecoderWrapper
-    from qecc.utils import decoderEvaluator
 
-    numberOfSamples = 30
-    logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = 50, numberOfSamples = numberOfSamples, seed = seed)
-    #return {key: value/numberOfSamples for key,value in logicalErrors.items()} , {key: value/numberOfSamples for key,value in decoderFailures.items()}
-    return logicalErrors/numberOfSamples, decoderFailures/numberOfSamples
-
-
-def exampleDecoderFunction2(Hx,Hz,errorRange, seed = None):
-    from qecc.utils import decoderEvaluator, wrapperForRoffesLdpc, binaryDecoderToDualBinaryDecoderWrapper
-    decoder = binaryDecoderToDualBinaryDecoderWrapper(wrapperForRoffesLdpc) # So this will be ms_scaling_factor = 0.625, min-sum, osd0
-    NUMBER_OF_SAMPLES = 100
-    NUMBER_OF_DECODER_ITERATIONS = 50
-    logicalErrors, decoderFailures =  decoderEvaluator(decoderFunction = decoder, dualBinary = True, Hx = Hx, Hz = Hz, errorRange = errorRange, decoderStoppingCriterion = NUMBER_OF_DECODER_ITERATIONS, numberOfSamples = NUMBER_OF_SAMPLES, seed = seed)
-    return logicalErrors / NUMBER_OF_SAMPLES, decoderFailures / NUMBER_OF_SAMPLES
 
 
 def makeTestAction_6_6():
@@ -200,12 +227,12 @@ if __name__ == "__main__":
     # Check the environment works with GymEnv
     from torchrl.envs.libs.gym import GymEnv
     from torchrl.envs.utils import check_env_specs
-    base_env = GymEnv("qecc/bbcode-v0", device=device, l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
+    base_env = GymEnv("qecc/bbcode-ldpc-v0", l = 6, m = 6, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
 
     check_env_specs(base_env)
-    env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction, errorRange = np.linspace(0.0001,0.1,10))
+    env = gym.make('qecc/bbcode-ldpc-v0', l = 6, m = 6, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
 
-    #env = gym.make('qecc/bbcode-v0', l = 6, m = 6, evaluationDecoderFunction = dualRoffeDecoder, errorRange = [0.1, 0.06, 0.01, 0.006, 0.001, 0.0006, 0.0001 ])
+    
     env.reset()
     print(env.action_space.shape)
     #print(env.unwrapped.flatObservationSize)

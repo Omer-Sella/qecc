@@ -16,11 +16,13 @@ register(
     entry_point="qecc.bb_gym:bicycleBivariateCodeEnvironment",
 )
 
+
+register(
+    id="qecc/bbcode-ldpc-v0",
+    entry_point="qecc.bb_gym_v_0_1:bicycleBivariateCodeEnvironment",
+)
+
 register(
     id="qecc/bbcode-bitflip-v0",
     entry_point="qecc.bb_gym_v2:bicycleBivariateCodeEnvironmentV2",
 )
-# register(
-#     id="bbcode-v0",
-#     entry_point="qecc:bb_gym",
-# )

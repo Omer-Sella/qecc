@@ -241,12 +241,18 @@ def generateABmatrices(l,m, aX, aY, bX, bY):
           B = (B + (np.linalg.matrix_power(y, p)%2) )%2
      return A, B
 
-def generateBicycleCode(l,m, aX, aY, bX, bY):
-     A,B = generateABmatrices(l,m, aX, aY, bX, bY)
+
+def bicycleCodeFromAB(A,B):
      H_X = np.hstack((A, B))
      H_Z = np.hstack((B.transpose(), A.transpose()))
-     
      return H_X.astype(int), H_Z.astype(int)
+
+def generateBicycleCode(l,m, aX, aY, bX, bY):
+     A,B = generateABmatrices(l,m, aX, aY, bX, bY)
+     Hx,Hz = bicycleCodeFromAB(A,B)
+     return Hx, Hz
+     
+     
 
 
 aX_72_12_6 = [3]
@@ -256,7 +262,7 @@ bY_72_12_6 = [3]
 H_x_72_12_6, H_z_72_12_6 = generateBicycleCode(6, 6, aX_72_12_6, aY_72_12_6, bX_72_12_6, bY_72_12_6)
 codes["Hx_72_12_6"] = H_x_72_12_6
 codes["Hz_72_12_6"] = H_z_72_12_6
-bbCodes["72_12_6"] = [H_x_72_12_6, H_x_72_12_6]
+bbCodes["72_12_6"] = [H_x_72_12_6, H_z_72_12_6]
 
 aX_90_8_10 = [9]
 aY_90_8_10 = [1, 2]

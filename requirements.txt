@@ -103,7 +103,8 @@ tomli==2.4.0
     # via pytest
 torch==2.10.0
     # via qecc (pyproject.toml)
-torchrl==0.10.0
+torchrl==0.13.1
+
 tqdm==4.67.3
     # via ldpc
 typing-extensions==4.15.0

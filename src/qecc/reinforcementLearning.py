@@ -78,7 +78,7 @@ myKeys = ['Reward',
 myEvaluationKeys = ["evaluation number",
                     "reward",
                     "policy entropy",
-                    "environment index"]
+                    ]
 
 
 
@@ -110,14 +110,14 @@ if __name__ == "__main__":
         help="Number of CPUs for the whole run. ",
     )
 
-    parser.add_argument(
-        "--num-gpus", type=int, default=0, choices=[0, 1, 2, 4],
-        help="Number of data collectors to use. Each collector will have its own environment and policy. The number of workers will be divided among the collectors.",
-    )
-    parser.add_argument(
-        "--env-level-parallelism", type=int, default = 1,
-        help="Number of parallel environments for each data collector to work on.",
-    )
+    # parser.add_argument(
+    #     "--num-gpus", type=int, default=0, choices=[0, 1, 2, 4],
+    #     help="Number of data collectors to use. Each collector will have its own environment and policy. The number of workers will be divided among the collectors.",
+    # )
+    # parser.add_argument(
+    #     "--env-level-parallelism", type=int, default = 1,
+    #     help="Number of parallel environments for each data collector to work on.",
+    # )
 
     parser.add_argument(
         "--num-cells", type=int, default=256,
@@ -210,24 +210,25 @@ if __name__ == "__main__":
     lmbda = parsedArguments.lmbda
     entropy_eps = parsedArguments.entropy_eps
     num_workers = parsedArguments.num_workers
-    num_gpus = parsedArguments.num_gpus
+    #num_gpus = parsedArguments.num_gpus
+    
     
     cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
-    env_level_paralleism = parsedArguments.env_level_parallelism
+    env_level_paralleism = num_workers #parsedArguments.env_level_parallelism
     if frames_per_batch // sub_batch_size == 0:
         raise ValueError(f"frames_per_batch == {frames_per_batch} and sub_batch_size == {sub_batch_size} which means frames_per_batch // sub_batch_size == 0, not a valid configuration.")
-    if num_gpus > 0:
-        # If GPUS are provided, then the number of collectors will be equal to the number of GPUs, and each collector will be assigned to a different GPU. 
-        num_collectors = num_gpus
-        collectorDevices = cudaDeviceNames[:num_gpus]
-        device = torch.device(0)
-        if num_workers != env_level_paralleism:
-            raise ValueError("If GPUS are provided, then the number of workers should be the same as environment level parallelism")
-    else:
-        num_collectors = max(1, num_workers // env_level_paralleism)
-        device = torch.device("cpu")
-        collectorDevices = [device] * num_collectors        
-    
+    # if num_gpus > 0:
+    #     # If GPUS are provided, then the number of collectors will be equal to the number of GPUs, and each collector will be assigned to a different GPU. 
+    #     num_collectors = num_gpus
+    #     collectorDevices = cudaDeviceNames[:num_gpus]
+    #     device = torch.device(0)
+    #     #if num_workers != env_level_paralleism:
+    #     #    raise ValueError("If GPUS are provided, then the number of workers should be the same as environment level parallelism")
+    # else:
+    #     num_collectors = 1 #max(1, num_workers // env_level_paralleism)
+    #     device = torch.device("cpu")
+    #     collectorDevices = [device] * num_collectors        
+    device = torch.device("cpu") # Omer: right now everything is CPU bound.
    
     log_name = parsedArguments.log_name
     if log_name is not None:
@@ -244,15 +245,16 @@ if __name__ == "__main__":
 
     myLogger.addComment(f"Does torch identify cuda: {torch.cuda.is_available()}")
 
-    myLogger.addComment(f"Number of collectors: {num_collectors}")
+    #myLogger.addComment(f"Number of collectors: {num_collectors}")
 
-    myLogger.addComment(f"Collector device list: {collectorDevices}")
+    #myLogger.addComment(f"Collector device list: {collectorDevices}")
 
     
     
-    #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
+    
     
     def environmentCreatorForParallelEnv():
+        #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
         base_env = GymEnv("qecc/bbcode-v0", l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
 
         #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
@@ -267,12 +269,15 @@ if __name__ == "__main__":
         )
         return env
 
-    def environmentCreatorForCollector():
-        return ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv)
+    #def environmentCreatorForCollector():
+    #    return ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv)
     
-    env = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv)
-    
-    actor_net = create_actor_value_nets(env.action_spec, num_cells) # removed device selecting leave it to the collector
+    collectorEnv = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv, num_threads = 1)
+    collectorEnv.set_seed(seed_for_environment) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
+    evaluationEnv = environmentCreatorForParallelEnv()
+    evaluationEnv.set_seed(seed_for_environment + 1) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
+
+    actor_net = create_actor_value_nets(collectorEnv.action_spec, num_cells) # removed device selecting leave it to the collector
     value_net = create_value_net(num_cells)
     
     
@@ -283,7 +288,7 @@ if __name__ == "__main__":
 
     policy_module = ProbabilisticActor(
         module=policy_module,
-        spec=env.action_spec,
+        spec=collectorEnv.action_spec,
         in_keys=["logits"],
         #distribution_class=Bernoulli,
         distribution_class=IndependentBernoulli, #Omer: note the change here. This is because we nee log_prob to be a single number, and a Bernoulli distribution returns one log_prob per coordinate.
@@ -297,24 +302,28 @@ if __name__ == "__main__":
     )
 
 
-    policy_module(env.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
-    value_module(env.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
+    policy_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
+    value_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
 
-    # In case there is a cuda device, we move the policy and value modules to "the" cuda device
-    if num_gpus > 0:
-        print(f"num_gpus is {num_gpus} so moving the policy module and value module to device {device}")
-        policy_module = policy_module.to(device)
-        value_module = value_module.to(device)
     
-    collector = MultiSyncCollector(
-        create_env_fn= [environmentCreatorForCollector] * num_collectors,
+            
+
+    
+    # if num_gpus > 0:
+    #     print(f"num_gpus is {num_gpus} so moving the policy module and value module to device {device}")
+    #     policy_module = policy_module.to(device)
+    #     value_module = value_module.to(device)
+    
+    collector = SyncDataCollector(
+        collectorEnv,
         policy = policy_module,
         frames_per_batch=frames_per_batch,
         total_frames=total_frames,
         split_trajs=False,
-        device=collectorDevices,
+        device=device,
+        storing_device = device
     )
-    collector.set_seed(seed_for_environment) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
+    
 
     replay_buffer = ReplayBuffer(
         storage=LazyTensorStorage(max_size=frames_per_batch),
@@ -386,23 +395,23 @@ if __name__ == "__main__":
             
             with set_exploration_type(ExplorationType.DETERMINISTIC), torch.no_grad():
                 eval_policy = policy_module
-                if num_gpus > 0:
-                    eval_policy = copy.deepcopy(policy_module).to("cpu")
+                # if num_gpus > 0:
+                #     eval_policy = copy.deepcopy(policy_module).to("cpu")
                 # execute a rollout with the trained policy        
-                eval_rollout = env.rollout(eval_rollout_length, eval_policy) 
+                eval_rollout = evaluationEnv.rollout(eval_rollout_length, eval_policy) 
                 #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
                 dist = eval_policy.get_dist(eval_rollout)
                 entropiesDuringEvaluation = dist.entropy().cpu().numpy()
                 rewards = eval_rollout["next", "reward"].cpu().numpy() 
-                for envIndex in range(env_level_paralleism):
-                    for timeIndex in range(eval_rollout_length):
-                        myLogger.keyValue(f"environment index", envIndex)
-                        myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
-                        #myLogger.keyValue("observation", eval_rollout["observation"].cpu().numpy()[k])
-                        #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
-                        myLogger.keyValue("reward", rewards[envIndex, timeIndex].item())
-                        myLogger.keyValue("policy entropy", entropiesDuringEvaluation[envIndex, timeIndex].item())
-                        myLogger.dumpLogger(printOut = False)
+            
+                for timeIndex in range(eval_rollout_length):
+                    #myLogger.keyValue(f"environment index", envIndex)
+                    myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
+                    #myLogger.keyValue("observation", eval_rollout["observation"].cpu().numpy()[k])
+                    #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
+                    myLogger.keyValue("reward", rewards[timeIndex].item())
+                    myLogger.keyValue("policy entropy", entropiesDuringEvaluation[timeIndex].item())
+                    myLogger.dumpLogger(printOut = False)
                 torch.save(policy_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_policy_weights.pth")
                 torch.save(value_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_value_weights.pth")
                 del eval_rollout
