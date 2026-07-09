@@ -37,6 +37,7 @@ import qecc # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __ini
 import argparse
 import copy
 import warnings
+from datetime import datetime
 from qecc.loggerForReinforcementLearning import logger
 import torch
 from tensordict.nn import TensorDictModule
@@ -351,11 +352,13 @@ if __name__ == "__main__":
     )
 
     #logs = defaultdict(list)
+    print("Training begins on:")
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"))
     pbar = tqdm(total=total_frames)
     eval_str = ""
-
     # We iterate over the collector until it reaches the total number of frames it was
     # designed to collect:
+    
     for i, tensordict_data in enumerate(collector):
         # we now have a batch of data to work with. Let's learn something from it.
         for epochNumber in range(num_epochs):
