@@ -421,5 +421,6 @@ if __name__ == "__main__":
 
     torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
     torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
+    print(f"Finished.\nExperiment logs and policy weights are located in:\n{myLogger.logPath}")
 
 
