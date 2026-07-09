@@ -190,6 +190,7 @@ if __name__ == "__main__":
         help="Name of the log file. All logs are saved in the directory specified by the environment variable QECC_DATA. If not specified, the file name will be experiment.txt.",
     )
     
+
     parsedArguments = parser.parse_args()
     minimum_number_of_qubits = parsedArguments.minimum_number_of_qubits
     seed_for_environment = parsedArguments.seed_for_environment
@@ -256,8 +257,8 @@ if __name__ == "__main__":
     
     def environmentCreatorForParallelEnv():
         #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-        base_env = GymEnv("qecc/bbcode-ldpc-v0", l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
-
+        #base_env = GymEnv("qecc/bbcode-v0", l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
+        base_env = GymEnv("qecc/bbcode-ldpc-v0", l = 6, m = 6, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
         #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
         env = TransformedEnv(
             base_env,
