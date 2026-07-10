@@ -1,10 +1,6 @@
 from qecc.gf4 import *
-
-from qecc.polynomialCodes import codes
-from itertools import permutations, product
 from numba import jit
 #from line_profiler import profile
-from numba import jit
 from numba.experimental import jitclass
 from numba.types import int32, float64, DictType
 

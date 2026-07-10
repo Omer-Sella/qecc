@@ -1,7 +1,6 @@
 """
 Fun with matrices, in honour of Dr. James Wotton's brilliant video lecture
 """
-
 from sympy.matrices import Matrix
 from sympy import symbols, And, Xor
 import numpy as np

@@ -11,10 +11,10 @@ PACKAGE_NAME = "qecc"
 from gymnasium.envs.registration import register
 
 
-# register(
-#     id="qecc/bbcode-v0",
-#     entry_point="qecc.bb_gym:bicycleBivariateCodeEnvironment",
-# )
+register(
+    id="qecc/bbcode-v0",
+    entry_point="qecc.bb_gym:bicycleBivariateCodeEnvironment",
+)
 
 
 register(
@@ -22,7 +22,4 @@ register(
     entry_point="qecc.bb_gym_v_0_1:bicycleBivariateCodeEnvironment",
 )
 
-register(
-    id="qecc/bbcode-bitflip-v1_0",
-    entry_point="qecc.bb_gym_v_1_0:bicycleBivariateCodeEnvironment",
-)
+

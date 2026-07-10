@@ -1,9 +1,5 @@
 ## oss 08/07/2019
 import numpy as np
-import time
-import concurrent.futures
-import os
-import copy
 from numba import jit, int32, float32, types, typed, boolean, float64, int64
 from numba.experimental import jitclass
 LDPC_LOCAL_PRNG = np.random.RandomState(7134066)

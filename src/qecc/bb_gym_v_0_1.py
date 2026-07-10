@@ -2,7 +2,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from scipy.integrate import trapezoid
-from qecc.polynomialCodes import generateBicycleCode, generateABmatrices, bicycleCodeFromAB
+from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB
 from qecc.logicals import calculateCodeDimension
 from qecc.gf4 import integerToDualBinary
 from ldpc import BpOsdDecoder
@@ -28,7 +28,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True):
+    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True, bitFlipping = False):
         
         self.codeLogging = codeLogging
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
@@ -40,18 +40,19 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         self._m = m
         self.seed = seed # Omer: WARNING ! The assumption is that either on init, or later in reset, or parallelEnv or collector will set a seed.
         self.errorRange = errorRange
+        self.bitFlipping = bitFlipping
         if any(a >= b for a, b in zip(errorRange, errorRange[1:])):
             raise ValueError(
                 f"errorRange must be strictly increasing (e.g. [0.001, 0.01, 0.1]); got {list(errorRange)}"
             )
-        # The action space is a flat array containing [aX,bX,aY,bY] in that order.
-        self.action_space = spaces.MultiBinary(4 * l * m)
-
         
-        self.aX = np.zeros(l*m, INT_DATA_TYPE)
-        self.bX = np.zeros(l*m, INT_DATA_TYPE)
-        self.aY = np.zeros(l*m, INT_DATA_TYPE)
-        self.bY = np.zeros(l*m, INT_DATA_TYPE)
+        #Since x=Sℓ⊗Im and y=Iℓ⊗Sm we have x^l = y^m = I_{l*m}, so aX, bX terms over l wrap around using x^l = 1 and aY,bY terms higher than m wrap around as y^m = 1
+        # The action space is a flat array containing containing actions [aX + 1,bX + 1,aY +1 ,bY + 1] in that order. +1 because there is a no op bit.
+        self.action_space = spaces.MultiBinary(2 * l  + 2 * m + 4)
+        self.aX = np.zeros(l, INT_DATA_TYPE)
+        self.bX = np.zeros(l, INT_DATA_TYPE)
+        self.aY = np.zeros(m, INT_DATA_TYPE)
+        self.bY = np.zeros(m, INT_DATA_TYPE)
         
         self.A, self.B = generateABmatrices(self._l, self._m,
                                             np.where(self.aX !=0)[0], 
@@ -68,9 +69,9 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         #          "Hz": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
         #      }
         #  )
-        self.flatObservationSize = ((self._l * self._m) ** 2) * 2
         
-        self.observation_space = spaces.MultiBinary(self.flatObservationSize)
+        
+        self.observation_space = spaces.MultiBinary(len(self._getObservation()))
         if rewardEngineering:
             def rewardEngineeringFunction(plainReward):
                 return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
@@ -118,10 +119,21 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     def step(self, action):
 #        super().step(action)
         # Unpack action from flat action
-        self.aX = action[0 : (self._l * self._m) ]
-        self.aY = action[(self._l * self._m) : 2 * (self._l * self._m)]
-        self.bX = action[2*(self._l * self._m) : 3 * (self._l * self._m)]
-        self.bY = action[3*(self._l * self._m) : 4 * (self._l * self._m)]
+        actionCopy = np.array(action, dtype = INT_DATA_TYPE, copy = True) # This takes care of two things: 1. We are about to XOR the action from the policy (which is float data type) with an int. 2. We are about to assign a slice of the action to an internal polynomial, and that must not be a view, rather a copy.
+        aXAction = actionCopy[0 : self._l + 1]
+        bXaction = actionCopy[self._l +1 : 2 * self._l +2]
+        aYAction = actionCopy[2 * self._l +2 : 2 * self._l + self._m +3]
+        bYAction = actionCopy[2* self._l + self._m + 3 : 2 * self._l + 2 * self._m + 4]
+        if self.bitFlipping: # This mode means we are switching bits on and off
+            self.aX ^= aXAction[0:-1]
+            self.bX ^= bXaction[0:-1]
+            self.aY ^= aYAction[0:-1]
+            self.bY ^= bYAction[0:-1]
+        else: # This mode means we are completely ignoring the present state and replacing it (stateless environment)
+            self.aX = aXAction[0:-1]
+            self.bX = bXaction[0:-1]
+            self.aY = aYAction[0:-1]
+            self.bY = bYAction[0:-1]
         
         self.A, self.B = generateABmatrices(self._l, self._m, 
                                             np.where(self.aX !=0)[0], 
@@ -212,26 +224,6 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         return self.seed
 
 
-
-
-def makeTestAction_6_6():
-    l = 6
-    m = 6
-    aX = np.zeros(l*m)
-    aY = np.zeros(l*m)
-    bX = np.zeros(l*m)
-    bY = np.zeros(l*m)
-    aX[3] = 1
-    aY[1]=1
-    aY[2] = 1
-    bX[1] = 1
-    bX[2] = 1
-    bY[3] = 1
-    action = np.concatenate([aX,aY,bX,bY])
-    return action
-    
-
-
 def logCodeEvaluation(l, m, aX, aY, bX, bY, numberOfLogicalQubits,
                       errorRange, logicalErrorCounts, decoderFailureCounts,
                       numberOfSamples, seed, decoderConfig, noiseModel,
@@ -276,16 +268,16 @@ if __name__ == "__main__":
     base_env = GymEnv("qecc/bbcode-ldpc-v0", l = 6, m = 6, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
 
     check_env_specs(base_env)
-    env = gym.make('qecc/bbcode-ldpc-v0', l = 6, m = 6, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6)
+    env = gym.make('qecc/bbcode-ldpc-v0', l = 6, m = 6, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, bitFlipping = False)
 
     
     env.reset()
     print(env.action_space.shape)
     #print(env.unwrapped.flatObservationSize)
-    aX = np.zeros(l*m)
-    aY = np.zeros(l*m)
-    bX = np.zeros(l*m)
-    bY = np.zeros(l*m)
+    aX = np.zeros(l+1)
+    aY = np.zeros(m+1)
+    bX = np.zeros(l+1)
+    bY = np.zeros(m+1)
     print(env.action_space.shape)
     aX[3] = 1
     aY[1]=1
@@ -293,7 +285,8 @@ if __name__ == "__main__":
     bX[1] = 1
     bX[2] = 1
     bY[3] = 1
-    action = np.concatenate([aX,aY,bX,bY])
+    action = np.concatenate([aX,bX,aY,bY])
     print(action)
-    observation = env.step(action = action)
+    observation, reward,_,_,_ = env.step(action = action)
+    print(reward) # Should give  ~ 0.0339
 

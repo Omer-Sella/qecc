@@ -41,9 +41,9 @@ from datetime import datetime
 from qecc.loggerForReinforcementLearning import logger
 import torch
 from tensordict.nn import TensorDictModule
-from torch.distributions import Bernoulli
+from torch.distributions import Bernoulli, OneHotCategorical
 from torchrl.collectors import Collector as SyncDataCollector #Omer I dropped in Collector instead of SyncDataCollector
-from torchrl.collectors import MultiSyncCollector
+
 from torchrl.data.replay_buffers import ReplayBuffer
 from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
 from torchrl.data.replay_buffers.storages import LazyTensorStorage
@@ -94,10 +94,58 @@ class CastToFloat(Transform):
     def transform_observation_spec(self, observation_spec):
         observation_spec["observation"] = observation_spec["observation"].to(torch.float32)
         return observation_spec
+
+# The following class solves the following problem: TorchRl has a onehot distribution, and we need to stack 4 of them. 
+# If they were homogenous (say each is of length K), we could use oneHot(4,K).
+# However, we have 2 oneHot vectors of length l+1 and 2 of length m+1, and not necessarily l==m
+# The other problem it solves is the same reason we wrapped the Bernouli distribution - we need to feed ppo with a single number for entropy
+
+class ConcatenatedOneHotCategorical(torch.distributions.Distribution):
+    """The flat logits vector is split into blocks of sizes blockSizes, e.g. (l+1, l+1, m+1, m+1).
+    Each block is an independent categorical choice sampled as a one-hot vector, and the action is
+    the flat concatenation of the blocks. 
     
+    The step of bb_gym_v_0_1 slices the same blocks and XORs each one (minus its trailing no-op bit) into the
+    polynomial representation, so each step flips at most one coefficient per polynomial.
+    log_prob and entropy sum over the blocks, so log_prob is a single number, as PPO needs."""
+
+    
+
+    def __init__(self, logits, blockSizes):
+        self.blockSizes = list(blockSizes)
+        # Instantiate as many oneHot distributions as there are blocks. 
+        self.blockDistributions = [OneHotCategorical(logits=blockLogits)
+                                   for blockLogits in logits.split(self.blockSizes, dim=-1)]
+        super().__init__(batch_shape=logits.shape[:-1], event_shape=logits.shape[-1:],
+                         validate_args=False)
+
+    def sample(self, sample_shape=torch.Size()):
+        # We sample from each oneHot distribution and return the result.
+        return torch.cat([d.sample(sample_shape) for d in self.blockDistributions], dim=-1)
+
+    def log_prob(self, value):
+        blockValues = value.split(self.blockSizes, dim=-1)
+        return sum(d.log_prob(v) for d, v in zip(self.blockDistributions, blockValues))
+
+    def entropy(self):
+        return sum(d.entropy() for d in self.blockDistributions)
+
+    # We need this property to sample deterministically during evaluation which calls deterministic_sample
+    @property
+    def deterministic_sample(self):
+        return self.mode
+    
+    # Deterministic sample - each oneHot distribution returns its "mode" which is the most probable coordinate 
+    @property
+    def mode(self):
+        return torch.cat([d.mode for d in self.blockDistributions], dim=-1)
+
+
+
+
+
 # log_prob fix: When we ask a Bernoulli distribution to return log_prob, it returns an array, each element of which is a log_prob for that specific coordinate.
 # However, for computing the loss we need to sum them.
-
 class IndependentBernoulli(Independent):
     def __init__(self, logits):
         super().__init__(Bernoulli(logits=logits), 1)
@@ -110,15 +158,6 @@ if __name__ == "__main__":
         "--num-workers", type=int, default=1,
         help="Number of CPUs for the whole run. ",
     )
-
-    # parser.add_argument(
-    #     "--num-gpus", type=int, default=0, choices=[0, 1, 2, 4],
-    #     help="Number of data collectors to use. Each collector will have its own environment and policy. The number of workers will be divided among the collectors.",
-    # )
-    # parser.add_argument(
-    #     "--env-level-parallelism", type=int, default = 1,
-    #     help="Number of parallel environments for each data collector to work on.",
-    # )
 
     parser.add_argument(
         "--num-cells", type=int, default=256,
@@ -138,7 +177,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--eval-rollout-length", type=int, default=50,
+        "--eval-rollout-length", type=int, default=1,
         help="Length of the evaluation rollout.",
     )
     parser.add_argument(
@@ -146,11 +185,11 @@ if __name__ == "__main__":
         help="Scaling factor for total frames, which is calculated as: total_frames = frames_per_batch * scaling_factor. This is so total_frames / frames_per_batch is an integer. Use 1 for logger testing, or checking that everything works. "
     )
     parser.add_argument(
-        "--frames-per-batch", type=int, default=100, #frames_per_batch = 100 * SCALING_FACTOR
+        "--frames-per-batch", type=int, default=10, #frames_per_batch = 100 * SCALING_FACTOR
         help="Number of frames to collect per batch. Use 1000 (or bigger) for actuall runs, or 10 for testing. This also determines total_frames since total_frames = frames_per_batch * scaling_factor."
     )
     parser.add_argument(
-        "--sub-batch-size", type=int, default=64, #sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
+        "--sub-batch-size", type=int, default=5, #sub_batch_size = 64  # cardinality of the sub-samples gathered from the current data in the inner loop
         help="Size of the sub-batches for optimization. Will be multiplied by the scaling factor."
     )
     parser.add_argument(
@@ -189,12 +228,33 @@ if __name__ == "__main__":
         "--log-name", type=str, default=None,
         help="Name of the log file. All logs are saved in the directory specified by the environment variable QECC_DATA. If not specified, the file name will be experiment.txt.",
     )
+
+    parser.add_argument(
+        "--env-version", type=str, default="qecc/bbcode-ldpc-v0", choices=["qecc/bbcode-v0", "qecc/bbcode-ldpc-v0"],
+        help="Name of the environment to use. qecc/bbcode-bitflip-v1_0 uses a MultiDiscrete action space, while qecc/bbcode-ldpc-v0 uses MultiBinary. This will change over time as the environments evolve.",
+    )
+
+    parser.add_argument(
+        "--env-bit-flipping", type=str, default="False", choices = ["True", "False", "true", "false"],
+        help="Whether the agent changes (at most) one element of each polynomial at each step, or can change the entire polynommial (stateless environment).ame of the environment to use. qecc/bbcode-bitflip-v1_0 uses a MultiDiscrete action space, while qecc/bbcode-ldpc-v0 uses MultiBinary.",
+    )
+
+    parser.add_argument(
+        "--env-l", type=int, default=6, choices = [6,9,15,12,30,21],
+        help="parameter l for bb code construction. Can be any integer, but for now I limited the choices.",
+    )
+
+    parser.add_argument(
+        "--env-m", type=int, default=6, choices = [3,6,12,18],
+        help="parameter m for bb code construction. Can be any integer, but for now I limited the choices.",
+    )
     
 
     parsedArguments = parser.parse_args()
     minimum_number_of_qubits = parsedArguments.minimum_number_of_qubits
     seed_for_environment = parsedArguments.seed_for_environment
     reward_engineering = parsedArguments.reward_engineering.lower() == "true"
+    env_bit_flipping = parsedArguments.env_bit_flipping.lower() == "true"
     scaling_factor = parsedArguments.scaling_factor
     frames_per_batch = parsedArguments.frames_per_batch
     total_frames = frames_per_batch * scaling_factor
@@ -212,7 +272,10 @@ if __name__ == "__main__":
     lmbda = parsedArguments.lmbda
     entropy_eps = parsedArguments.entropy_eps
     num_workers = parsedArguments.num_workers
+    env_version = parsedArguments.env_version
     #num_gpus = parsedArguments.num_gpus
+    env_l = parsedArguments.env_l
+    env_m = parsedArguments.env_m
     
     
     cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
@@ -232,7 +295,6 @@ if __name__ == "__main__":
     #     collectorDevices = [device] * num_collectors        
     device = torch.device("cpu") # Omer: right now everything is CPU bound.
    
-    log_name = parsedArguments.log_name
     if log_name is not None:
         myLogger = logger(keys = myEvaluationKeys, fileName=log_name) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
     else:
@@ -258,7 +320,14 @@ if __name__ == "__main__":
     def environmentCreatorForParallelEnv():
         #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
         #base_env = GymEnv("qecc/bbcode-v0", l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
-        base_env = GymEnv("qecc/bbcode-ldpc-v0", l = 6, m = 6, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
+        
+        base_env = GymEnv("qecc/bbcode-ldpc-v0", 
+                          l = env_l, 
+                          m = env_m, 
+                          errorRange = np.linspace(0.0001,0.1,5), 
+                          minimumNumberOfLogicalQubits = minimum_number_of_qubits, 
+                          rewardEngineering = reward_engineering, 
+                          bitFlipping = env_bit_flipping)  # removed device = device, since this will run on the CPU always
         #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
         env = TransformedEnv(
             base_env,
@@ -288,14 +357,27 @@ if __name__ == "__main__":
         actor_net, in_keys=["observation"], out_keys=["logits"]
     )
 
-    policy_module = ProbabilisticActor(
-        module=policy_module,
-        spec=collectorEnv.action_spec,
-        in_keys=["logits"],
-        #distribution_class=Bernoulli,
-        distribution_class=IndependentBernoulli, #Omer: note the change here. This is because we nee log_prob to be a single number, and a Bernoulli distribution returns one log_prob per coordinate.
-        return_log_prob=True,
-    )
+    if env_bit_flipping == True:
+            policy_module = ProbabilisticActor(
+            module=policy_module,
+            spec=collectorEnv.action_spec,
+            in_keys=["logits"],
+            #distribution_class=Bernoulli,
+            distribution_class= ConcatenatedOneHotCategorical, #Omer: note that we're using a class at the top of this module which extends the onehot distribution.
+            distribution_kwargs={"blockSizes": [env_l + 1, env_l + 1, env_m + 1, env_m + 1]},
+            return_log_prob=True,
+        )
+    elif env_bit_flipping == False:
+            policy_module = ProbabilisticActor(
+            module=policy_module,
+            spec=collectorEnv.action_spec,
+            in_keys=["logits"],
+            #distribution_class=Bernoulli,
+            distribution_class=IndependentBernoulli, #Omer: note the change here. This is because we need log_prob to be a single number, and a Bernoulli distribution returns one log_prob per coordinate.
+            return_log_prob=True,
+        )
+    else:
+        raise ValueError("The value of env_bit_flipping can be True or False but is {env_bit_flipping}.")
 
     
     value_module = ValueOperator(
@@ -303,19 +385,12 @@ if __name__ == "__main__":
         in_keys=["observation"],
     )
 
-
     policy_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
     value_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
 
     
-            
-
-    
-    # if num_gpus > 0:
-    #     print(f"num_gpus is {num_gpus} so moving the policy module and value module to device {device}")
-    #     policy_module = policy_module.to(device)
-    #     value_module = value_module.to(device)
-    
+   
+   
     collector = SyncDataCollector(
         collectorEnv,
         policy = policy_module,
@@ -427,6 +502,6 @@ if __name__ == "__main__":
     torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
     print(f"Finished.") 
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"))
-    print("Experiment logs and policy weights are located in:\n{myLogger.logPath}")
+    print(f"Experiment logs and policy weights are located in:\n{myLogger.logPath}")
 
 

@@ -222,5 +222,6 @@ if __name__ == "__main__":
     bY[3] = 1
     action = np.concatenate([aX,aY,bX,bY])
     print(action)
-    observation = env.step(action = action)
+    observation, reward, _,_,_ = env.step(action = action)
+    print(reward) # Should give  ~ 0.0339
 
