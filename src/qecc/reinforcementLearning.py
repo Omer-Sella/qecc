@@ -33,7 +33,7 @@ https://deepwiki.com/pytorch/rl/4.2-distributed-collection-strategies
 """
 import os
 import numpy as np
-import qecc # noqa: F401 — registers "qecc/bbcode-v0" with gymnasium via __init__.py # Needed, to register bbgym with gymansium
+import qecc # noqa: F401 — registers "qecc/bbcode-ldpc-v0" with gymnasium via __init__.py # Needed, to register bbgym with gymansium
 import argparse
 import copy
 import warnings
@@ -182,7 +182,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--minimum-number-of-qubits", type=int, default=1,
-        help="Number of logical qubits from which the reward will be calculated as a code-decoder evaluation. If the code has fewer qubits, say k, the reward will exp(k-minimum_number_of_qubits). If the code has more qubits, say k, the reward will be exp(minimum_number_of_qubits-k).",
+        help="Number of logical qubits from which the reward will be calculated as a code-decoder evaluation. If the code has fewer qubits, say k, the reward will exp(k-minimum_number_of_qubits). If the code has more qubits, say k, the reward will be (k-minimum_number_of_qubits)/minimum_number_of_qubits.",
     )
 
     parser.add_argument(
@@ -425,6 +425,8 @@ if __name__ == "__main__":
 
     torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
     torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
-    print(f"Finished.\nExperiment logs and policy weights are located in:\n{myLogger.logPath}")
+    print(f"Finished.") 
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"))
+    print("Experiment logs and policy weights are located in:\n{myLogger.logPath}")
 
 

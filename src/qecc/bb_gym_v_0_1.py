@@ -7,6 +7,10 @@ from qecc.logicals import calculateCodeDimension
 from qecc.gf4 import integerToDualBinary
 from ldpc import BpOsdDecoder
 from qecc.logicals import computeLogicals
+import json
+import os
+from datetime import datetime, timezone
+
 
 INT_DATA_TYPE = np.int16
 
@@ -24,8 +28,9 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0):
+    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True):
         
+        self.codeLogging = codeLogging
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
         self.numberOfIterations = numberOfIterations
@@ -126,14 +131,14 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         self.Hx, self.Hz = bicycleCodeFromAB(self.A, self.B)
         # Omer: check that the resulting code admits the necessary logical qubits
         
-        numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
-        if  numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
+        self.numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
+        if  self.numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
             #seedForEvaluation = self.np_random.integers(0, 2**32 - 1) #Changed to environment seed
             self.seed = self.seed + 1
             logicalErrorRate = self.decoderEvaluation(self.seed)
             reward = self.rewardEngineering(self._calculateReward(logicalErrorRate))
         else:
-            reward = (numberOfLogicalQubits - self.minimumNumberOfLogicalQubits) / self.minimumNumberOfLogicalQubits # Note the -1, to make sure that exp(minimumNumberOfQubits - minimumNumberOfQubits) - 1 == 0
+            reward = (self.numberOfLogicalQubits - self.minimumNumberOfLogicalQubits) / self.minimumNumberOfLogicalQubits 
 
         terminated = False
         observation = self._getObservation()
@@ -165,6 +170,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                         osd_order=0 #the osd search depth
                                         )
         logicalErrorRate = np.zeros(len(self.errorRange))
+        decoderFailure = np.zeros(len(self.errorRange))
         for i in range(len(self.errorRange)):
             p = float(self.errorRange[i])
             bpDecoderHx.error_rate = p
@@ -182,13 +188,20 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                 # Check whether the residual error gives 0 syndrome:
                 if not ( np.all((np.dot(self.Hx,residualErrorZ)) % 2 ==0) and np.all((np.dot(self.Hz, residualErrorX)%2) == 0)):
                     #print("Decoder failure: the residual error does not give 0 syndrome, meaning the decoder is wrong")
-                    logicalErrorRate[i] += 1
+                    decoderFailure[i] += 1
                 else: # So we are in the case that the residual error commutes with all stabilizers, i.e., it is in the normalizer. So let's check if it is a stabilizer (commutes with all logicals), or a logical error (anticommutes with some logical operator)
                     if not ( np.all((np.dot(logicalZ,residualErrorX) % 2 )== 0) and np.all((np.dot(logicalX, residualErrorZ) % 2)==0)):
                         #print(f"Logical error: the residual error commutes with all stabilizers but anticommutes with some logical operator")
                         logicalErrorRate[i] += 1
-        logicalErrorRate = logicalErrorRate / self.numberOfSamples            
-        return logicalErrorRate
+              
+        
+        if self.codeLogging:
+            logCodeEvaluation(self._l, self._m, self.aX, self.aY, self.bX, self.bY, self.numberOfLogicalQubits,
+                      self.errorRange, logicalErrorRate, decoderFailure,
+                      self.numberOfSamples, self.seed, "dual binary bposd 0", "depolarizing",
+                      runId=None, logDirectory=None)
+
+        return (logicalErrorRate + decoderFailure)/self.numberOfSamples
     
     def _calculateReward(self, logicalErrorRate):      
         reward = trapezoid(1 - logicalErrorRate , self.errorRange)
@@ -216,6 +229,38 @@ def makeTestAction_6_6():
     action = np.concatenate([aX,aY,bX,bY])
     return action
     
+
+
+def logCodeEvaluation(l, m, aX, aY, bX, bY, numberOfLogicalQubits,
+                      errorRange, logicalErrorCounts, decoderFailureCounts,
+                      numberOfSamples, seed, decoderConfig, noiseModel,
+                      runId=None, logDirectory=None):
+    """Append one decoder-evaluation record to a per-process JSON-lines file."""
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "runId": runId,
+        "l": int(l),
+        "m": int(m),
+        "aX": [int(i) for i in aX],
+        "aY": [int(i) for i in aY],
+        "bX": [int(i) for i in bX],
+        "bY": [int(i) for i in bY],
+        "numberOfLogicalQubits": int(numberOfLogicalQubits),
+        "errorRange": [float(p) for p in errorRange],
+        "logicalErrorCounts": [int(c) for c in logicalErrorCounts],
+        "decoderFailureCounts": [int(c) for c in decoderFailureCounts],
+        "numberOfSamples": int(numberOfSamples),
+        "seed": int(seed),
+        "decoder": decoderConfig,
+        "noiseModel": noiseModel,
+    }
+    if logDirectory is None:
+        logDirectory = os.environ.get("QECC_DATA", ".")
+    # One file per process: safe under ParallelEnv multiprocessing on Windows.
+    path = os.path.join(logDirectory, f"codeEvaluations_{os.getpid()}.jsonl")
+    with open(path, "a") as f:
+        f.write(json.dumps(record) + "\n")
+
 
 if __name__ == "__main__":
 
