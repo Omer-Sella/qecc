@@ -5,7 +5,13 @@ from scipy.integrate import trapezoid
 from qecc.polynomialCodes import generateBicycleCode, generateABmatrices
 from qecc.logicals import calculateCodeDimension
 
-INT_DATA_TYPE = np.int16
+
+
+
+
+
+
+
 NEGATIVE_REWARD = -1
 
 

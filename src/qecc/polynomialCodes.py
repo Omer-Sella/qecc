@@ -188,7 +188,8 @@ parity polynomial h(x) and the length l.
 Bivariate Bicycle codes from High-threshold and low-overhead fault-tolerant quantum memory
 
 4 BivariateBicyclequantumLDPCcodes
-LetIℓ andSℓbethe identitymatrixandthecyclicshiftmatrixof sizeℓ×ℓrespectively. Thei-throwofSℓhasa
+LetIℓ andSℓbethe identitymatrixandthecyclicshiftmatrixof sizeℓ×ℓrespectively. 
+Thei-throwofSℓhasa
 singlenonzeroentryequal tooneatthecolumni+1 (modℓ).Forexample,
 S2= 0 1
 1 0 and S3=

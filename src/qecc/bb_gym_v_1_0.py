@@ -30,6 +30,8 @@ class bicycleBivariateCodeEnvironment(gym.Env):
 
     def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True):
         
+
+
         self.codeLogging = codeLogging
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
@@ -44,14 +46,14 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             raise ValueError(
                 f"errorRange must be strictly increasing (e.g. [0.001, 0.01, 0.1]); got {list(errorRange)}"
             )
-        # The action space is a flat array containing [aX,bX,aY,bY] in that order.
-        self.action_space = spaces.MultiBinary(4 * l * m)
+        # The action space is 4 coordinates, each saying which location of the corresponding polynomial should be flipped, plus one extra coordinate for "no operation" meaning trivial action.
+        self.action_space = spaces.MultiDiscrete([self._l + 1, self._l + 1, self._m + 1, self._m + 1]) 
 
-        
-        self.aX = np.zeros(l*m, INT_DATA_TYPE)
-        self.bX = np.zeros(l*m, INT_DATA_TYPE)
-        self.aY = np.zeros(l*m, INT_DATA_TYPE)
-        self.bY = np.zeros(l*m, INT_DATA_TYPE)
+        #Since x=Sℓ⊗Im and y=Iℓ⊗Sm we have x^l = y^m = I_{l*m}, so aX, bX terms over l wrap around using x^l = 1 and aY,bY terms higher than m wrap around as y^m = 1
+        self.aX = np.zeros(l, INT_DATA_TYPE)
+        self.bX = np.zeros(l, INT_DATA_TYPE)
+        self.aY = np.zeros(m, INT_DATA_TYPE)
+        self.bY = np.zeros(m, INT_DATA_TYPE)
         
         self.A, self.B = generateABmatrices(self._l, self._m,
                                             np.where(self.aX !=0)[0], 
@@ -68,9 +70,9 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         #          "Hz": spaces.MultiBinary([self._l*self._m, self._l*self._m *2]),
         #      }
         #  )
-        self.flatObservationSize = ((self._l * self._m) ** 2) * 2
+        #self.flatObservationSize = ((self._l * self._m) ** 2) * 2
         
-        self.observation_space = spaces.MultiBinary(self.flatObservationSize)
+        self.observation_space = spaces.MultiBinary(len(self._getObservation()))
         if rewardEngineering:
             def rewardEngineeringFunction(plainReward):
                 return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
@@ -118,11 +120,17 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     def step(self, action):
 #        super().step(action)
         # Unpack action from flat action
-        self.aX = action[0 : (self._l * self._m) ]
-        self.aY = action[(self._l * self._m) : 2 * (self._l * self._m)]
-        self.bX = action[2*(self._l * self._m) : 3 * (self._l * self._m)]
-        self.bY = action[3*(self._l * self._m) : 4 * (self._l * self._m)]
+        aXflipLocation, aYflipLocation, bXflipLocation, bYflipLocation = action
         
+        if aXflipLocation < self._l:
+            self.aX[aXflipLocation] ^= 1 
+        if bXflipLocation < self._l:
+            self.bX[bXflipLocation] ^= 1 
+        if aYflipLocation < self._m:
+            self.aY[aYflipLocation] ^= 1 
+        if bYflipLocation < self._m:
+            self.bY[bYflipLocation] ^= 1 
+
         self.A, self.B = generateABmatrices(self._l, self._m, 
                                             np.where(self.aX !=0)[0], 
                                             np.where(self.aY !=0)[0], 
