@@ -23,6 +23,6 @@ register(
 )
 
 register(
-    id="qecc/bbcode-bitflip-v0",
-    entry_point="qecc.bb_gym_v2:bicycleBivariateCodeEnvironmentV2",
+    id="qecc/bbcode-bitflip-v1_0",
+    entry_point="qecc.bb_gym_v_1_0:bicycleBivariateCodeEnvironment",
 )
