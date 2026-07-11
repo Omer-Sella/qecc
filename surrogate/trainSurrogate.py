@@ -34,6 +34,10 @@ def trainModel(data, epochs, batchSize, lr, seed,
     train, val, _test = splitData(data, fractions=(0.8, 0.1, 0.1), seed=seed)
     trainBits, trainCounts, trainSamples, trainK = toTensors(train)
     valBits, valCounts, valSamples, valK = toTensors(val)
+    if trainBits.shape[0] == 0 or valBits.shape[0] == 0:
+        raise ValueError(
+            f"Dataset too small for a (train, val) split: got {trainBits.shape[0]} "
+            f"train and {valBits.shape[0]} val rows. Provide more records or adjust fractions.")
     model = CodeCurvePredictor(dModel=dModel, nHead=nHead, numLayers=numLayers,
                                dimFeedforward=dimFeedforward)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -81,7 +85,7 @@ def main():
                                 arguments.lr, arguments.seed, arguments.d_model,
                                 arguments.n_head, arguments.num_layers,
                                 arguments.dim_feedforward)
-    os.makedirs(os.path.dirname(arguments.checkpoint), exist_ok=True)
+    os.makedirs(os.path.dirname(arguments.checkpoint) or ".", exist_ok=True)
     torch.save({
         "state_dict": model.state_dict(),
         "hyperParameters": {"dModel": arguments.d_model, "nHead": arguments.n_head,
