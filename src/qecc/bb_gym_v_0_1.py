@@ -73,8 +73,10 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         
         self.observation_space = spaces.MultiBinary(len(self._getObservation()))
         if rewardEngineering:
-            def rewardEngineeringFunction(plainReward):
-                return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
+            #def rewardEngineeringFunction(plainReward):
+            #    return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
+            def rewardEngineeringFunction(plainReward): # Normalize the reward according to the width of the error range
+                return plainReward / np.abs(np.min(self.errorRange) - np.max(self.errorRange))
             self.rewardEngineering = rewardEngineeringFunction
         else:
             self.rewardEngineering = lambda x: x
