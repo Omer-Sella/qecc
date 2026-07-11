@@ -55,14 +55,23 @@ def evaluateOnData(model, data, batchSize=1024):
     predictedReward = rewardFromCurve(torch.as_tensor(curve),
                                       CANONICAL_ERROR_RANGE).numpy()
     kTop = min(50, max(1, data.bits.shape[0] // 10))
+    # Rank correlation is genuinely undefined when either series is constant
+    # (zero range); short-circuit instead of calling scipy, which would emit
+    # a RuntimeWarning and still return NaN.
+    if np.ptp(trueReward) == 0 or np.ptp(predictedReward) == 0:
+        spearman = float("nan")
+        kendall = float("nan")
+    else:
+        spearman = float(spearmanr(trueReward, predictedReward).statistic)
+        kendall = float(kendalltau(trueReward, predictedReward).statistic)
     return {
         "nll": binomialNllOfCurve(curve, data.counts.astype(float),
                                   data.samples.astype(float)),
         "noiseFloor": noiseFloorNll(data.counts.astype(float),
                                     data.samples.astype(float)),
         "rewardMae": float(np.abs(trueReward - predictedReward).mean()),
-        "spearman": float(spearmanr(trueReward, predictedReward).statistic),
-        "kendall": float(kendalltau(trueReward, predictedReward).statistic),
+        "spearman": spearman,
+        "kendall": kendall,
         "topK50": topKOverlap(trueReward, predictedReward, kTop),
         "numberOfCodes": int(data.bits.shape[0]),
     }

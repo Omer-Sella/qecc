@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import numpy as np
 import pytest
@@ -36,3 +37,23 @@ def test_evaluateOnDataReturnsAllMetrics():
                                                 dimFeedforward=64), data)
     for key in ("nll", "noiseFloor", "rewardMae", "spearman", "kendall", "topK50"):
         assert key in metrics and np.isfinite(metrics[key])
+
+
+def test_evaluateOnDataConstantRewardEmitsNoWarning():
+    from qecc.codeEvaluationDataset import CodeEvaluationData
+    from qecc.codeSurrogate import CodeCurvePredictor
+    rng = np.random.default_rng(1)
+    n = 12
+    data = CodeEvaluationData(
+        bits=rng.integers(0, 2, size=(n, 24)).astype(np.int8),
+        counts=np.tile(np.array([0, 10, 20, 30, 40], dtype=np.int64), (n, 1)),
+        samples=np.full(n, 50, dtype=np.int64),
+        k=np.full(n, 8, dtype=np.int64), l=6, m=6)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        metrics = evaluateOnData(CodeCurvePredictor(dModel=32, nHead=2, numLayers=1,
+                                                     dimFeedforward=64), data)
+    assert np.isnan(metrics["spearman"])
+    assert np.isnan(metrics["kendall"])
+    for key in ("nll", "noiseFloor", "rewardMae", "topK50"):
+        assert np.isfinite(metrics[key])
