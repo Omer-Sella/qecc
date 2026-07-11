@@ -106,7 +106,7 @@ def main():
              f"- Spearman: **{metrics['spearman']:.3f}**, Kendall: {metrics['kendall']:.3f}",
              f"- top-k overlap (k={min(50, max(1, metrics['numberOfCodes'] // 10))}): "
              f"**{metrics['topK50']:.2f}**\n"]
-    os.makedirs(os.path.dirname(arguments.report), exist_ok=True)
+    os.makedirs(os.path.dirname(arguments.report) or ".", exist_ok=True)
     with open(arguments.report, "a") as fid:
         fid.write("\n".join(lines))
     print("\n".join(lines))
