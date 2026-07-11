@@ -21,18 +21,6 @@ decoderComparisonData*
 *ppo_sb3.py
 .superpowers
 .pytest_cache
-*surrogate*
-*surrogate/*.*
-/surrogate/
-src/qecc/attentionArchitectures.py
-src/qecc/codeEvaluationDataset.py
-*attentionArchitectures*
-*.*attentionArchitectures.*
-*evaluateTransfer*
-*generateProbeEvaluations*
-*trainSurrogate*
-*codeSurrogate*
-
 
 
 
