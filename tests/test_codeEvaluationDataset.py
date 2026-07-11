@@ -147,3 +147,15 @@ def test_foldIsXorNotOr(tmp_path):
     assert data.bits[0][2] == 0
     # Whole code folds to all zeros.
     np.testing.assert_array_equal(data.bits[0], np.zeros(24, dtype=np.int8))
+
+
+def test_generateProbesWritesLoadableRecords(tmp_path):
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "surrogate"))
+    from generateProbeEvaluations import generateProbes
+    evaluated = generateProbes(l=6, m=6, budget=2, outputDirectory=str(tmp_path),
+                               seed=7, numberOfSamples=5)
+    assert evaluated >= 1
+    data = loadCodeEvaluations(str(tmp_path), l=6, m=6)
+    assert data.bits.shape[1] == 24
+    assert data.samples.min() >= 5
