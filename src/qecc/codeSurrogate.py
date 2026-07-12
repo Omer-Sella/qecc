@@ -23,19 +23,29 @@ class CodeCurvePredictor(nn.Module):
                  numberOfHarmonics=3, curvePoints=5):
         super().__init__()
         self.numberOfHarmonics = numberOfHarmonics
-        featureSize = 1 + 4 + 2 * numberOfHarmonics + 1 + 4
+        featureSize = 1 + 4 + 2 * numberOfHarmonics + 1 + 3
         assert numberOfHarmonics != 3 or featureSize == TOKEN_FEATURE_SIZE
         self.encoder = CodeEncoder(featureSize, dModel, nHead, numLayers, dimFeedforward)
         self.pool = AttentionPool(dModel)
         self.curveHead = nn.Sequential(
             nn.Linear(dModel, dModel), nn.GELU(), nn.Linear(dModel, curvePoints))
+        # Auxiliary head: predicts log1p(numberOfLogicalQubits) from the same
+        # pooled encoding. k is a target, not an input (2026-07-12 decision).
+        self.kHead = nn.Sequential(
+            nn.Linear(dModel, dModel), nn.GELU(), nn.Linear(dModel, 1))
 
-    def forward(self, bits, l, m, k):
-        tokens = buildTokenFeatures(bits, l, m, k, self.numberOfHarmonics)
-        return self.curveHead(self.pool(self.encoder(tokens)))
+    def forward(self, bits, l, m):
+        tokens = buildTokenFeatures(bits, l, m, self.numberOfHarmonics)
+        pooled = self.pool(self.encoder(tokens))
+        return self.curveHead(pooled), self.kHead(pooled).squeeze(-1)
 
-    def predictCurve(self, bits, l, m, k):
-        return torch.sigmoid(self.forward(bits, l, m, k))
+    def predictCurve(self, bits, l, m):
+        curveLogits, _kLogPrediction = self.forward(bits, l, m)
+        return torch.sigmoid(curveLogits)
+
+    def predictK(self, bits, l, m):
+        _curveLogits, kLogPrediction = self.forward(bits, l, m)
+        return torch.expm1(kLogPrediction)
 
 
 def binomialCurveLoss(logits, counts, samples):
@@ -47,6 +57,13 @@ def binomialCurveLoss(logits, counts, samples):
     targets = counts / samples.unsqueeze(-1)
     perPoint = F.binary_cross_entropy_with_logits(logits, targets, reduction="none")
     return (perPoint * samples.unsqueeze(-1)).mean()
+
+
+def kPredictionLoss(kLogPrediction, k):
+    """MSE against log1p(k): size-agnostic (k grows with l*m, so raw-k
+    regression would not transfer across sizes) and never saturates, unlike
+    the former clip(k/6, 0, 2) input encoding."""
+    return F.mse_loss(kLogPrediction, torch.log1p(k))
 
 
 def rewardFromCurve(curve, errorRange):

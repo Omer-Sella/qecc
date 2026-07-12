@@ -36,12 +36,12 @@ def test_evaluateOnDataReturnsAllMetrics():
         k=np.full(n, 8, dtype=np.int64), l=6, m=6)
     metrics = evaluateOnData(CodeCurvePredictor(dModel=32, nHead=2, numLayers=1,
                                                 dimFeedforward=64), data)
-    for key in ("nll", "noiseFloor", "rewardMae", "spearman", "kendall", "topK50"):
+    for key in ("nll", "noiseFloor", "rewardMae", "kMae", "spearman", "kendall", "topK50"):
         assert key in metrics and np.isfinite(metrics[key])
 
 
 def test_appendReportWritesMetricsBlock(tmp_path):
-    metrics = {"nll": 12.3456, "noiseFloor": 11.0, "rewardMae": 0.00123,
+    metrics = {"nll": 12.3456, "noiseFloor": 11.0, "rewardMae": 0.00123, "kMae": 1.5,
                "spearman": 0.42, "kendall": 0.31, "topK50": 0.6, "numberOfCodes": 200}
     reportPath = os.path.join(str(tmp_path), "nested", "report.md")  # dir does not exist yet
     text = appendReport(reportPath, "run title", "held-out 10% of /data", metrics)
@@ -50,6 +50,7 @@ def test_appendReportWritesMetricsBlock(tmp_path):
         contents = fid.read()
     assert "## run title" in contents
     assert "Binomial NLL: **12.3456** (noise floor 11.0000)" in contents
+    assert "k MAE: **1.50**" in contents
     assert "Spearman: **0.420**" in contents
     assert contents == text
     # a second call appends rather than overwrites
@@ -74,5 +75,5 @@ def test_evaluateOnDataConstantRewardEmitsNoWarning():
                                                      dimFeedforward=64), data)
     assert np.isnan(metrics["spearman"])
     assert np.isnan(metrics["kendall"])
-    for key in ("nll", "noiseFloor", "rewardMae", "topK50"):
+    for key in ("nll", "noiseFloor", "rewardMae", "kMae", "topK50"):
         assert np.isfinite(metrics[key])

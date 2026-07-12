@@ -42,15 +42,18 @@ def topKOverlap(trueValues, predictedValues, k):
 
 
 def evaluateOnData(model, data, batchSize=1024):
-    bits, _counts, _samples, k = toTensors(data)
+    bits, _counts, _samples, _k = toTensors(data)
     curves = []
+    kPredictions = []
     model.eval()
     with torch.no_grad():
         for start in range(0, bits.shape[0], batchSize):
             end = start + batchSize
-            curves.append(model.predictCurve(bits[start:end], data.l, data.m,
-                                             k[start:end]))
+            curveLogits, kLogPrediction = model(bits[start:end], data.l, data.m)
+            curves.append(torch.sigmoid(curveLogits))
+            kPredictions.append(torch.expm1(kLogPrediction))
     curve = torch.cat(curves).numpy()
+    kPredicted = torch.cat(kPredictions).numpy()
     trueReward = rewardFromCounts(data.counts, data.samples, CANONICAL_ERROR_RANGE)
     predictedReward = rewardFromCurve(torch.as_tensor(curve),
                                       CANONICAL_ERROR_RANGE).numpy()
@@ -70,6 +73,7 @@ def evaluateOnData(model, data, batchSize=1024):
         "noiseFloor": noiseFloorNll(data.counts.astype(float),
                                     data.samples.astype(float)),
         "rewardMae": float(np.abs(trueReward - predictedReward).mean()),
+        "kMae": float(np.abs(kPredicted - data.k).mean()),
         "spearman": spearman,
         "kendall": kendall,
         "topK50": topKOverlap(trueReward, predictedReward, kTop),
@@ -91,6 +95,7 @@ def appendReport(reportPath, title, dataDescription, metrics):
         f"- data: `{dataDescription}`",
         f"- Binomial NLL: **{metrics['nll']:.4f}** (noise floor {metrics['noiseFloor']:.4f})",
         f"- reward MAE: **{metrics['rewardMae']:.5f}**",
+        f"- k MAE: **{metrics['kMae']:.2f}** logical qubits",
         f"- Spearman: **{metrics['spearman']:.3f}**, Kendall: {metrics['kendall']:.3f}",
         f"- top-k overlap (k={min(50, max(1, metrics['numberOfCodes'] // 10))}): "
         f"**{metrics['topK50']:.2f}**\n"])
@@ -106,17 +111,20 @@ def main():
     parser.add_argument("--data-root", required=True)
     parser.add_argument("--l", type=int, required=True)
     parser.add_argument("--m", type=int, required=True)
-    parser.add_argument("--report", default=os.path.join(
-        os.environ.get("QECC_DATA", "C:/Users/Omer/rl-qecc-data"),
-        "surrogate-transfer-report.md"))
+    parser.add_argument("--report", default=None,
+                        help="Defaults to surrogate-transfer-report.md next to the checkpoint")
     arguments = parser.parse_args()
+    # Default: append to the report in the checkpoint's own run folder, so a
+    # training run and its cross-size transfer evaluations share one directory.
+    reportPath = arguments.report or os.path.join(
+        os.path.dirname(arguments.checkpoint) or ".", "surrogate-transfer-report.md")
 
     model = loadCheckpoint(arguments.checkpoint)
     data = loadCodeEvaluations(arguments.data_root, arguments.l, arguments.m)
     metrics = evaluateOnData(model, data)
     title = (f"{arguments.checkpoint} on l={arguments.l}, m={arguments.m} "
              f"({metrics['numberOfCodes']} codes) — {datetime.date.today().isoformat()}")
-    print(appendReport(arguments.report, title, arguments.data_root, metrics))
+    print(appendReport(reportPath, title, arguments.data_root, metrics))
 
 
 if __name__ == "__main__":

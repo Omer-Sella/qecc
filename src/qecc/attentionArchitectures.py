@@ -11,14 +11,18 @@ import math
 import torch
 import torch.nn as nn
 
-TOKEN_FEATURE_SIZE = 16          # 1 bit + 4 group + 2*3 harmonics + 1 linear + 4 globals
-K_MIN_REFERENCE = 6.0
+TOKEN_FEATURE_SIZE = 15          # 1 bit + 4 group + 2*3 harmonics + 1 linear + 3 globals
 
 
-def buildTokenFeatures(bits, l, m, k, numberOfHarmonics=3):
-    """bits: (B, 2l+2m) float, order [aX | aY | bX | bY]; k: (B,) float.
+def buildTokenFeatures(bits, l, m, numberOfHarmonics=3):
+    """bits: (B, 2l+2m) float, order [aX | aY | bX | bY].
 
-    Returns (B, 2l+2m, 1 + 4 + 2*numberOfHarmonics + 1 + 4) token features.
+    Returns (B, 2l+2m, 1 + 4 + 2*numberOfHarmonics + 1 + 3) token features.
+    numberOfLogicalQubits (k) is deliberately NOT an input: the model predicts
+    it instead (see codeSurrogate.kPredictionLoss). Exact k labels are cheap at
+    any size (GF(2) rank, no decoding), predicting it shapes the representation
+    in the k < k_min region the curve logs never cover, and inference needs
+    nothing computed by the environment.
     """
     batchSize = bits.shape[0]
     device = bits.device
@@ -26,9 +30,8 @@ def buildTokenFeatures(bits, l, m, k, numberOfHarmonics=3):
     globalsPart = torch.stack([
         torch.full((batchSize,), math.log(l), device=device),
         torch.full((batchSize,), math.log(m), device=device),
-        (k.to(torch.float32) / K_MIN_REFERENCE).clamp(0.0, 2.0),
         torch.ones(batchSize, device=device),
-    ], dim=-1)                                                    # (B, 4)
+    ], dim=-1)                                                    # (B, 3)
     groupFeatures = []
     start = 0
     for groupIndex, period in enumerate(groupPeriods):
