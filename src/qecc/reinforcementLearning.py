@@ -221,7 +221,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--minimum-number-of-qubits", type=int, default=1,
+        "--env-minimum-number-of-qubits", type=int, default=1,
         help="Number of logical qubits from which the reward will be calculated as a code-decoder evaluation. If the code has fewer qubits, say k, the reward will exp(k-minimum_number_of_qubits). If the code has more qubits, say k, the reward will be (k-minimum_number_of_qubits)/minimum_number_of_qubits.",
     )
 
@@ -307,7 +307,7 @@ if __name__ == "__main__":
     env_m = parsedArguments.env_m
     env_useDictObservation = parsedArguments.env_use_dict_observation.lower() == "true"
     env_level_paralleism = num_workers #parsedArguments.env_level_parallelism
-    env_minimum_number_of_qubits = parsedArguments.minimum_number_of_qubits
+    env_minimum_number_of_qubits = parsedArguments.env_minimum_number_of_qubits
 
     model_architecture = parsedArguments.model_architecture
 
@@ -593,8 +593,7 @@ if __name__ == "__main__":
                     myLogger.keyValue("policy entropy", entropiesDuringEvaluation[timeIndex].item())
                     myLogger.keyValue("Encoder freeze", isPretrainedEncoderFrozen)
                     myLogger.dumpLogger(printOut = False)
-                torch.save(policy_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_policy_weights.pth")
-                torch.save(value_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_value_weights.pth")
+                
                 del eval_rollout
         # We're also using a learning rate scheduler. Like the gradient clipping,
         # this is a nice-to-have but nothing necessary for PPO to work.

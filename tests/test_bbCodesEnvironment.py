@@ -466,13 +466,12 @@ def test_observationDictionaryReturnsCorrectOrder():
                           bitFlipping = True, 
                           useDictObservation = True) 
     tensorDict = env.reset()
-    print(tensorDict.keys().item())
-    # assert "aX" == tensorDict.keys()[0]                          # expect aX, aY, bX, bY, code, k, ...
-    # assert "bX" == tensorDict.keys()[1]
-    # assert "aY" == tensorDict.keys()[2]
-    # assert "bY" == tensorDict.keys()[3]
-    # assert "code" == tensorDict.keys()[4]
-    # assert "k" == tensorDict.keys()[5]
+    assert "aX" in tensorDict.keys()                          # expect aX, aY, bX, bY, code, k, ..
+    assert "bX" in tensorDict.keys()
+    assert "aY" in tensorDict.keys()
+    assert "bY" in tensorDict.keys()
+    assert "code" in tensorDict.keys()
+    assert "k" in tensorDict.keys()
 
 if __name__ == "__main__":
     test_observationDictionaryReturnsCorrectOrder()
