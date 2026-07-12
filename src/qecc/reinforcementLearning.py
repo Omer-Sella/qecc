@@ -216,7 +216,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--reward-engineering", type=str, default = "False", choices = ["True", "False", "true", "false"],
+        "--env-reward-engineering", type=str, default = "False", choices = ["True", "False", "true", "false"],
         help="Whether to exponentiate the already positive reward.",
     )
 
@@ -299,9 +299,9 @@ if __name__ == "__main__":
     
     seed_for_environment = parsedArguments.seed_for_environment
     
-    env_reward_engineering = parsedArguments.reward_engineering.lower() == "true"
+    env_reward_engineering = parsedArguments.env_reward_engineering.lower() == "true"
     env_bit_flipping = parsedArguments.env_bit_flipping.lower() == "true"
-    env_version = parsedArguments.env_version
+    #env_version = parsedArguments.env_version
     #num_gpus = parsedArguments.num_gpus
     env_l = parsedArguments.env_l
     env_m = parsedArguments.env_m
