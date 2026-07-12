@@ -35,7 +35,7 @@ import os
 import numpy as np
 import qecc # noqa: F401 — registers "qecc/bbcode-ldpc-v0" with gymnasium via __init__.py # Needed, to register bbgym with gymansium
 import argparse
-import copy
+
 import warnings
 from datetime import datetime
 from qecc.loggerForReinforcementLearning import logger
@@ -58,7 +58,7 @@ from tqdm import tqdm
 from torchrl.envs.transforms import Transform
 from torch.distributions import Bernoulli, Independent
 from qecc.bb_gym import exampleDecoderFunction2
-from qecc.modelArchitectures import create_actor_value_nets, create_value_net
+from qecc.modelArchitectures import create_actor_value_nets, create_value_net, hybridNet, setEncoderFrozen
 warnings.filterwarnings("ignore")
 
 #myKeys = ['Observation', 'actorEntropy', 'logP',
@@ -249,12 +249,35 @@ if __name__ == "__main__":
         help="parameter m for bb code construction. Can be any integer, but for now I limited the choices.",
     )
     
+    parser.add_argument(
+        "--env-preamble-polynomilas-to-observation", default = "False", type = str, choices = ["True", "False", "true", "false"],
+        help = "In any case the environment returns the observation as a flat vector containing the code. If this flag is True, then it also returns the vectors that represent the polynomial exponents so np.concat([aX,aY,bX,bY,code]). WARNING: note that this ordering is not the same as the action slices: action=  np.concat([aX,bX,aY,bY])"
+    )
 
+    parser.add_argument(
+        "--model-architecture", default = "mlp", type = str, choices = ["mlp", "hybrid"],
+        help = "Use mlp for the first version, where we only expose the code as a flat vector. For now, this parameter is overrdien internally to mirror --env-preamble-polynomilas-to-observation."
+    )
+
+    parser.add_argument(
+        "--model-surrogate-model-path", default = None, type = str,
+        help = "Path to saved surrogate model for the code-encoder to use."
+    )
+
+
+    parser.add_argument("--index-to-unfreeze-encoder-updates", type=int, default=10,
+                        help="Number of collector batches during which the pretrained encoders stay frozen.")
+    
+    parser.add_argument("--encoder-lr-factor", type=float, default=0.1,
+                        help="Learning-rate multiplier for the encoder+pool parameter group after unfreezing.")
+    
+    ## Parse the arguments, and rename some flags as local variables in a different way.
     parsedArguments = parser.parse_args()
-    minimum_number_of_qubits = parsedArguments.minimum_number_of_qubits
-    seed_for_environment = parsedArguments.seed_for_environment
-    reward_engineering = parsedArguments.reward_engineering.lower() == "true"
-    env_bit_flipping = parsedArguments.env_bit_flipping.lower() == "true"
+    
+    
+    
+    
+    
     scaling_factor = parsedArguments.scaling_factor
     frames_per_batch = parsedArguments.frames_per_batch
     total_frames = frames_per_batch * scaling_factor
@@ -272,14 +295,30 @@ if __name__ == "__main__":
     lmbda = parsedArguments.lmbda
     entropy_eps = parsedArguments.entropy_eps
     num_workers = parsedArguments.num_workers
+    
+    seed_for_environment = parsedArguments.seed_for_environment
+    
+    env_reward_engineering = parsedArguments.reward_engineering.lower() == "true"
+    env_bit_flipping = parsedArguments.env_bit_flipping.lower() == "true"
     env_version = parsedArguments.env_version
     #num_gpus = parsedArguments.num_gpus
     env_l = parsedArguments.env_l
     env_m = parsedArguments.env_m
-    
-    
-    cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    env_preamblePolynomilasToObservation = parsedArguments.env_preamble_polynomilas_to_observation.lower() == "true"
     env_level_paralleism = num_workers #parsedArguments.env_level_parallelism
+    env_minimum_number_of_qubits = parsedArguments.minimum_number_of_qubits
+
+    model_architecture = parsedArguments.model_architecture
+    if env_preamblePolynomilasToObservation:
+        model_architecture = "hybrid"
+    else:
+        model_architecture = "mlp"
+    model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
+    
+    indexToUnfreezeEncoderUpdates = parsedArguments.index_to_unfreeze_encoder_updates
+    encoder_lr_factor = parsedArguments.encoder_lr_factor
+    cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+    
     if frames_per_batch // sub_batch_size == 0:
         raise ValueError(f"frames_per_batch == {frames_per_batch} and sub_batch_size == {sub_batch_size} which means frames_per_batch // sub_batch_size == 0, not a valid configuration.")
     # if num_gpus > 0:
@@ -299,45 +338,49 @@ if __name__ == "__main__":
         myLogger = logger(keys = myEvaluationKeys, fileName=log_name) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
     else:
         myLogger = logger(keys = myEvaluationKeys) 
-        
+    
+    # Dump all the flags and arguments into the log file as a comment at the top
     [myLogger.addComment(f"{key} = {value}") for key, value in vars(parsedArguments).items()]
-    
+    # Some more data about the box / machine on which this training runs:
     if os.environ.get("SLURM_CPUS_PER_TASK") is not None:
-        myLogger.addComment(f"Just for information, not used in actual run: SLURM CPUS queried from os environment: {os.environ.get('SLURM_CPUS_PER_TASK')}")
-    
+        myLogger.addComment(f"Just for information, not used in actual run: SLURM CPUS queried from os environment: {os.environ.get('SLURM_CPUS_PER_TASK')}")    
     myLogger.addComment(f"Number of workers: {num_workers}")
-
     myLogger.addComment(f"Does torch identify cuda: {torch.cuda.is_available()}")
-
-    #myLogger.addComment(f"Number of collectors: {num_collectors}")
-
-    #myLogger.addComment(f"Collector device list: {collectorDevices}")
-
     
     
     
     
     def environmentCreatorForParallelEnv():
-        #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")
-        #base_env = GymEnv("qecc/bbcode-v0", l = 6, m = 6, evaluationDecoderFunction = exampleDecoderFunction2, errorRange = np.linspace(0.0001,0.1,5), minimumNumberOfLogicalQubits = minimum_number_of_qubits, rewardEngineering = reward_engineering)  # removed device = device, since this will run on the CPU always
-        
-        base_env = GymEnv("qecc/bbcode-ldpc-v0", 
+        #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")        
+        env = GymEnv("qecc/bbcode-ldpc-v0", 
                           l = env_l, 
                           m = env_m, 
                           errorRange = np.linspace(0.0001,0.1,5), 
-                          minimumNumberOfLogicalQubits = minimum_number_of_qubits, 
-                          rewardEngineering = reward_engineering, 
-                          bitFlipping = env_bit_flipping)  # removed device = device, since this will run on the CPU always
-        #print(f"Now we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
-        env = TransformedEnv(
-            base_env,
-            Compose(
-                CastToFloat(),                          # int8 → float32
-                ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = -1.5 and scale = 2.0 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
-                DoubleToFloat(),
-                StepCounter(),
-            ),
-        )
+                          minimumNumberOfLogicalQubits = env_minimum_number_of_qubits, 
+                          rewardEngineering = env_reward_engineering, 
+                          bitFlipping = env_bit_flipping, 
+                          preamblePolynomilasToObservation = env_preamblePolynomilasToObservation)  # removed device = device, since this will run on the CPU always
+        # If we're not taking care of it inside the model, then we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
+        # We also need to change 0,1 to -1,1 if this is not taken cared of inside the model
+        if env_preamblePolynomilasToObservation:
+            env = TransformedEnv(
+                env,
+                Compose(
+                    CastToFloat(),                          # int8 → float32
+                    DoubleToFloat(),
+                    StepCounter(),
+                ),
+            )
+        else: #Mode where we only spit out the flat code
+            env = TransformedEnv(
+                env,
+                Compose(
+                    CastToFloat(),                          # int8 → float32
+                    ObservationNorm(in_keys=["observation"], loc = -1.0, scale = 2.0), # loc = -1.5 and scale = 2.0 since the observation are binary. Not sure this is smart, but it would make the input to the neural network be -1 and 1 instead of 0 and 1 correspondingly
+                    DoubleToFloat(),
+                    StepCounter(),
+                ),
+            )
         return env
 
     #def environmentCreatorForCollector():
@@ -348,8 +391,26 @@ if __name__ == "__main__":
     evaluationEnv = environmentCreatorForParallelEnv()
     evaluationEnv.set_seed(seed_for_environment + 1) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
 
-    actor_net = create_actor_value_nets(collectorEnv.action_spec, num_cells) # removed device selecting leave it to the collector
-    value_net = create_value_net(num_cells)
+    if model_architecture == "mlp":
+        actor_net = create_actor_value_nets(collectorEnv.action_spec, num_cells) # removed device selecting leave it to the collector
+        value_net = create_value_net(num_cells)
+    elif model_architecture == "hybrid":
+        actor_net = hybridNet(env_l, env_m, 
+                              minimumNumberOfQubits=env_minimum_number_of_qubits, # OMER: This is not a bug ! It is an argument for the env, but the actor and critic are also aware of it.
+                              surrogateModelPath = model_path_to_take_surrogate,
+                              outputSize = collectorEnv.action_spec.shape[-1], 
+                              num_cells=num_cells, 
+                              device=device)
+        value_net = hybridNet(env_l, env_m, 
+                              minimumNumberOfQubits = env_minimum_number_of_qubits, # OMER: This is not a bug ! It is an argument for the env, but the actor and critic are also aware of it.
+                              surrogateModelPath = model_path_to_take_surrogate,
+                              outputSize = 1, # The value function outputs just a scalar.
+                              num_cells=num_cells, 
+                              device=device)
+        setEncoderFrozen(actor_net, True)
+        setEncoderFrozen(value_net, True)
+    else:
+        raise ValueError(f"Expected the model architecture to be mlp or hybrid, instead got {model_architecture}.")
     
     
 
@@ -385,6 +446,7 @@ if __name__ == "__main__":
         in_keys=["observation"],
     )
 
+    # Omer: Potentially we don't need this anymore once we switch to non-lazy linear.
     policy_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
     value_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
 
@@ -422,6 +484,20 @@ if __name__ == "__main__":
         loss_critic_type="smooth_l1",
     )
 
+    if model_architecture == "hybrid":
+        # We separate the optimization to encoder parameters and everything else:
+        encoderParameters = (list(actor_net.encoder.parameters()) + list(actor_net.pool.parameters())
+                             + list(value_net.encoder.parameters()) + list(value_net.pool.parameters()))
+        encoderParameterIds = {id(parameter) for parameter in encoderParameters}
+        otherParameters = [parameter for parameter in loss_module.parameters()
+                          if id(parameter) not in encoderParameterIds]
+        optim = torch.optim.Adam([
+            {"params": otherParameters,    "lr": lr},
+            {"params": encoderParameters, "lr": lr * encoder_lr_factor},
+        ])
+    else:
+        optim = torch.optim.Adam(loss_module.parameters(), lr)
+
     optim = torch.optim.Adam(loss_module.parameters(), lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optim, total_frames // frames_per_batch, 0.0
@@ -436,6 +512,12 @@ if __name__ == "__main__":
     # designed to collect:
     
     for i, tensordict_data in enumerate(collector):
+        
+        if model_architecture == "hybrid" and i == indexToUnfreezeEncoderUpdates:
+            setEncoderFrozen(actor_net, False)
+            setEncoderFrozen(value_net, False)
+            #myLogger.addComment(f"Unfroze pretrained encoders at collector batch {i}; encoder lr = {lr * encoder_lr_factor}.")
+        
         # we now have a batch of data to work with. Let's learn something from it.
         for epochNumber in range(num_epochs):
             # myLogger.keyValue("epochNumber", epochNumber)

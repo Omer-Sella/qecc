@@ -16,6 +16,18 @@ from qecc.codeEvaluationDataset import loadCodeEvaluations, splitData, toTensors
 from qecc.codeSurrogate import CodeCurvePredictor, binomialCurveLoss, kPredictionLoss
 
 
+def resolveDevice(requested):
+    """'auto' -> cuda when available, else cpu. Explicit 'cuda' fails loudly if absent."""
+    if requested == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(requested)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise ValueError(
+            "CUDA was requested but torch.cuda.is_available() is False - "
+            "check the node allocation / torch build, or use --device cpu.")
+    return device
+
+
 def combinedLoss(model, bits, counts, samples, k, l, m, kLossWeight):
     curveLogits, kLogPrediction = model(bits, l, m)
     return binomialCurveLoss(curveLogits, counts, samples) \
@@ -37,22 +49,25 @@ def evaluateLoss(model, bits, counts, samples, k, l, m, kLossWeight, batchSize=1
 
 def trainModel(data, epochs, batchSize, lr, seed,
                dModel=64, nHead=4, numLayers=2, dimFeedforward=128,
-               kLossWeight=1.0):
-    torch.manual_seed(seed)
+               kLossWeight=1.0, device="cpu"):
+    device = torch.device(device)
+    torch.manual_seed(seed)  # seeds CUDA generators too
     train, val, test = splitData(data, fractions=(0.8, 0.1, 0.1), seed=seed)
-    trainBits, trainCounts, trainSamples, trainK = toTensors(train)
-    valBits, valCounts, valSamples, valK = toTensors(val)
+    trainBits, trainCounts, trainSamples, trainK = (
+        t.to(device) for t in toTensors(train))
+    valBits, valCounts, valSamples, valK = (
+        t.to(device) for t in toTensors(val))
     if trainBits.shape[0] == 0 or valBits.shape[0] == 0:
         raise ValueError(
             f"Dataset too small for a (train, val) split: got {trainBits.shape[0]} "
             f"train and {valBits.shape[0]} val rows. Provide more records or adjust fractions.")
     model = CodeCurvePredictor(dModel=dModel, nHead=nHead, numLayers=numLayers,
-                               dimFeedforward=dimFeedforward)
+                               dimFeedforward=dimFeedforward).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     history = {"trainLoss": [], "valLoss": []}
     numberOfRecords = trainBits.shape[0]
     for epoch in range(epochs):
-        permutation = torch.randperm(numberOfRecords)
+        permutation = torch.randperm(numberOfRecords, device=device)
         epochLosses = []
         for start in range(0, numberOfRecords, batchSize):
             batch = permutation[start:start + batchSize]
@@ -88,6 +103,8 @@ def main():
     parser.add_argument("--dim-feedforward", type=int, default=128)
     parser.add_argument("--k-loss-weight", type=float, default=1.0,
                         help="Weight of the auxiliary k-prediction loss")
+    parser.add_argument("--device", default="auto",
+                        help="'auto' (cuda if available, else cpu), 'cpu', 'cuda', or 'cuda:N'")
     parser.add_argument("--checkpoint", default=None,
                         help="Defaults to $QECC_DATA/supervisedLearning/<timestamp>/surrogate_<l>x<m>.pth")
     parser.add_argument("--report", default=None,
@@ -105,13 +122,20 @@ def main():
     reportPath = arguments.report or os.path.join(runDirectory,
                                                   "surrogate-transfer-report.md")
 
+    device = resolveDevice(arguments.device)
+    print(f"training on device: {device}")
+
     data = loadCodeEvaluations(arguments.data_root, arguments.l, arguments.m)
     print(f"loaded {data.bits.shape[0]} unique codes at l={arguments.l}, m={arguments.m}")
     model, history, testData = trainModel(data, arguments.epochs, arguments.batch_size,
                                           arguments.lr, arguments.seed, arguments.d_model,
                                           arguments.n_head, arguments.num_layers,
                                           arguments.dim_feedforward,
-                                          kLossWeight=arguments.k_loss_weight)
+                                          kLossWeight=arguments.k_loss_weight,
+                                          device=device)
+    # Back to CPU so the checkpoint is device-agnostic and the held-out
+    # evaluation below (CPU tensors from toTensors) gets a matching model.
+    model = model.cpu()
     os.makedirs(os.path.dirname(checkpointPath) or ".", exist_ok=True)
     torch.save({
         "state_dict": model.state_dict(),

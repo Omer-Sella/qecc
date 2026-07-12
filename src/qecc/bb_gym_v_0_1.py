@@ -28,8 +28,10 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True, bitFlipping = False):
+    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True, bitFlipping = False, useDictObservation = False):
         
+
+        self.useDictObservation = useDictObservation
         self.codeLogging = codeLogging
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
         self.minimumNumberOfLogicalQubits = minimumNumberOfLogicalQubits
@@ -48,7 +50,10 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         
         #Since x=Sℓ⊗Im and y=Iℓ⊗Sm we have x^l = y^m = I_{l*m}, so aX, bX terms over l wrap around using x^l = 1 and aY,bY terms higher than m wrap around as y^m = 1
         # The action space is a flat array containing containing actions [aX + 1,bX + 1,aY +1 ,bY + 1] in that order. +1 because there is a no op bit.
+        
         self.action_space = spaces.MultiBinary(2 * l  + 2 * m + 4)
+        
+
         self.aX = np.zeros(l, INT_DATA_TYPE)
         self.bX = np.zeros(l, INT_DATA_TYPE)
         self.aY = np.zeros(m, INT_DATA_TYPE)
@@ -71,7 +76,17 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         #  )
         
         
-        self.observation_space = spaces.MultiBinary(len(self._getObservation()))
+        if self.useDictObservation:
+            self.observation_space = spaces.Dict({
+                                    "aX": spaces.MultiBinary(l),
+                                    "bX": spaces.MultiBinary(l),
+                                    "aY": spaces.MultiBinary(m),
+                                    "bY": spaces.MultiBinary(m),
+                                    "code":      spaces.MultiBinary(2 * (l * m) ** 2),
+                                    "k":         spaces.Box(low=0.0, high=2.0 * l * m, shape=(1,), dtype=np.float32),
+                                    })
+        else:
+            self.observation_space = spaces.MultiBinary(len(self._getObservation()))
         if rewardEngineering:
             #def rewardEngineeringFunction(plainReward):
             #    return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
@@ -92,7 +107,25 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         #return {"Hx": np.int8(self.Hx), "Hz": np.int8(self.Hz)}
         #return {"Hx": self.Hx, "Hz": self.Hz}
         #return np.vstack((self.Hx, self.Hz)).flatten() 
-        return np.vstack((self.A, self.B)).flatten().astype(np.int8)
+        
+        
+        
+        observedCode = np.concatenate([self.A, self.B]).flatten().astype(np.int8)
+        if self.useDictObservation:
+                 observation = {
+                    "aX" :       self.aX.flatten().astype(np.int8),
+                    "bX" :       self.bX.flatten().astype(np.int8),
+                    "aY" :       self.aY.flatten().astype(np.int8),
+                    "bY" :       self.bY.flatten().astype(np.int8),
+                    "code":      observedCode,
+                    "k":         np.array([self.numberOfLogicalQubits], dtype=np.float32),
+                    # In the future I might want to expose the individual ranks, but for now let's just expose the number of logical qubits of the code.
+                }
+        else:
+            #observation = [aX | aY | bX | bY | A|B-flattened]    
+            #observedPolynomials = np.concatenate([self.aX, self.aY, self.bX, self.bY]).astype(np.int8)
+            observation = observedCode#np.concatenate([observedPolynomials, observedCode])
+        return observation
     
     def reset(self, seed=None, options = None):
         if seed is None:
@@ -112,6 +145,8 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                                np.where(self.bY !=0)[0])
         
         self.Hx, self.Hz = bicycleCodeFromAB(self.A, self.B)
+        self.numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz) # Right now A,B are zeros, so this is deterministically 0, so this is a place holder for when reset does something else
+
         observation = self._getObservation()
         #info = self._getInfo()
         info = {}
@@ -122,6 +157,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
 #        super().step(action)
         # Unpack action from flat action
         actionCopy = np.array(action, dtype = INT_DATA_TYPE, copy = True) # This takes care of two things: 1. We are about to XOR the action from the policy (which is float data type) with an int. 2. We are about to assign a slice of the action to an internal polynomial, and that must not be a view, rather a copy.
+        # Note that the action slicing is not the same as the observation slicing: action =  (aX,bX,aY,bY) whereas (assuming that we are returning the polynomials) observation = [aX | aY | bX | bY | A|B-flattened]
         aXAction = actionCopy[0 : self._l + 1]
         bXaction = actionCopy[self._l +1 : 2 * self._l +2]
         aYAction = actionCopy[2 * self._l +2 : 2 * self._l + self._m +3]
@@ -147,6 +183,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         # Omer: check that the resulting code admits the necessary logical qubits
         
         self.numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
+        
         if  self.numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
             #seedForEvaluation = self.np_random.integers(0, 2**32 - 1) #Changed to environment seed
             self.seed = self.seed + 1
