@@ -78,12 +78,18 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         
         if self.useDictObservation:
             self.observation_space = spaces.Dict({
-                                    "aX": spaces.MultiBinary(l),
-                                    "bX": spaces.MultiBinary(l),
-                                    "aY": spaces.MultiBinary(m),
-                                    "bY": spaces.MultiBinary(m),
-                                    "code":      spaces.MultiBinary(2 * (l * m) ** 2),
-                                    "k":         spaces.Box(low=0.0, high=2.0 * l * m, shape=(1,), dtype=np.float32),
+                                    # "aX": spaces.MultiBinary(l),
+                                    # "bX": spaces.MultiBinary(l),
+                                    # "aY": spaces.MultiBinary(m),
+                                    # "bY": spaces.MultiBinary(m),
+                                    # "code":      spaces.MultiBinary(2 * (l * m) ** 2),
+                                    # "k":         spaces.Box(low=0.0, high=2.0 * l * m, shape=(1,), dtype=np.float32),
+                                    "aX":   spaces.Box(low=0.0, high=1.0, shape=(l,), dtype=np.float32),
+                                    "bX":   spaces.Box(low=0.0, high=1.0, shape=(l,), dtype=np.float32),
+                                    "aY":   spaces.Box(low=0.0, high=1.0, shape=(m,), dtype=np.float32),
+                                    "bY":   spaces.Box(low=0.0, high=1.0, shape=(m,), dtype=np.float32),
+                                    "code": spaces.Box(low=0.0, high=1.0, shape=(2 * (l * m) ** 2,), dtype=np.float32),
+                                    "k":    spaces.Box(low=0.0, high=2.0 * l * m, shape=(1,), dtype=np.float32),
                                     })
         else:
             self.observation_space = spaces.MultiBinary(len(self._getObservation()))
@@ -110,21 +116,23 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         
         
         
-        observedCode = np.concatenate([self.A, self.B]).flatten().astype(np.int8)
+        
         if self.useDictObservation:
                  observation = {
-                    "aX" :       self.aX.flatten().astype(np.int8),
-                    "bX" :       self.bX.flatten().astype(np.int8),
-                    "aY" :       self.aY.flatten().astype(np.int8),
-                    "bY" :       self.bY.flatten().astype(np.int8),
-                    "code":      observedCode,
+                    "aX" :       self.aX.flatten().astype(np.float32),
+                    "bX" :       self.bX.flatten().astype(np.float32),
+                    "aY" :       self.aY.flatten().astype(np.float32),
+                    "bY" :       self.bY.flatten().astype(np.float32),
+                    "code":      np.concatenate([self.A, self.B]).flatten().astype(np.float32),
                     "k":         np.array([self.numberOfLogicalQubits], dtype=np.float32),
+
                     # In the future I might want to expose the individual ranks, but for now let's just expose the number of logical qubits of the code.
                 }
         else:
-            #observation = [aX | aY | bX | bY | A|B-flattened]    
-            #observedPolynomials = np.concatenate([self.aX, self.aY, self.bX, self.bY]).astype(np.int8)
-            observation = observedCode#np.concatenate([observedPolynomials, observedCode])
+            
+            #observedCode = np.concatenate([self.A, self.B]).flatten().astype(np.int8)
+            #observation = np.concatenate([observedPolynomials, observedCode])
+            observation = np.concatenate([self.A, self.B]).flatten().astype(np.int8)
         return observation
     
     def reset(self, seed=None, options = None):
@@ -145,7 +153,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                                np.where(self.bY !=0)[0])
         
         self.Hx, self.Hz = bicycleCodeFromAB(self.A, self.B)
-        self.numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz) # Right now A,B are zeros, so this is deterministically 0, so this is a place holder for when reset does something else
+        self.numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz) # Right now A,B are zeros, so this is deterministically Hx.shape[1] - 0 (so 72 - 0 for the 6,6 code). So this is a place holder for when reset does something else
 
         observation = self._getObservation()
         #info = self._getInfo()

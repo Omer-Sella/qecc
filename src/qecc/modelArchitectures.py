@@ -75,11 +75,19 @@ def create_value_net(num_cells, device = None):
 ############ In the new model we need to remove the normalization (so no transforming the environment to -1,1 outputs).
 
 class hybridNet(nn.Module):
-    """Two-branch net for the hybrid observation [aX|aY|bX|bY | A|B-flattened].
+    """Two-branch net for the hybrid observation.
+    The observation is assumed to be {"aX": ...
+                                      "bX": ...
+                                      "aY": ...
+                                      "bY": ...
+                                      "code": ... (A|B-flattened)
+                                      "numberOfLogicalQubits": ...
+                                      }
 
-    exponent bits (first 2l+2m, raw 0/1) -> pretrained attention encoder -> (dModel)
-    A|B block (rest, scaled to +-1)      -> MLP trunk (your current net)  -> (num_cells)
-    concat -> fusion -> outputSize  (actor: 2l+2m+4 logits; critic: 1)
+    exponent bits (aX,bX,aY,bY, raw 0/1) -> pretrained attention encoder -> (dModel)
+    A|B block ( scaled to +-1)      -> MLP trunk (your current net)  -> (num_cells)
+    number of logical qubits --> extract features
+    fudionLayer() -- > output
     """
 
     def __init__(self, l, m, 

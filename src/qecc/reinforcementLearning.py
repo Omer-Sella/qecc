@@ -79,6 +79,7 @@ myKeys = ['Reward',
 myEvaluationKeys = ["evaluation number",
                     "reward",
                     "policy entropy",
+                    "Encoder freeze",
                     ]
 
 
@@ -250,7 +251,7 @@ if __name__ == "__main__":
     )
     
     parser.add_argument(
-        "--env-preamble-polynomilas-to-observation", default = "False", type = str, choices = ["True", "False", "true", "false"],
+        "--env-use-dict-observation", default = "False", type = str, choices = ["True", "False", "true", "false"],
         help = "In any case the environment returns the observation as a flat vector containing the code. If this flag is True, then it also returns the vectors that represent the polynomial exponents so np.concat([aX,aY,bX,bY,code]). WARNING: note that this ordering is not the same as the action slices: action=  np.concat([aX,bX,aY,bY])"
     )
 
@@ -304,23 +305,32 @@ if __name__ == "__main__":
     #num_gpus = parsedArguments.num_gpus
     env_l = parsedArguments.env_l
     env_m = parsedArguments.env_m
-    env_preamblePolynomilasToObservation = parsedArguments.env_preamble_polynomilas_to_observation.lower() == "true"
+    env_useDictObservation = parsedArguments.env_use_dict_observation.lower() == "true"
     env_level_paralleism = num_workers #parsedArguments.env_level_parallelism
     env_minimum_number_of_qubits = parsedArguments.minimum_number_of_qubits
 
     model_architecture = parsedArguments.model_architecture
-    if env_preamblePolynomilasToObservation:
-        model_architecture = "hybrid"
-    else:
-        model_architecture = "mlp"
+
+    
     model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
     
     indexToUnfreezeEncoderUpdates = parsedArguments.index_to_unfreeze_encoder_updates
     encoder_lr_factor = parsedArguments.encoder_lr_factor
     cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     
+    device = torch.device("cpu") # Omer: right now everything is CPU bound.
+
+    # Check conflicting definitions
     if frames_per_batch // sub_batch_size == 0:
         raise ValueError(f"frames_per_batch == {frames_per_batch} and sub_batch_size == {sub_batch_size} which means frames_per_batch // sub_batch_size == 0, not a valid configuration.")
+    
+    
+    if env_useDictObservation:
+        model_architecture = "hybrid"
+    else:
+        model_architecture = "mlp"
+    
+    
     # if num_gpus > 0:
     #     # If GPUS are provided, then the number of collectors will be equal to the number of GPUs, and each collector will be assigned to a different GPU. 
     #     num_collectors = num_gpus
@@ -332,7 +342,7 @@ if __name__ == "__main__":
     #     num_collectors = 1 #max(1, num_workers // env_level_paralleism)
     #     device = torch.device("cpu")
     #     collectorDevices = [device] * num_collectors        
-    device = torch.device("cpu") # Omer: right now everything is CPU bound.
+    
    
     if log_name is not None:
         myLogger = logger(keys = myEvaluationKeys, fileName=log_name) # The default data logging path will be grabbed in the module from a system environment variable called QECC_DATA
@@ -359,18 +369,13 @@ if __name__ == "__main__":
                           minimumNumberOfLogicalQubits = env_minimum_number_of_qubits, 
                           rewardEngineering = env_reward_engineering, 
                           bitFlipping = env_bit_flipping, 
-                          preamblePolynomilasToObservation = env_preamblePolynomilasToObservation)  # removed device = device, since this will run on the CPU always
+                          useDictObservation = env_useDictObservation)  # removed device = device, since this will run on the CPU always
         # If we're not taking care of it inside the model, then we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
         # We also need to change 0,1 to -1,1 if this is not taken cared of inside the model
-        if env_preamblePolynomilasToObservation:
-            env = TransformedEnv(
-                env,
-                Compose(
-                    CastToFloat(),                          # int8 → float32
-                    DoubleToFloat(),
-                    StepCounter(),
-                ),
-            )
+        if env_useDictObservation: # WARNING - if env_useDictObservation is True, that means that normalization has to happen inside the model forward method.
+            env = TransformedEnv(env, Compose(StepCounter()))
+                    #CastToFloat(keys=["aX", "bX", "aY", "bY", "code"]),  # int8 -> float32; "k" is already float32 from its Box space),                          # int8 → float32
+                    #DoubleToFloat(),
         else: #Mode where we only spit out the flat code
             env = TransformedEnv(
                 env,
@@ -414,9 +419,26 @@ if __name__ == "__main__":
     
     
 
-    policy_module = TensorDictModule(
-        actor_net, in_keys=["observation"], out_keys=["logits"]
-    )
+    if model_architecture == "hybrid":
+        # WARNING ! There is a positional bound to
+        # hybridNet.forward(self, aX, bX, aY, bY, code, numberOfLogicalQubits).
+        # This list's order must equal the forward signature's order. If you reorder one, reorder the other. So the names don't make a differ(Names don't bind — position does.)
+        policy_module = TensorDictModule(
+            actor_net, in_keys=["aX", "bX", "aY", "bY", "code", "k"], out_keys=["logits"]
+        )
+        value_module = ValueOperator(
+            module=value_net,
+            in_keys=["aX", "bX", "aY", "bY", "code", "k"],   # same ORDER CONTRACT as policy_module
+        )
+    else:
+        policy_module = TensorDictModule(
+            actor_net, in_keys=["observation"], out_keys=["logits"]
+        )
+        value_module = ValueOperator(
+            module=value_net,
+            in_keys=["observation"],
+        )
+
 
     if env_bit_flipping == True:
             policy_module = ProbabilisticActor(
@@ -441,11 +463,6 @@ if __name__ == "__main__":
         raise ValueError("The value of env_bit_flipping can be True or False but is {env_bit_flipping}.")
 
     
-    value_module = ValueOperator(
-        module=value_net,
-        in_keys=["observation"],
-    )
-
     # Omer: Potentially we don't need this anymore once we switch to non-lazy linear.
     policy_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
     value_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
@@ -498,7 +515,6 @@ if __name__ == "__main__":
     else:
         optim = torch.optim.Adam(loss_module.parameters(), lr)
 
-    optim = torch.optim.Adam(loss_module.parameters(), lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optim, total_frames // frames_per_batch, 0.0
     )
@@ -508,14 +524,17 @@ if __name__ == "__main__":
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"))
     pbar = tqdm(total=total_frames)
     eval_str = ""
+    # Flag to report whether encoder weights are frozen or not 
+    isPretrainedEncoderFrozen = True
     # We iterate over the collector until it reaches the total number of frames it was
     # designed to collect:
-    
+
     for i, tensordict_data in enumerate(collector):
         
         if model_architecture == "hybrid" and i == indexToUnfreezeEncoderUpdates:
             setEncoderFrozen(actor_net, False)
             setEncoderFrozen(value_net, False)
+            isPretrainedEncoderFrozen = False
             #myLogger.addComment(f"Unfroze pretrained encoders at collector batch {i}; encoder lr = {lr * encoder_lr_factor}.")
         
         # we now have a batch of data to work with. Let's learn something from it.
@@ -572,6 +591,7 @@ if __name__ == "__main__":
                     #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
                     myLogger.keyValue("reward", rewards[timeIndex].item())
                     myLogger.keyValue("policy entropy", entropiesDuringEvaluation[timeIndex].item())
+                    myLogger.keyValue("Encoder freeze", isPretrainedEncoderFrozen)
                     myLogger.dumpLogger(printOut = False)
                 torch.save(policy_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_policy_weights.pth")
                 torch.save(value_module.state_dict(), f"{myLogger.logPath}/evaluation_number_{i // 10}_value_weights.pth")

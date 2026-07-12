@@ -455,10 +455,27 @@ def _build_IBM_code_v2(env, aX_idx, aY_idx, bX_idx, bY_idx, l,m,):
     return reward
 
 
-
-
+def test_observationDictionaryReturnsCorrectOrder():
+    from torchrl.envs.libs.gym import GymEnv
+    env = GymEnv("qecc/bbcode-ldpc-v0", 
+                          l = 6, 
+                          m = 6, 
+                          errorRange = np.linspace(0.0001,0.1,5), 
+                          minimumNumberOfLogicalQubits = 6, 
+                          rewardEngineering = True, 
+                          bitFlipping = True, 
+                          useDictObservation = True) 
+    tensorDict = env.reset()
+    print(tensorDict.keys().item())
+    # assert "aX" == tensorDict.keys()[0]                          # expect aX, aY, bX, bY, code, k, ...
+    # assert "bX" == tensorDict.keys()[1]
+    # assert "aY" == tensorDict.keys()[2]
+    # assert "bY" == tensorDict.keys()[3]
+    # assert "code" == tensorDict.keys()[4]
+    # assert "k" == tensorDict.keys()[5]
 
 if __name__ == "__main__":
+    test_observationDictionaryReturnsCorrectOrder()
     test_actionSpaceShape()
     test_v2EnvPassesGymSpecCheck()
     test_IBM_72_12_6_v_LDPC()
