@@ -256,6 +256,16 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--env-number-of-decoder-iterations", default = 50, type = int, 
+        help = "Number of iterations that the BP decoder runs."
+    )
+
+    parser.add_argument(
+        "--env-number-of-samples", default = 50, type = int, 
+        help = "Number of samples the decoder uses per noise point. So if the noise range has 5 points, this is 5X50 samples."
+    )
+
+    parser.add_argument(
         "--model-architecture", default = "mlp", type = str, choices = ["mlp", "hybrid"],
         help = "Use mlp for the first version, where we only expose the code as a flat vector. For now, this parameter is overrdien internally to mirror --env-preamble-polynomilas-to-observation."
     )
@@ -308,6 +318,8 @@ if __name__ == "__main__":
     env_useDictObservation = parsedArguments.env_use_dict_observation.lower() == "true"
     env_level_paralleism = num_workers #parsedArguments.env_level_parallelism
     env_minimum_number_of_qubits = parsedArguments.env_minimum_number_of_qubits
+    env_number_of_decoder_iterations = parsedArguments.env_number_of_decoder_iterations
+    env_number_of_samples = parsedArguments.env_number_of_samples
 
     model_architecture = parsedArguments.model_architecture
 
@@ -367,6 +379,8 @@ if __name__ == "__main__":
                           m = env_m, 
                           errorRange = np.linspace(0.0001,0.1,5), 
                           minimumNumberOfLogicalQubits = env_minimum_number_of_qubits, 
+                          numberOfIterations = env_number_of_decoder_iterations,
+                          numberOfSamples = env_number_of_samples,
                           rewardEngineering = env_reward_engineering, 
                           bitFlipping = env_bit_flipping, 
                           useDictObservation = env_useDictObservation)  # removed device = device, since this will run on the CPU always
