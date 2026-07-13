@@ -266,7 +266,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--env-code-logging", type = str, default = "True", choices=["true", "True", "false", "False"]
+        "--env-code-logging", type = str, default = "True", choices=["true", "True", "false", "False"],
         help = "Whether or not the environment logs codes and their evaluation."
     )
     parser.add_argument(
