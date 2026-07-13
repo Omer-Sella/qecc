@@ -79,6 +79,10 @@ myKeys = ['Reward',
 myEvaluationKeys = ["evaluation number",
                     "reward",
                     "policy entropy",
+                    "policy entropy aX",
+                    "policy entropy bX",
+                    "policy entropy aY",
+                    "policy entropy bY",
                     "Encoder freeze",
                     ]
 
@@ -102,7 +106,9 @@ class CastToFloat(Transform):
 # The other problem it solves is the same reason we wrapped the Bernouli distribution - we need to feed ppo with a single number for entropy
 
 class ConcatenatedOneHotCategorical(torch.distributions.Distribution):
-    """The flat logits vector is split into blocks of sizes blockSizes, e.g. (l+1, l+1, m+1, m+1).
+    """
+    This is just a wrapper for multiple distributions, each one is a oneHot on its own.
+    The flat logits vector is split into blocks of sizes blockSizes, e.g. (l+1, l+1, m+1, m+1).
     Each block is an independent categorical choice sampled as a one-hot vector, and the action is
     the flat concatenation of the blocks. 
     
@@ -114,8 +120,8 @@ class ConcatenatedOneHotCategorical(torch.distributions.Distribution):
 
     def __init__(self, logits, blockSizes):
         self.blockSizes = list(blockSizes)
-        # Instantiate as many oneHot distributions as there are blocks. 
-        self.blockDistributions = [OneHotCategorical(logits=blockLogits)
+        # Instantiate as many oneHot distributions as there are blocks, keep it in a list
+        self.blockDistributions = [OneHotCategorical(logits=blockLogits) 
                                    for blockLogits in logits.split(self.blockSizes, dim=-1)]
         super().__init__(batch_shape=logits.shape[:-1], event_shape=logits.shape[-1:],
                          validate_args=False)
@@ -128,8 +134,13 @@ class ConcatenatedOneHotCategorical(torch.distributions.Distribution):
         blockValues = value.split(self.blockSizes, dim=-1)
         return sum(d.log_prob(v) for d, v in zip(self.blockDistributions, blockValues))
 
+    
+    def blockEntropies(self):
+        # Return a tensor (!) made of entropies, made of the oneHot block entropy per block. dim=-1 is the dimension of the individual blocks.
+        return torch.stack([d.entropy() for d in self.blockDistributions], dim = -1)
+    
     def entropy(self):
-        return sum(d.entropy() for d in self.blockDistributions)
+        return self.blockEntropies().sum(dim = -1)
 
     # We need this property to sample deterministically during evaluation which calls deterministic_sample
     @property
@@ -562,7 +573,7 @@ if __name__ == "__main__":
             setEncoderFrozen(actor_net, False)
             setEncoderFrozen(value_net, False)
             isPretrainedEncoderFrozen = False
-            #myLogger.addComment(f"Unfroze pretrained encoders at collector batch {i}; encoder lr = {lr * encoder_lr_factor}.")
+            
         
         # we now have a batch of data to work with. Let's learn something from it.
         for epochNumber in range(num_epochs):
@@ -609,6 +620,7 @@ if __name__ == "__main__":
                 #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
                 dist = eval_policy.get_dist(eval_rollout)
                 entropiesDuringEvaluation = dist.entropy().cpu().numpy()
+                componentEntropiesDuringEvaluation = dist.blockEntropies().cpu().numpy() # The shape is (T, 4), order [aX, bX, aY, bY]
                 rewards = eval_rollout["next", "reward"].cpu().numpy() 
             
                 for timeIndex in range(eval_rollout_length):
@@ -618,6 +630,10 @@ if __name__ == "__main__":
                     #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
                     myLogger.keyValue("reward", rewards[timeIndex].item())
                     myLogger.keyValue("policy entropy", entropiesDuringEvaluation[timeIndex].item())
+                    myLogger.keyValue("policy entropy aX", componentEntropiesDuringEvaluation[timeIndex, 0].item())
+                    myLogger.keyValue("policy entropy bX", componentEntropiesDuringEvaluation[timeIndex, 1].item())
+                    myLogger.keyValue("policy entropy aY", componentEntropiesDuringEvaluation[timeIndex, 2].item())
+                    myLogger.keyValue("policy entropy bY", componentEntropiesDuringEvaluation[timeIndex, 3].item())
                     myLogger.keyValue("Encoder freeze", isPretrainedEncoderFrozen)
                     myLogger.dumpLogger(printOut = False)
                 
