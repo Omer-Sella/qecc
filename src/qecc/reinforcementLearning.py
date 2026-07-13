@@ -326,10 +326,17 @@ if __name__ == "__main__":
     env_number_of_samples = parsedArguments.env_number_of_samples
     env_code_logging = parsedArguments.env_code_logging.lower() == "true"
 
-    model_architecture = parsedArguments.model_architecture
-
-    
+    model_architecture = parsedArguments.model_architecture    
     model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
+    
+    # Check that the surrogate model is available to avoid latent failing
+    if env_useDictObservation:
+        if not os.path.isfile(model_path_to_take_surrogate):
+            raise FileNotFoundError(
+                f"Surrogate checkpoint not found: {model_path_to_take_surrogate!r}. ")
+        
+        # Try loading the model
+        _ = torch.load(model_path_to_take_surrogate, map_location="cpu", weights_only=False)
     
     indexToUnfreezeEncoderUpdates = parsedArguments.index_to_unfreeze_encoder_updates
     encoder_lr_factor = parsedArguments.encoder_lr_factor
