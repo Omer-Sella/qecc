@@ -266,6 +266,10 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--env-code-logging", type = str, default = "True", choices=["true", "True", "false", "False"]
+        help = "Whether or not the environment logs codes and their evaluation."
+    )
+    parser.add_argument(
         "--model-architecture", default = "mlp", type = str, choices = ["mlp", "hybrid"],
         help = "Use mlp for the first version, where we only expose the code as a flat vector. For now, this parameter is overrdien internally to mirror --env-preamble-polynomilas-to-observation."
     )
@@ -320,6 +324,7 @@ if __name__ == "__main__":
     env_minimum_number_of_qubits = parsedArguments.env_minimum_number_of_qubits
     env_number_of_decoder_iterations = parsedArguments.env_number_of_decoder_iterations
     env_number_of_samples = parsedArguments.env_number_of_samples
+    env_code_logging = parsedArguments.env_code_logging.lower() == "true"
 
     model_architecture = parsedArguments.model_architecture
 
@@ -382,6 +387,7 @@ if __name__ == "__main__":
                           numberOfIterations = env_number_of_decoder_iterations,
                           numberOfSamples = env_number_of_samples,
                           rewardEngineering = env_reward_engineering, 
+                          codeLogging = env_code_logging,
                           bitFlipping = env_bit_flipping, 
                           useDictObservation = env_useDictObservation)  # removed device = device, since this will run on the CPU always
         # If we're not taking care of it inside the model, then we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
