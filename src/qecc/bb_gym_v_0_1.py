@@ -297,7 +297,8 @@ def logCodeEvaluation(l, m, aX, aY, bX, bY, numberOfLogicalQubits,
     if logDirectory is None:
         logDirectory = os.environ.get("QECC_DATA", ".")
     # One file per process: safe under ParallelEnv multiprocessing on Windows.
-    path = os.path.join(logDirectory, f"codeEvaluations_{os.getpid()}.jsonl")
+    path = os.path.join(logDirectory, "supervisedLearning", "codeEvaluationTrainingData", f"l_{l}_m_{m}", f"codeEvaluations_{os.getpid()}.jsonl")
+    os.makedirs(os.path.dirname(path), exist_ok=True)   # Create the directory if it doesn't exist
     with open(path, "a") as f:
         f.write(json.dumps(record) + "\n")
 
