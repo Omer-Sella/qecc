@@ -297,9 +297,12 @@ if __name__ == "__main__":
     parser.add_argument("--encoder-lr-factor", type=float, default=0.1,
                         help="Learning-rate multiplier for the encoder+pool parameter group after unfreezing.")
     
+
+    parser.add_argument("--training-device", type=str, default = 'cpu', choices = ['cpu', 'cuda', 'auto'],
+                        help="Which device is used for the collector.")
     ## Parse the arguments, and rename some flags as local variables in a different way.
     parsedArguments = parser.parse_args()
-    
+    resolvedArguments = {}
     
     
     
@@ -325,18 +328,21 @@ if __name__ == "__main__":
     seed_for_environment = parsedArguments.seed_for_environment
     
     env_reward_engineering = parsedArguments.env_reward_engineering.lower() == "true"
+    resolvedArguments["env_reward_engineering"] =  env_reward_engineering
     env_bit_flipping = parsedArguments.env_bit_flipping.lower() == "true"
+    resolvedArguments["env_bit_flipping"] = env_bit_flipping
     #env_version = parsedArguments.env_version
     #num_gpus = parsedArguments.num_gpus
     env_l = parsedArguments.env_l
     env_m = parsedArguments.env_m
     env_useDictObservation = parsedArguments.env_use_dict_observation.lower() == "true"
+    resolvedArguments["env_useDictObservation"] = env_useDictObservation
     env_level_paralleism = num_workers #parsedArguments.env_level_parallelism
     env_minimum_number_of_qubits = parsedArguments.env_minimum_number_of_qubits
     env_number_of_decoder_iterations = parsedArguments.env_number_of_decoder_iterations
     env_number_of_samples = parsedArguments.env_number_of_samples
     env_code_logging = parsedArguments.env_code_logging.lower() == "true"
-
+    resolvedArguments["env_code_logging"] = env_code_logging
     model_architecture = parsedArguments.model_architecture    
     model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
     
@@ -351,10 +357,20 @@ if __name__ == "__main__":
     
     indexToUnfreezeEncoderUpdates = parsedArguments.index_to_unfreeze_encoder_updates
     encoder_lr_factor = parsedArguments.encoder_lr_factor
+    
+    
+    trainingDevice = parsedArguments.training_device.lower()
+    if trainingDevice == "auto":
+        trainingDevice = "cuda" if torch.cuda.is_available() else "cpu"
+    if trainingDevice == "cuda" and not torch.cuda.is_available():
+        raise ValueError("A cuda device was requested but torch.cuda.is_available() is False.")
+    trainingDevice = torch.device(trainingDevice)
+    resolvedArguments["trainingDevice"] = trainingDevice
+    
     cudaDeviceNames = ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
     
-    device = torch.device("cpu") # Omer: right now everything is CPU bound.
-
+    #device = torch.device("cpu") # Omer: right now everything is CPU bound.
+    #resolvedArguments["device"] = device
     # Check conflicting definitions
     if frames_per_batch // sub_batch_size == 0:
         raise ValueError(f"frames_per_batch == {frames_per_batch} and sub_batch_size == {sub_batch_size} which means frames_per_batch // sub_batch_size == 0, not a valid configuration.")
@@ -365,7 +381,7 @@ if __name__ == "__main__":
     else:
         model_architecture = "mlp"
     
-    
+    resolvedArguments["model_architecture"] = model_architecture
     # if num_gpus > 0:
     #     # If GPUS are provided, then the number of collectors will be equal to the number of GPUs, and each collector will be assigned to a different GPU. 
     #     num_collectors = num_gpus
@@ -386,6 +402,9 @@ if __name__ == "__main__":
     
     # Dump all the flags and arguments into the log file as a comment at the top
     [myLogger.addComment(f"{key} = {value}") for key, value in vars(parsedArguments).items()]
+
+    myLogger.addComment(f"Resolved arguments:")
+    [myLogger.addComment(f"Resolved_{key} = {value}") for key, value in resolvedArguments.items()]
     # Some more data about the box / machine on which this training runs:
     if os.environ.get("SLURM_CPUS_PER_TASK") is not None:
         myLogger.addComment(f"Just for information, not used in actual run: SLURM CPUS queried from os environment: {os.environ.get('SLURM_CPUS_PER_TASK')}")    
@@ -435,21 +454,21 @@ if __name__ == "__main__":
     evaluationEnv.set_seed(seed_for_environment + 1) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
 
     if model_architecture == "mlp":
-        actor_net = create_actor_value_nets(collectorEnv.action_spec, num_cells) # removed device selecting leave it to the collector
-        value_net = create_value_net(num_cells)
+        actor_net = create_actor_value_nets(collectorEnv.action_spec, num_cells, device = trainingDevice) # removed device selecting leave it to the collector
+        value_net = create_value_net(num_cells, device = trainingDevice)
     elif model_architecture == "hybrid":
         actor_net = hybridNet(env_l, env_m, 
                               minimumNumberOfQubits=env_minimum_number_of_qubits, # OMER: This is not a bug ! It is an argument for the env, but the actor and critic are also aware of it.
                               surrogateModelPath = model_path_to_take_surrogate,
                               outputSize = collectorEnv.action_spec.shape[-1], 
                               num_cells=num_cells, 
-                              device=device)
+                              device=trainingDevice)
         value_net = hybridNet(env_l, env_m, 
                               minimumNumberOfQubits = env_minimum_number_of_qubits, # OMER: This is not a bug ! It is an argument for the env, but the actor and critic are also aware of it.
                               surrogateModelPath = model_path_to_take_surrogate,
                               outputSize = 1, # The value function outputs just a scalar.
                               num_cells=num_cells, 
-                              device=device)
+                              device=trainingDevice)
         setEncoderFrozen(actor_net, True)
         setEncoderFrozen(value_net, True)
     else:
@@ -502,8 +521,8 @@ if __name__ == "__main__":
 
     
     # Omer: Potentially we don't need this anymore once we switch to non-lazy linear.
-    policy_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
-    value_module(collectorEnv.reset()) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
+    policy_module(collectorEnv.reset().to(trainingDevice)) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running policy:", policy_module(env.reset())) But actually it is required to initialize the lazy linear layer.
+    value_module(collectorEnv.reset().to(trainingDevice)) # MISLEADING ! - in the original tutorial this was done as part of a "sanity check": print("Running value:", value_module(env.reset())) But actually it is required to initialize the lazy linear layer.
 
     
    
@@ -514,18 +533,19 @@ if __name__ == "__main__":
         frames_per_batch=frames_per_batch,
         total_frames=total_frames,
         split_trajs=False,
-        device=device,
-        storing_device = device
+        policy_device= trainingDevice,
+        env_device= "cpu",  # WARNING !  HARDCODED
+        storing_device = trainingDevice
     )
     
 
     replay_buffer = ReplayBuffer(
-        storage=LazyTensorStorage(max_size=frames_per_batch),
+        storage=LazyTensorStorage(max_size=frames_per_batch, device = trainingDevice),
         sampler=SamplerWithoutReplacement(),
     )
 
     advantage_module = GAE(
-        gamma=gamma, lmbda=lmbda, value_network=value_module, average_gae=True, device=device,
+        gamma=gamma, lmbda=lmbda, value_network=value_module, average_gae=True, device=trainingDevice,
     )
 
     loss_module = ClipPPOLoss(
@@ -583,10 +603,10 @@ if __name__ == "__main__":
             # network which is updated in the inner loop.
             advantage_module(tensordict_data)
             data_view = tensordict_data.reshape(-1)
-            replay_buffer.extend(data_view.cpu())
+            replay_buffer.extend(data_view) # I'm trying to enable GPU so placed this under comment: replay_buffer.extend(data_view.cpu())
             for _ in range(frames_per_batch // sub_batch_size):
                 subdata = replay_buffer.sample(sub_batch_size)
-                loss_vals = loss_module(subdata.to(device))
+                loss_vals = loss_module(subdata.to(trainingDevice)) # Note the move of data to training device
                 loss_value = (
                     loss_vals["loss_objective"]
                     + loss_vals["loss_critic"]
@@ -616,9 +636,9 @@ if __name__ == "__main__":
                 # if num_gpus > 0:
                 #     eval_policy = copy.deepcopy(policy_module).to("cpu")
                 # execute a rollout with the trained policy        
-                eval_rollout = evaluationEnv.rollout(eval_rollout_length, eval_policy) 
+                eval_rollout = evaluationEnv.rollout(eval_rollout_length, eval_policy, auto_cast_to_device=True)
                 #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
-                dist = eval_policy.get_dist(eval_rollout)
+                dist = eval_policy.get_dist(eval_rollout.to(trainingDevice))
                 entropiesDuringEvaluation = dist.entropy().cpu().numpy()
                 componentEntropiesDuringEvaluation = dist.blockEntropies().cpu().numpy() # The shape is (T, 4), order [aX, bX, aY, bY]
                 rewards = eval_rollout["next", "reward"].cpu().numpy() 
@@ -639,11 +659,15 @@ if __name__ == "__main__":
                 
                 del eval_rollout
         # We're also using a learning rate scheduler. Like the gradient clipping,
-        # this is a nice-to-have but nothing necessary for PPO to work.
         scheduler.step()
 
-    torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
-    torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
+    #torch.save(policy_module.state_dict(), f"{myLogger.logPath}/policy_weights.pth")
+    pbar.close()
+    torch.save({k: v.cpu() for k, v in policy_module.state_dict().items()},
+           f"{myLogger.logPath}/policy_weights.pth")
+    #torch.save(value_module.state_dict(), f"{myLogger.logPath}/value_weights.pth")
+    torch.save({k: v.cpu() for k, v in value_module.state_dict().items()},
+           f"{myLogger.logPath}/value_weights.pth")
     print(f"Finished.") 
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"))
     print(f"Experiment logs and policy weights are located in:\n{myLogger.logPath}")

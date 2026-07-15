@@ -128,7 +128,7 @@ class logger():
         if logPath == None:
             date_string = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(time.time()))
 
-            self.logPath = str(DATA_LOGGING_PATH)  + "/" + date_string # "/%i" %int(time.time())
+            self.logPath = str(DATA_LOGGING_PATH)  + "/" + date_string + "_" + str(os.getpid())# "/%i" %int(time.time())
         else:
             self.logPath = logPath
         if os.path.exists(self.logPath):
