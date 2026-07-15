@@ -290,6 +290,8 @@ if __name__ == "__main__":
         help = "Path to saved surrogate model for the code-encoder to use."
     )
 
+    parser.add_argument("--model-use-pretrained-encoder", type=str, default="True", choices=["True", "False", "true", "false"],
+                        help="If False, the hybrid encoder+pool keep a random initialization (control arm: same architecture, no pretraining). The surrogate checkpoint is still required to fix the architecture.")
 
     parser.add_argument("--index-to-unfreeze-encoder-updates", type=int, default=10,
                         help="Number of collector batches during which the pretrained encoders stay frozen.")
@@ -343,9 +345,13 @@ if __name__ == "__main__":
     env_number_of_samples = parsedArguments.env_number_of_samples
     env_code_logging = parsedArguments.env_code_logging.lower() == "true"
     resolvedArguments["env_code_logging"] = env_code_logging
+    
+    
     model_architecture = parsedArguments.model_architecture    
     model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
-    
+    model_use_pretrained_encoder = parsedArguments.model_use_pretrained_encoder.lower() == "true"
+    resolvedArguments["model_use_pretrained_encoder"] = model_use_pretrained_encoder
+
     # Check that the surrogate model is available to avoid latent failing
     if env_useDictObservation:
         if not os.path.isfile(model_path_to_take_surrogate):
@@ -410,6 +416,8 @@ if __name__ == "__main__":
         myLogger.addComment(f"Just for information, not used in actual run: SLURM CPUS queried from os environment: {os.environ.get('SLURM_CPUS_PER_TASK')}")    
     myLogger.addComment(f"Number of workers: {num_workers}")
     myLogger.addComment(f"Does torch identify cuda: {torch.cuda.is_available()}")
+    if not model_use_pretrained_encoder:
+        myLogger.addComment("encoder ***RANDOM WEIGHTS***")
     
     
     
@@ -462,13 +470,15 @@ if __name__ == "__main__":
                               surrogateModelPath = model_path_to_take_surrogate,
                               outputSize = collectorEnv.action_spec.shape[-1], 
                               num_cells=num_cells, 
-                              device=trainingDevice)
+                              device=trainingDevice,
+                              usePretrainedEncoderWeights = model_use_pretrained_encoder)
         value_net = hybridNet(env_l, env_m, 
                               minimumNumberOfQubits = env_minimum_number_of_qubits, # OMER: This is not a bug ! It is an argument for the env, but the actor and critic are also aware of it.
                               surrogateModelPath = model_path_to_take_surrogate,
                               outputSize = 1, # The value function outputs just a scalar.
                               num_cells=num_cells, 
-                              device=trainingDevice)
+                              device=trainingDevice,
+                              usePretrainedEncoderWeights = model_use_pretrained_encoder)
         setEncoderFrozen(actor_net, True)
         setEncoderFrozen(value_net, True)
     else:

@@ -95,10 +95,11 @@ class hybridNet(nn.Module):
                  minimumNumberOfQubits,
                  surrogateModelPath, 
                  num_cells=256,
-                 device=None):
+                 device=None,
+                usePretrainedEncoderWeights = True):
         super().__init__()
         if surrogateModelPath is None:
-            raise ValueError("Surrogate model is required for this architecture. No path to model weights given.")
+            raise ValueError("Surrogate model is required for this architecture, even if using random weights, since the hyperparameters are taken from it. No path to model weights given.")
         else:
             checkpoint = torch.load(surrogateModelPath, map_location="cpu", weights_only=False)
                 
@@ -122,18 +123,16 @@ class hybridNet(nn.Module):
         self.numberOfBitsForPolynomialExponents = 2 * l + 2 * m
         self.codeSize = 2 * (l * m) ** 2
 
-
+        
         self.encoder = CodeEncoder(featureSize=self.featureSize, dModel=self.dModel, nHead = self.nHead,
                                    numLayers=self.numLayers, dimFeedforward=self.dimFeedforward)
         self.pool = AttentionPool(self.dModel)
-        # Now we actually need to load the pretrained model
-        stateOfTrainedSurrogate = checkpoint["state_dict"]
-        self.encoder.load_state_dict(
-            {k[len("encoder."):]: v for k, v in stateOfTrainedSurrogate.items() if k.startswith("encoder.")},
-            strict=True)
-        self.pool.load_state_dict(
-            {k[len("pool."):]: v for k, v in stateOfTrainedSurrogate.items() if k.startswith("pool.")},
-            strict=True)
+        # Now we actually need to load the pretrained model if using pretrained weights:
+        if usePretrainedEncoderWeights:
+            self.loadEncoderFromSurrogate(surrogateModelPath)
+        else:
+            # We just (same architecture from the same checkpoint's hyperParameters, random init).
+            pass
         
         # This is similar to the old MLP model, with lazy linear replaced with linear and with Tanh instead of identity.
         self.mlpBranch = nn.Sequential(
@@ -198,15 +197,19 @@ class hybridNet(nn.Module):
         out = self.fusionLayer(torch.cat([encoded, mlpOut, kFeatures], dim=-1))
         return out.reshape(*leadingShape, -1) # Omer: so leadingShape == the B,T,S .. dimensions, and basically we're returning something that is shaped back to be of size (B,T,S,action_size)
     
-def loadEncoderFromSurrogate(hybridNet, checkpointPath):
-    checkpoint = torch.load(checkpointPath, map_location="cpu", weights_only=False)
-    state = checkpoint["state_dict"]
-    hybridNet.encoder.load_state_dict(
-        {k[len("encoder."):]: v for k, v in state.items() if k.startswith("encoder.")},
-        strict=True)
-    hybridNet.pool.load_state_dict(
-        {k[len("pool."):]: v for k, v in state.items() if k.startswith("pool.")},
-        strict=True)
+    def loadEncoderFromSurrogate(self, checkpointPath):
+        """Load pretrained encoder+pool weights from a surrogate checkpoint into this net.
+        The rest of the net (mlpBranch, fusionLayer) is untouched."""
+        checkpoint = torch.load(checkpointPath, map_location="cpu", weights_only=False)
+        state = checkpoint["state_dict"]
+        self.encoder.load_state_dict(
+            {k[len("encoder."):]: v for k, v in state.items() if k.startswith("encoder.")},
+            strict=True)
+        self.pool.load_state_dict(
+            {k[len("pool."):]: v for k, v in state.items() if k.startswith("pool.")},
+            strict=True)
+
+
 
 
 def setEncoderFrozen(hybridNet, frozen):

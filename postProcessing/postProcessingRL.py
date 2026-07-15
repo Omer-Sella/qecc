@@ -150,7 +150,7 @@ def analyseEvaluation(filePath, baseline = None):
     
     pathBreakdown = os.path.split(filePath)
     fig.suptitle(f"Evaluation summary {os.path.basename(pathBreakdown[0])}\n" , fontsize = FIGURE_TITLE_FONT_SIZE)
-    figureExplanatoryText = "\n".join(clipLine(f"{k} = {v}") for k, v in comments.items()) + f"\n {os.path.basename(pathBreakdown[0])}" 
+    figureExplanatoryText = "\n".join(clipLine(f"{k} = {v}") for k, v in comments.items()) + "\n" + clipLine(os.path.basename(pathBreakdown[0]))
     axText.text(0.0, 1.0, figureExplanatoryText, transform=axText.transAxes,
                 va="top", ha="left", fontsize=SUMMARY_FONT_SIZE, family="monospace", clip_on=True)
     
