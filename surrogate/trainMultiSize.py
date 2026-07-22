@@ -247,6 +247,18 @@ def main():
     }, checkpointPath)
     print(f"saved {checkpointPath}")
 
+    # Self-describing report: record the run configuration so a block can never be
+    # attributed to the wrong experiment even if the checkpoint filename is misleading.
+    os.makedirs(os.path.dirname(reportPath) or ".", exist_ok=True)
+    with open(reportPath, "a", encoding="utf-8") as fid:
+        fid.write(f"\n## {checkpointPath} — run configuration "
+                  f"({datetime.date.today().isoformat()})\n\n"
+                  f"- sizes: {sizes}; curve loss on: {sorted(curveSizes) or 'NONE'}\n"
+                  f"- initCheckpoint: {arguments.init_checkpoint or 'fresh model'}\n"
+                  f"- epochs: {arguments.epochs}, lr: {learningRate}, "
+                  f"seed: {arguments.seed}, weighting: {arguments.size_weighting}, "
+                  f"kLossWeight: {arguments.k_loss_weight}\n")
+
     # Per-size held-out evaluation, INCLUDING the within-6,6 regression check.
     for slot in slots:
         metrics = evaluateOnData(model, slot.test)
