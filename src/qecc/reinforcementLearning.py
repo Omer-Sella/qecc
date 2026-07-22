@@ -84,6 +84,7 @@ myEvaluationKeys = ["evaluation number",
                     "policy entropy aY",
                     "policy entropy bY",
                     "Encoder freeze",
+                    "postAction_aX", "postAction_bX", "postAction_aY", "postAction_bY"
                     ]
 
 
@@ -652,7 +653,11 @@ if __name__ == "__main__":
                 entropiesDuringEvaluation = dist.entropy().cpu().numpy()
                 componentEntropiesDuringEvaluation = dist.blockEntropies().cpu().numpy() # The shape is (T, 4), order [aX, bX, aY, bY]
                 rewards = eval_rollout["next", "reward"].cpu().numpy() 
-            
+                if env_useDictObservation:
+                    evalAX = eval_rollout["next", "aX"].cpu().numpy()
+                    evalBX = eval_rollout["next", "bX"].cpu().numpy()
+                    evalAY = eval_rollout["next", "aY"].cpu().numpy()
+                    evalBY = eval_rollout["next", "bY"].cpu().numpy()
                 for timeIndex in range(eval_rollout_length):
                     #myLogger.keyValue(f"environment index", envIndex)
                     myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
@@ -665,6 +670,11 @@ if __name__ == "__main__":
                     myLogger.keyValue("policy entropy aY", componentEntropiesDuringEvaluation[timeIndex, 2].item())
                     myLogger.keyValue("policy entropy bY", componentEntropiesDuringEvaluation[timeIndex, 3].item())
                     myLogger.keyValue("Encoder freeze", isPretrainedEncoderFrozen)
+                    if env_useDictObservation:
+                        myLogger.keyValue("postAction_aX", evalAX[timeIndex].astype(int))
+                        myLogger.keyValue("postAction_bX", evalBX[timeIndex].astype(int))
+                        myLogger.keyValue("postAction_aY", evalAY[timeIndex].astype(int))
+                        myLogger.keyValue("postAction_bY", evalBY[timeIndex].astype(int))
                     myLogger.dumpLogger(printOut = False)
                 
                 del eval_rollout
