@@ -35,10 +35,10 @@ def crawl(dataFolder, baseline=None):
         if not experiments:
             continue
 
-        if fnmatch.filter(filenames, "*.png"):          # already post-processed
-            print(f"SKIP (png exists): {dirpath}")
-            skipped += 1
-            continue
+        # if fnmatch.filter(filenames, "*.png"):          # already post-processed
+        #     print(f"SKIP (png exists): {dirpath}")
+        #     skipped += 1
+        #     continue
 
         for experiment in experiments:
             experimentPath = os.path.join(dirpath, experiment)
