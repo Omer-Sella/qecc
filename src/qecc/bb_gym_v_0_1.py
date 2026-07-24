@@ -30,7 +30,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
 
     def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True, bitFlipping = False, useDictObservation = False):
         
-
+        
         self.useDictObservation = useDictObservation
         self.codeLogging = codeLogging
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
@@ -93,9 +93,10 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                                     })
         else:
             self.observation_space = spaces.MultiBinary(len(self._getObservation()))
+
+        self.chanceOfNoErrors = (1 - 3 * np.asarray(self.errorRange, dtype=np.float64)) ** (2 * l * m)
         if rewardEngineering:
-            #def rewardEngineeringFunction(plainReward):
-            #    return np.exp(np.exp(plainReward) - 1) -1 # Once we hit the number of necessary qubits, we exponent twice to encourage better performing codes.
+            # The old rewarding system has a few downdraws that should be documented in the paper, I'm switching to a reward system that takes into account qubit coverage, code size offset
             def rewardEngineeringFunction(plainReward): # Normalize the reward according to the width of the error range
                 return plainReward / np.abs(np.min(self.errorRange) - np.max(self.errorRange))
             self.rewardEngineering = rewardEngineeringFunction
@@ -191,14 +192,19 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         # Omer: check that the resulting code admits the necessary logical qubits
         
         self.numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
-        
-        if  self.numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
+
+
+        numberOfAllZeroColumnsX = int(np.sum(np.sum(self.Hx, axis=0) == 0))
+        numberOfAllZeroColumnsZ = int(np.sum(np.sum(self.Hz, axis=0) == 0))
+        if numberOfAllZeroColumnsX + numberOfAllZeroColumnsZ > 0:
+            reward = -(numberOfAllZeroColumnsX + numberOfAllZeroColumnsZ) / (2 * self.Hx.shape[1])
+        elif  self.numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
             #seedForEvaluation = self.np_random.integers(0, 2**32 - 1) #Changed to environment seed
             self.seed = self.seed + 1
             logicalErrorRate = self.decoderEvaluation(self.seed)
             reward = self.rewardEngineering(self._calculateReward(logicalErrorRate))
         else:
-            reward = (self.numberOfLogicalQubits - self.minimumNumberOfLogicalQubits) / self.minimumNumberOfLogicalQubits 
+            reward = (self.numberOfLogicalQubits - self.minimumNumberOfLogicalQubits) / self.minimumNumberOfLogicalQubits
 
         terminated = False
         observation = self._getObservation()
@@ -264,7 +270,8 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         return (logicalErrorRate + decoderFailure)/self.numberOfSamples
     
     def _calculateReward(self, logicalErrorRate):      
-        reward = trapezoid(1 - logicalErrorRate , self.errorRange)
+        # Old integral is between 1 and the curve: reward = trapezoid(1 - logicalErrorRate , self.errorRange)
+        reward = trapezoid((1 - logicalErrorRate) - self.chanceOfNoErrors, self.errorRange) #New integral is between the probability of no errors and the curve
         return reward
     
     def getSeed(self):

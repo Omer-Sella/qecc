@@ -12,21 +12,54 @@ from qecc.codeUtilities import codeWeights, sameCode
 import bisect
 from openpyxl import load_workbook
 from operator import attrgetter
+from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB
+from qecc.logicals import calculateCodeDimension
+import sys
 
 
 FONT_SIZE = 12
 TICKS_FONT_SIZE = 10
 SUMMARY_FONT_SIZE = 10
 FIGURE_TITLE_FONT_SIZE = 14
-# baseline reward, not normalized to error range width, for errorRange = np.linspace(10**-4, 10**-1, 10)
-baselines = {(6,6): 0.033189,
-             (9,6): 0.040959,
-             (15,3): 0.04218,
-             (12,6): 0.038739,
-             (12,12): 0.0414,
+# baseline reward, not normalized to error range width, for errorRange = np.linspace(10**-4, 10**-1, 5) #Omer: I fixed this from 10 points to 5 points on 24/07/2026
+baselines = {(6,6): 0.035964,#0.033189,
+             (9,6): 0.0374625, #0.040959,
+             (15,3): 0.035964, #0.04218,
+             (12,6): 0.037462499999999996,# 0.038739,
+             (12,12): 0.041958, #0.0414,
+             (21,18): 0.0384615
              }
+"""
 
-TEST_ERROR_RANGE = np.linspace(10**-4, 10**-1, 10)
+Reward for code 108_8_10 is 0.0374625 engineered reward is: 0.375
+Reward for code 144_12_12 is 0.037462499999999996 engineered reward is: 0.37499999999999994
+Reward for code 288_12_18 is 0.041958 engineered reward is: 0.42
+Reward for code 360_12_24 is 0.03996 engineered reward is: 0.4
+Reward for code 72_12_6 is 0.035964 engineered reward is: 0.36000000000000004
+Reward for code 756_16_34 is 0.0384615 engineered reward is: 0.385
+Reward for code 90_8_10 is 0.035964 engineered reward is: 0.36000000000000004
+
+[[n,k,d]] NetEncoding
+Rater ℓ,m A B
+[[72,12,6]] 1/12 6,6 x3+y+y2 y3+x+x2 Reward for code 72_12_6 is 0.035964 engineered reward is: 0.36000000000000004
+[[90,8,10]] 1/23 15,3 x9+y+y2 1+x2+x7 Reward for code 90_8_10 is 0.035964 engineered reward is: 0.36000000000000004
+[[108,8,10]] 1/27 9,6 x3+y+y2 y3+x+x2 Reward for code 108_8_10 is 0.0374625 engineered reward is: 0.375
+[[144,12,12]] 1/24 12,6 x3+y+y2 y3+x+x2 Reward for code 144_12_12 is 0.037462499999999996 engineered reward is: 0.37499999999999994
+[[288,12,18]] 1/48 12,12 x3+y2+y7 y3+x+x2 Reward for code 288_12_18 is 0.041958 engineered reward is: 0.42
+[[360,12,≤24]] 1/60 30,6 x9+y+y2 y3+x25+x26 Reward for code 360_12_24 is 0.03996 engineered reward is: 0.4
+[[756,16,≤34]] 1/95 21,18 x3+y10+y17 y5+x3+x1 Reward for code 756_16_34 is 0.0384615 engineered reward is: 0.385
+
+  ┌────────────────┬───────────┬─────────┬────────┬───────────┬────────────┐
+  │  [[n, k, d]]  │  Rate r   │ d_circ  │  p_0   │  p_L(p1)  │  p_L(p2)  │
+  ├────────────────┼───────────┼─────────┼────────┼───────────┼────────────┤
+  │ [[72,  12,  6]]│   1/12    │   ≤6    │ 0.0048 │  7×10⁻⁵  │  7×10⁻⁸  │
+  │ [[90,   8, 10]]│   1/23    │   ≤8    │ 0.0053 │  5×10⁻⁶  │  4×10⁻¹⁰ │
+  │ [[108,  8, 10]]│   1/27    │   ≤8    │ 0.0058 │  3×10⁻⁶  │  1×10⁻¹⁰ │
+  │ [[144, 12, 12]]│   1/24    │   ≤10   │ 0.0065 │  2×10⁻⁷  │  8×10⁻¹³ │
+  │ [[288, 12, 18]]│   1/48    │   ≤18   │ 0.0069 │  2×10⁻¹² │  1×10⁻²² │
+  └────────────────┴───────────┴─────────┴────────┴───────────┴────────────┘
+"""
+TEST_ERROR_RANGE = np.linspace(10**-4, 10**-1, 5)
 normalizingFactor = np.abs(np.min(TEST_ERROR_RANGE) - np.max(TEST_ERROR_RANGE))
 
 baselinesNormalized = {key: value/normalizingFactor for key,value in baselines.items()}
@@ -37,7 +70,7 @@ baselinesNormalized = {key: value/normalizingFactor for key,value in baselines.i
 # generateABmatrices(l, m, aX, aY, bX, bY).
 REFERENCE_CODES = {
     (6, 6):  dict(name="[[72,12,6]]",   aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    (15, 3): dict(name="[[90,8,10]]",   aX=[9],    aY=[1, 2],  bX=[0, 2],  bY=[7]),
+    (15, 3): dict(name="[[90,8,10]]",   aX=[9],    aY=[1, 2],  bX=[0, 2, 7],  bY=[]),
     (9, 6):  dict(name="[[108,8,10]]",  aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
     (12, 6): dict(name="[[144,12,12]]", aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
     #(15, 3): dict(name="[[144,12,12]]", aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
@@ -176,9 +209,13 @@ def findWorstCodes(pathToCodeLogs, numberOfWorstCodesToGet = 100):
 
 
 
-def clipLine(s, maxLen=44):
-        return s if len(s) <= maxLen else s[:maxLen - 3] + "..."
+def clipLine(s, maxLen=30):
+    if len(s) <= maxLen:
+        returnedList = [s]
+    else:
+        returnedList = [s[:maxLen], s[maxLen:]] # Ad-hoc solution, but realistically that's all I need
 
+    return returnedList
 def readComments(filePath):
     """Parse the '# key = value' comment header of an experiment.txt into a dict of strings.
     Returns {} if the file has no comment header (older runs have none)."""
@@ -286,6 +323,10 @@ def appendToParameterSweep(xlsxPath, comments, folderPath, pngPath, experimentPa
     print(f"[sweep] appended row {target}: {folderPath}")
     return True
 
+def parsePolynomial(cell):
+    """'[1 0 0 0 0 0]' -> np.array([1, 0, 0, 0, 0, 0]) of ints."""
+    return np.fromstring(str(cell).strip().strip("[]"), sep=" ", dtype=int)
+
 def analyseEvaluation(filePath, baseline = None):
     
     comments = readComments(filePath)
@@ -297,8 +338,32 @@ def analyseEvaluation(filePath, baseline = None):
     
     
     #fig, ax = plt.subplots(1, 3, figsize = (24, 8), sharex=True)
-    fig, allAx = plt.subplots(1, 4, figsize=(26, 8), sharex=True,
-                              gridspec_kw={"width_ratios": [2.2, 6, 6, 6]})
+    polynomials = [p for p in ("postAction_aX","postAction_bX","postAction_aY","postAction_bY") if p in df.columns]
+    if "Number of logical qubits" in df.columns:
+        fig, allAx = plt.subplots(1, 6, figsize=(26, 8), sharex=True,
+                                gridspec_kw={"width_ratios": [3.2, 6, 6, 6, 6, 6]})
+
+        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = allAx[5], showfliers = True)
+    elif polynomials: # So we have the polynomials but not logging of num of logical qubits
+        fig, allAx = plt.subplots(1, 6, figsize=(26, 8), sharex=True,
+                                        gridspec_kw={"width_ratios": [4.2, 6, 6, 6, 6, 6]})
+        for col in ["postAction_aX", "postAction_bX", "postAction_aY", "postAction_bY"]:
+            df[col.replace("postAction_", "")] = df[col].apply(parsePolynomial)
+        logicalQubits = []
+        for _, row in df.iterrows():
+            A, B = generateABmatrices(env_l, env_m, # 
+                                        np.where(row["aX"] !=0)[0], 
+                                        np.where(row["aY"] !=0)[0], 
+                                        np.where(row["bX"] !=0)[0], 
+                                        np.where(row["bY"] !=0)[0])
+                    
+            Hx, Hz = bicycleCodeFromAB(A, B)
+            logicalQubits.append( calculateCodeDimension(Hx,Hz))
+        df["Number of logical qubits"] = logicalQubits
+        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = allAx[5], showfliers = True)
+    else: 
+        fig, allAx = plt.subplots(1, 5, figsize=(26, 8), sharex=True,
+                                        gridspec_kw={"width_ratios": [3.2, 6, 6, 6, 6]})
     axText, ax = allAx[0], allAx[1:]  
 
     sns.boxplot(data=df, x="evaluation number", y="reward", ax=ax[0], showfliers=True)
@@ -308,7 +373,14 @@ def analyseEvaluation(filePath, baseline = None):
     xmin = 0
     xmax = len(dfEvalNumber.groups)
     sns.lineplot(data=df, x= "evaluation number", y="reward", ax = ax[1])
-
+    maxReward = dfEvalNumber["reward"].max()
+    ax[1].plot(maxReward.index, maxReward.values, color="crimson", linewidth=1.6, label="Max reward")
+    stepsToBest = (df.groupby("evaluation number")["reward"]
+                 .apply(lambda s: int(np.argmax(s.to_numpy()))))   # argmax -> first max on ties
+    ax[3].plot(stepsToBest.index, stepsToBest.values, marker="o")
+    ax[3].set_title("Steps to best code per evaluation", fontsize=FONT_SIZE)
+    ax[3].set_xlabel("Evaluation number", fontsize=FONT_SIZE)
+    ax[3].set_ylabel("Step index of best (first max-reward) code", fontsize=FONT_SIZE)
     
     
     if baseline is None and (env_l,env_m) in baselinesNormalized.keys(): # Baseline was not given by the user, so # check if there is already a baseline in the dictionary at the top of this module                    
@@ -388,7 +460,16 @@ def analyseEvaluation(filePath, baseline = None):
     
     pathBreakdown = os.path.split(filePath)
     fig.suptitle(f"Evaluation summary {os.path.basename(pathBreakdown[0])}\n" , fontsize = FIGURE_TITLE_FONT_SIZE)
-    figureExplanatoryText = "\n".join(clipLine(f"{k} = {v}") for k, v in comments.items()) + "\n" + clipLine(os.path.basename(pathBreakdown[0]))
+
+    text = [f"{k} = {v}" for k, v in comments.items()]
+    text.append(f"{os.path.basename(pathBreakdown[0])}")
+    wrappedText = []
+    for t in text:
+        temp = clipLine(t)
+        for tt in temp:
+            wrappedText.append(tt)
+
+    figureExplanatoryText = "\n".join(wrappedText)
     axText.text(0.0, 1.0, figureExplanatoryText, transform=axText.transAxes,
                 va="top", ha="left", fontsize=SUMMARY_FONT_SIZE, family="monospace", clip_on=True)
     
@@ -416,9 +497,50 @@ def analyseEvaluation(filePath, baseline = None):
 
 
 
+def crawl(dataFolder, baseline=None):
+    # Non-interactive backend, set BEFORE importing anything that pulls in pyplot,
+    # so analyseEvaluation's plt.show() becomes a no-op and the crawl runs unattended.
+    import matplotlib
+    matplotlib.use("Agg")
+    
+
+    
+
+    processed = 0
+    skipped = 0
+    failed = 0
+
+    for dirpath, dirnames, filenames in os.walk(dataFolder):
+        experiments = fnmatch.filter(filenames, "*experiment.txt")
+        if not experiments:
+            continue
+
+        # if fnmatch.filter(filenames, "*.png"):          # already post-processed
+        #     print(f"SKIP (png exists): {dirpath}")
+        #     skipped += 1
+        #     continue
+
+        for experiment in experiments:
+            experimentPath = os.path.join(dirpath, experiment)
+            try:
+                print(f"PROCESS: {experimentPath}")
+                analyseEvaluation(experimentPath, baseline=baseline)
+                processed += 1
+            except Exception as exc:
+                print(f"FAILED:  {experimentPath}  ->  {exc}")
+                failed += 1
+            finally:
+                plt.close("all")                        # free the figure before the next file
+
+    print(f"\nDone. processed={processed}, skipped={skipped}, failed={failed}")
+
 
 if __name__ == "__main__":
-    analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\2026-07-14_08-27-56\experiment.txt")
+    #analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\2026-07-14_08-27-56\experiment.txt")
+    dataFolder = os.environ.get("QECC_DATA")
+    crawl(dataFolder)
+
+
 
 
                           

@@ -241,6 +241,10 @@ if __name__ == "__main__":
         "--log-name", type=str, default=None,
         help="Name of the log file. All logs are saved in the directory specified by the environment variable QECC_DATA. If not specified, the file name will be experiment.txt.",
     )
+    parser.add_argument(
+        "--env-error-range", type=str, default="linear5", choices = ["linear5", "geometric5", "geometric7", "geometric10", "all15"],
+        help= "linear or geometric error range."
+    )
 
     parser.add_argument(
         "--env-version", type=str, default="qecc/bbcode-ldpc-v0", choices=["qecc/bbcode-v0", "qecc/bbcode-ldpc-v0"],
@@ -332,6 +336,7 @@ if __name__ == "__main__":
     
     env_reward_engineering = parsedArguments.env_reward_engineering.lower() == "true"
     resolvedArguments["env_reward_engineering"] =  env_reward_engineering
+    resolvedArguments["env_reward_integral"] = "Between prob. of no error and curve."
     env_bit_flipping = parsedArguments.env_bit_flipping.lower() == "true"
     resolvedArguments["env_bit_flipping"] = env_bit_flipping
     #env_version = parsedArguments.env_version
@@ -346,8 +351,25 @@ if __name__ == "__main__":
     env_number_of_samples = parsedArguments.env_number_of_samples
     env_code_logging = parsedArguments.env_code_logging.lower() == "true"
     resolvedArguments["env_code_logging"] = env_code_logging
-    
-    
+    env_error_range = parsedArguments.env_error_range.lower()
+
+    if env_error_range == "linear5":
+        resolved_env_error_range = np.linspace(0.0001,0.1,5)
+    elif env_error_range == "geometric5":
+        resolved_env_error_range = np.geomspace(0.001, 0.1, 5)
+    elif env_error_range == "geometric7":
+        resolved_env_error_range = np.geomspace(0.001, 0.1, 7)
+    elif env_error_range == "geometric10":
+        resolved_env_error_range = np.geomspace(0.0001, 0.1, 10)
+    elif env_error_range == "dataCollection":
+         resolved_env_error_range = np.unique(np.round(np.concatenate([
+            np.linspace(0.0001, 0.1, 5),
+            np.geomspace(0.001, 0.1, 5),
+            np.geomspace(0.001, 0.1, 7),
+            np.geomspace(0.0001, 0.1, 10)]), 10))
+    else:
+        raise ValueError("Error range not found")
+    resolvedArguments["env_error_range"] = resolved_env_error_range
     model_architecture = parsedArguments.model_architecture    
     model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
     model_use_pretrained_encoder = parsedArguments.model_use_pretrained_encoder.lower() == "true"
@@ -428,7 +450,7 @@ if __name__ == "__main__":
         env = GymEnv("qecc/bbcode-ldpc-v0", 
                           l = env_l, 
                           m = env_m, 
-                          errorRange = np.linspace(0.0001,0.1,5), 
+                          errorRange = resolved_env_error_range, 
                           minimumNumberOfLogicalQubits = env_minimum_number_of_qubits, 
                           numberOfIterations = env_number_of_decoder_iterations,
                           numberOfSamples = env_number_of_samples,
@@ -691,5 +713,6 @@ if __name__ == "__main__":
     print(f"Finished.") 
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S %A"))
     print(f"Experiment logs and policy weights are located in:\n{myLogger.logPath}")
+
 
 

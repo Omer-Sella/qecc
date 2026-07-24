@@ -225,6 +225,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=learningRate)
 
     history = {"trainLoss": [], "valLoss": {slot.name: [] for slot in slots}}
+    bestValLoss, bestStateDict, bestEpoch = float("inf"), None, -1
     for epoch in range(arguments.epochs):
         schedule = buildEpochSchedule(slots, arguments.batch_size,
                                       arguments.size_weighting, rng, device)
@@ -243,6 +244,11 @@ def main():
             valSummary.append(f"{slot.name}: {valLoss:.4f}")
         print(f"epoch {epoch}: train {history['trainLoss'][-1]:.4f} | "
               f"val {' | '.join(valSummary)}", flush=True)
+        meanValLoss = float(np.mean([history["valLoss"][slot.name][-1] for slot in slots]))
+        if meanValLoss < bestValLoss:
+            bestValLoss, bestEpoch = meanValLoss, epoch
+            bestStateDict = {key: value.detach().cpu().clone()
+                             for key, value in model.state_dict().items()}
 
     runDirectory = os.path.join(
         os.environ.get("QECC_DATA", "C:/Users/Omer/rl-qecc-data"), "supervisedLearning",
@@ -251,6 +257,9 @@ def main():
     reportPath = arguments.report or os.path.join(
         os.path.dirname(checkpointPath), "surrogate-transfer-report.md")
 
+    if bestStateDict is not None:
+        model.load_state_dict(bestStateDict)
+        print(f"restored best-val weights from epoch {bestEpoch} (val {bestValLoss:.4f})")
     model = model.cpu()
     os.makedirs(os.path.dirname(checkpointPath) or ".", exist_ok=True)
     torch.save({
@@ -261,7 +270,7 @@ def main():
                       "initCheckpoint": arguments.init_checkpoint,
                       "seed": arguments.seed, "kLossWeight": arguments.k_loss_weight,
                       "sizeWeighting": arguments.size_weighting, "lr": learningRate,
-                      "datasetSizes": datasetSizes},
+                      "datasetSizes": datasetSizes, "bestEpoch": bestEpoch},
     }, checkpointPath)
     print(f"saved {checkpointPath}")
 
@@ -273,7 +282,8 @@ def main():
                   f"({datetime.date.today().isoformat()})\n\n"
                   f"- sizes: {sizes}; curve loss on: {sorted(curveSizes) or 'NONE'}\n"
                   f"- initCheckpoint: {arguments.init_checkpoint or 'fresh model'}\n"
-                  f"- epochs: {arguments.epochs}, lr: {learningRate}, "
+                  f"- epochs: {arguments.epochs} (best-val epoch {bestEpoch}), "
+                  f"lr: {learningRate}, "
                   f"seed: {arguments.seed}, weighting: {arguments.size_weighting}, "
                   f"kLossWeight: {arguments.k_loss_weight}, "
                   f"numberOfHarmonics: {hyperParameters['numberOfHarmonics']}\n"

@@ -82,6 +82,7 @@ def test_IBM_72_12_6():
     env.reset()
     action = _make_action_v0(l, m, aX_idx=[3], aY_idx=[1, 2], bX_idx=[1, 2], bY_idx=[3])
     _, reward, *_ = env.step(action) # Should come back close to 0.033189 if the error range is np.linspace(10**-4, 10**-1, 10) 
+    
     assert float(reward) > 0.029 # TODO: I'm not sure why the reward comes back as SupportsFloat instead of float flag this for inspection.
 
 def test_IBM_90_8_10():
@@ -99,6 +100,7 @@ def test_IBM_90_8_10():
     env.reset()
     action = _make_action_v0(l, m, aX_idx=[9], aY_idx=[1, 2], bX_idx=[0, 2, 7], bY_idx=[])
     _, reward, *_ = env.step(action) # should come back roughly 0.04218
+    
     assert float(reward) > 0.035
 
 def test_IBM_108_8_10():

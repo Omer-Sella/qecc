@@ -245,9 +245,10 @@ if __name__ == "__main__":
     from qecc.polynomialCodes import A1_HX, A1_HZ, bbCodes
     # from qecc.minSum import ldpcDecoderWrapper
     # import numpy as np
-    errorRange = np.linspace(10**-4, 10**-1, 10)
+    #errorRange = np.linspace(10**-4, 10**-1, 10)
+    errorRange = np.linspace(10**-4, 10**-1, 5)
 
-    NUMBER_OF_SAMPLES = 100
+    NUMBER_OF_SAMPLES = 50#100
     NUMBER_OF_DECODER_ITERATIONS = 50
     errorRateQBP= {}
     errorRate = {}
@@ -287,5 +288,5 @@ if __name__ == "__main__":
                 "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, 
                 "Number of samples": NUMBER_OF_SAMPLES, 
                 "Decoder": "Dual binary BPOSD" }
-        fileName = "c:/users/omer/qecc/decoderComparisonData/dualBPOSD_" + key + ".npy"
+        fileName = "c:/users/omer/qecc/decoderComparisonData/code_evaluation_for_bb_gym_reward_calculation_50_samples_50_iterations_" + key + ".npy"
         np.save(fileName, data, allow_pickle=True)

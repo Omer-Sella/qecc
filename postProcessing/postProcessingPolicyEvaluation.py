@@ -50,7 +50,7 @@ TEN_POINT_GRID = np.linspace(1e-4, 1e-1, 10)
 # generateABmatrices(l, m, aX, aY, bX, bY).
 REFERENCE_CODES = {
     (6, 6):  dict(name="[[72,12,6]]",   aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    (15, 3): dict(name="[[90,8,10]]",   aX=[9],    aY=[1, 2],  bX=[0, 2],  bY=[7]),
+    (15, 3): dict(name="[[90,8,10]]",   aX=[9],    aY=[1, 2],  bX=[0, 2, 7],  bY=[]),
     (9, 6):  dict(name="[[108,8,10]]",  aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
     (12, 6): dict(name="[[144,12,12]]", aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
 }
