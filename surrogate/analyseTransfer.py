@@ -243,7 +243,7 @@ def appendCsvRow(csvPath, row, fieldNames):
         writer.writerow(row)
 
 
-CSV_FIELDS = ["date", "checkpoint", "dataRoot", "l", "m", "numberOfCodes", "kMin",
+CSV_FIELDS = ["date", "checkpoint", "dataRoot", "l", "m", "numberOfCodes", "kMin", "inSample",
               "spearman", "spearmanLow", "spearmanHigh",
               "spearmanStratum", "spearmanStratumLow", "spearmanStratumHigh", "stratumSize",
               "regret1", "regret1Low", "regret1High",
@@ -342,6 +342,13 @@ def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath):
     modelResults = {}
     for checkpointPath in arguments.checkpoints:
         model = loadCheckpoint(checkpointPath)
+        # Annotate in-sample rows: checkpoints from trainMultiSize record trainedOn.sizes.
+        rawCheckpoint = torch.load(checkpointPath, map_location="cpu", weights_only=False)
+        trainedSizes = rawCheckpoint.get("trainedOn", {}).get("sizes")
+        if trainedSizes is None:
+            inSample = ""                                  # unknown (older checkpoints)
+        else:
+            inSample = (l, m) in {tuple(s) for s in trainedSizes}
         predictions = predictPerCode(model, data)
         result = analyseModel(predictions, trueReward, trueK, arguments.k_min,
                               regretKs, resampleIndices)
@@ -354,7 +361,9 @@ def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath):
         modelResults[checkpointPath] = result
 
         name = checkpointPath
-        lines += [f"\n## {name}\n",
+        sampleFlag = ("  **[IN-SAMPLE: this size is in the model's training data]**"
+                      if inSample is True else "")
+        lines += [f"\n## {name}{sampleFlag}\n",
                   f"- Spearman: {formatCi(result['spearman'])} "
                   f"(ceiling {ceiling:.3f})",
                   f"- Spearman on k>={arguments.k_min} stratum "
@@ -376,7 +385,7 @@ def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath):
         appendCsvRow(csvPath, {
             "date": today, "checkpoint": checkpointPath, "dataRoot": dataRoot,
             "l": l, "m": m, "numberOfCodes": numberOfCodes,
-            "kMin": arguments.k_min,
+            "kMin": arguments.k_min, "inSample": inSample,
             "spearman": result["spearman"]["value"],
             "spearmanLow": result["spearman"]["low"],
             "spearmanHigh": result["spearman"]["high"],
