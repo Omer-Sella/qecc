@@ -242,7 +242,7 @@ if __name__ == "__main__":
         help="Name of the log file. All logs are saved in the directory specified by the environment variable QECC_DATA. If not specified, the file name will be experiment.txt.",
     )
     parser.add_argument(
-        "--env-error-range", type=str, default="linear5", choices = ["linear5", "geometric5", "geometric7", "geometric10", "all15"],
+        "--env-error-range", type=str, default="linear5", choices = ["linear5", "geometric5", "geometric7", "geometric10", "dataCollection"],
         help= "linear or geometric error range."
     )
 
@@ -361,7 +361,7 @@ if __name__ == "__main__":
         resolved_env_error_range = np.geomspace(0.001, 0.1, 7)
     elif env_error_range == "geometric10":
         resolved_env_error_range = np.geomspace(0.0001, 0.1, 10)
-    elif env_error_range == "dataCollection":
+    elif env_error_range == "datacollection":
          resolved_env_error_range = np.unique(np.round(np.concatenate([
             np.linspace(0.0001, 0.1, 5),
             np.geomspace(0.001, 0.1, 5),
@@ -369,7 +369,7 @@ if __name__ == "__main__":
             np.geomspace(0.0001, 0.1, 10)]), 10))
     else:
         raise ValueError("Error range not found")
-    resolvedArguments["env_error_range"] = resolved_env_error_range
+    resolvedArguments["env_error_range"] = str(list(np.round(resolved_env_error_range,6)))
     model_architecture = parsedArguments.model_architecture    
     model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
     model_use_pretrained_encoder = parsedArguments.model_use_pretrained_encoder.lower() == "true"
