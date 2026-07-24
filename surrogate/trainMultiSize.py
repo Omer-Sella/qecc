@@ -161,6 +161,11 @@ def main():
     parser.add_argument("--n-head", type=int, default=4)
     parser.add_argument("--num-layers", type=int, default=2)
     parser.add_argument("--dim-feedforward", type=int, default=128)
+    parser.add_argument("--number-of-harmonics", type=int, default=None,
+                        help="Cyclic-position harmonics H; token width = 9 + 2H. The encoding "
+                             "is complete for period p when H >= floor(p/2) (p=6 -> 3, "
+                             "p=15 -> 7, p=21 -> 10). Default 3 for fresh models. When "
+                             "warm-starting, must match the checkpoint (expansion unsupported).")
     parser.add_argument("--device", default="auto")
     parser.add_argument("--checkpoint", default=None,
                         help="Output path; default $QECC_DATA/supervisedLearning/<timestamp>/"
@@ -181,13 +186,16 @@ def main():
     torch.manual_seed(arguments.seed)
     rng = np.random.default_rng(arguments.seed)
     print(f"device: {device}; sizes: {sizes}; curve loss on: {sorted(curveSizes) or 'NONE'}; "
-          f"lr: {learningRate}")
+          f"lr: {learningRate}; H: {arguments.number_of_harmonics or 'checkpoint/default'}")
 
     slots = []
+    datasetSizes = {}
     for l, m in sizes:
         data = loadSizeData(arguments.data_root, l, m, arguments.max_codes_per_size,
                             arguments.seed)
         slot = SizeSlot(data, device, arguments.seed, useCurveLoss=(l, m) in curveSizes)
+        datasetSizes[slot.name] = {"total": int(data.bits.shape[0]),
+                                   "train": int(slot.numberOfTrainRows())}
         print(f"  size {slot.name}: {data.bits.shape[0]} codes "
               f"({slot.numberOfTrainRows()} train) curveLoss={slot.useCurveLoss}")
         slots.append(slot)
@@ -197,12 +205,21 @@ def main():
         checkpoint = torch.load(arguments.init_checkpoint, map_location="cpu",
                                 weights_only=False)
         hyperParameters = checkpoint["hyperParameters"]
+        if (arguments.number_of_harmonics is not None
+                and arguments.number_of_harmonics != hyperParameters.get("numberOfHarmonics", 3)):
+            raise SystemExit(
+                f"--number-of-harmonics {arguments.number_of_harmonics} conflicts with the "
+                f"init checkpoint's numberOfHarmonics="
+                f"{hyperParameters.get('numberOfHarmonics', 3)}. Changing H changes the token "
+                f"width, so an existing checkpoint cannot be expanded; train fresh instead.")
         print(f"warm-started from {arguments.init_checkpoint}")
     else:
         hyperParameters = {"dModel": arguments.d_model, "nHead": arguments.n_head,
                            "numLayers": arguments.num_layers,
                            "dimFeedforward": arguments.dim_feedforward,
-                           "numberOfHarmonics": 3}
+                           "numberOfHarmonics": (arguments.number_of_harmonics
+                                                 if arguments.number_of_harmonics is not None
+                                                 else 3)}
         model = CodeCurvePredictor(**hyperParameters).to(device)
     model.train()
     optimizer = torch.optim.Adam(model.parameters(), lr=learningRate)
@@ -243,7 +260,8 @@ def main():
         "trainedOn": {"sizes": sizes, "curveSizes": sorted(curveSizes),
                       "initCheckpoint": arguments.init_checkpoint,
                       "seed": arguments.seed, "kLossWeight": arguments.k_loss_weight,
-                      "sizeWeighting": arguments.size_weighting, "lr": learningRate},
+                      "sizeWeighting": arguments.size_weighting, "lr": learningRate,
+                      "datasetSizes": datasetSizes},
     }, checkpointPath)
     print(f"saved {checkpointPath}")
 
@@ -257,7 +275,12 @@ def main():
                   f"- initCheckpoint: {arguments.init_checkpoint or 'fresh model'}\n"
                   f"- epochs: {arguments.epochs}, lr: {learningRate}, "
                   f"seed: {arguments.seed}, weighting: {arguments.size_weighting}, "
-                  f"kLossWeight: {arguments.k_loss_weight}\n")
+                  f"kLossWeight: {arguments.k_loss_weight}, "
+                  f"numberOfHarmonics: {hyperParameters['numberOfHarmonics']}\n"
+                  + "- dataset: "
+                  + "; ".join(f"{name}: {counts['total']} codes ({counts['train']} train)"
+                              for name, counts in datasetSizes.items())
+                  + "\n")
 
     # Per-size held-out evaluation, INCLUDING the within-6,6 regression check.
     for slot in slots:
