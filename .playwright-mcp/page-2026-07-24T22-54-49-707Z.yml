@@ -1,0 +1,173 @@
+- generic [ref=f8e1]:
+  - link "Skip to main panel" [ref=f8e3] [cursor=pointer]:
+    - /url: "#"
+  - banner [ref=f8e4]:
+    - navigation "main menu" [ref=f8e9]:
+      - menubar [ref=f8e11]:
+        - menuitem "File" [ref=f8e12]
+        - menuitem "Edit" [ref=f8e14]
+        - menuitem "View" [ref=f8e16]
+        - menuitem "Run" [ref=f8e18]
+        - menuitem "Kernel" [ref=f8e20]
+        - menuitem "Tabs" [ref=f8e22]
+        - menuitem "Settings" [ref=f8e24]
+        - menuitem "Help" [ref=f8e26]
+    - toolbar [ref=f8e28]
+  - generic [ref=f8e31]:
+    - complementary "main sidebar" [ref=f8e32]:
+      - tablist "main sidebar" [ref=f8e33]:
+        - tab "File Browser (Ctrl+Shift+F)" [selected] [ref=f8e34]
+        - tab "Running Terminals and Kernels" [ref=f8e38]
+        - tab "GPU Dashboards" [ref=f8e42]
+        - tab "Table of Contents" [ref=f8e47]
+        - tab "Extension Manager" [ref=f8e51]
+    - generic [ref=f8e56]:
+      - region "File Browser Section" [ref=f8e58]:
+        - toolbar "file browser" [ref=f8e59]:
+          - generic [ref=f8e60]:
+            - generic:
+              - generic "New Launcher (Ctrl+Shift+L)" [ref=f8e62] [cursor=pointer]:
+                - button "New Launcher (Ctrl+Shift+L)" [ref=f8e63]
+              - generic "New Folder" [ref=f8e66] [cursor=pointer]:
+                - button "New Folder" [ref=f8e67]
+              - generic "Upload Files" [ref=f8e70] [cursor=pointer]:
+                - button "Upload Files" [ref=f8e71]
+              - generic "Refresh the file browser." [ref=f8e74] [cursor=pointer]:
+                - button "Refresh the file browser." [ref=f8e75]
+              - generic "Toggle File Filter" [ref=f8e78] [cursor=pointer]:
+                - button "Toggle File Filter" [ref=f8e79]
+        - region "side panel content" [ref=f8e81]:
+          - generic [ref=f8e82]:
+            - generic [ref=f8e83]:
+              - generic "~/qecc" [ref=f8e84]
+              - text: /
+            - generic [ref=f8e87]:
+              - generic [ref=f8e88]:
+                - generic [ref=f8e89]: Name
+                - generic [ref=f8e95]: Modified
+              - list [ref=f8e97]:
+                - 'listitem "Name: build Created: 3/18/26, 3:41 PM Modified: 3/18/26, 3:41 PM Writable: true" [ref=f8e98]':
+                  - generic [ref=f8e99]: build
+                  - generic "3/18/26, 3:41 PM" [ref=f8e104]: 4mo ago
+                - 'listitem "Name: codeMatrices Created: 3/18/26, 3:41 PM Modified: 3/18/26, 3:41 PM Writable: true" [ref=f8e105]':
+                  - generic [ref=f8e106]: codeMatrices
+                  - generic "3/18/26, 3:41 PM" [ref=f8e111]: 4mo ago
+                - 'listitem "Name: decoderComparisonData Created: 4/17/26, 10:38 AM Modified: 4/17/26, 10:38 AM Writable: true" [ref=f8e112]':
+                  - generic [ref=f8e113]: decoderComparisonData
+                  - generic "4/17/26, 10:38 AM" [ref=f8e118]: 3mo ago
+                - 'listitem "Name: notebooks Created: 6/25/26, 9:58 AM Modified: 6/25/26, 9:58 AM Writable: true" [ref=f8e119]':
+                  - generic [ref=f8e120]: notebooks
+                  - generic "6/25/26, 9:58 AM" [ref=f8e125]: 29d ago
+                - 'listitem "Name: postProcessing Created: 7/24/26, 7:45 PM Modified: 7/24/26, 7:45 PM Writable: true" [ref=f8e126]':
+                  - generic [ref=f8e127]: postProcessing
+                  - generic "7/24/26, 7:45 PM" [ref=f8e132]: 3h ago
+                - 'listitem "Name: src Created: 6/12/26, 10:11 AM Modified: 6/12/26, 10:11 AM Writable: true" [ref=f8e133]':
+                  - generic [ref=f8e134]: src
+                  - generic "6/12/26, 10:11 AM" [ref=f8e139]: last mo.
+                - 'listitem "Name: surrogate Created: 7/24/26, 7:45 PM Modified: 7/24/26, 7:45 PM Writable: true" [ref=f8e140]':
+                  - generic [ref=f8e141]: surrogate
+                  - generic "7/24/26, 7:45 PM" [ref=f8e146]: 3h ago
+                - 'listitem "Name: tests Created: 7/24/26, 7:45 PM Modified: 7/24/26, 7:45 PM Writable: true" [ref=f8e147]':
+                  - generic [ref=f8e148]: tests
+                  - generic "7/24/26, 7:45 PM" [ref=f8e153]: 3h ago
+                - 'listitem "Name: CLAUDE.md Size: 483 B Created: 7/24/26, 7:45 PM Modified: 7/24/26, 7:45 PM Writable: true" [ref=f8e154]':
+                  - generic [ref=f8e155]: CLAUDE.md
+                  - generic "7/24/26, 7:45 PM" [ref=f8e160]: 3h ago
+                - 'listitem "Name: MANIFEST.in Size: 150 B Created: 3/18/26, 3:41 PM Modified: 3/18/26, 3:41 PM Writable: true" [ref=f8e161]':
+                  - generic [ref=f8e162]: MANIFEST.in
+                  - generic "3/18/26, 3:41 PM" [ref=f8e167]: 4mo ago
+                - 'listitem "Name: profileOnJupyterServer.out Size: 2.4 MB Created: 7/7/26, 11:33 PM Modified: 7/7/26, 11:33 PM Writable: true" [ref=f8e168]':
+                  - generic [ref=f8e169]: profileOnJupyterServer.out
+                  - generic "7/7/26, 11:33 PM" [ref=f8e174]: 17d ago
+                - 'listitem "Name: pyproject.toml Size: 694 B Created: 6/18/26, 1:52 PM Modified: 6/18/26, 1:52 PM Writable: true" [ref=f8e175]':
+                  - generic [ref=f8e176]: pyproject.toml
+                  - generic "6/18/26, 1:52 PM" [ref=f8e181]: last mo.
+                - 'listitem "Name: README.md Size: 2.2 KB Created: 7/2/26, 1:15 PM Modified: 7/2/26, 1:15 PM Writable: true" [ref=f8e182]':
+                  - generic [ref=f8e183]: README.md
+                  - generic "7/2/26, 1:15 PM" [ref=f8e188]: 22d ago
+                - 'listitem "Name: requirements.txt Size: 2 KB Created: 7/12/26, 7:52 PM Modified: 7/12/26, 7:52 PM Writable: true" [ref=f8e189]':
+                  - generic [ref=f8e190]: requirements.txt
+                  - generic "7/12/26, 7:52 PM" [ref=f8e195]: 12d ago
+                - 'listitem "Name: test.json Size: 1.2 KB Created: 6/25/26, 9:58 AM Modified: 6/25/26, 9:58 AM Writable: true" [ref=f8e196]':
+                  - generic [ref=f8e197]: test.json
+                  - generic "6/25/26, 9:58 AM" [ref=f8e205]: 29d ago
+      - main [ref=f8e207]:
+        - generic [ref=f8e218]:
+          - tablist [ref=f8e219]:
+            - tab "osella@cx3-11-0:~/qecc" [ref=f8e220]:
+              - generic "Close osella@cx3-11-0:~/qecc" [ref=f8e226]
+            - tab "osella@cx3-11-0:~/qecc" [ref=f8e231]:
+              - generic "Close osella@cx3-11-0:~/qecc" [ref=f8e237]
+            - tab "Launcher" [selected] [ref=f8e329]:
+              - generic "Close Launcher" [ref=f8e334]
+            - tab "CLAUDE.md" [ref=f8e288]:
+              - generic "Close CLAUDE.md" [ref=f8e293]
+          - button "New Launcher" [ref=f8e242]
+        - tabpanel "Launcher" [ref=f8e339]:
+          - toolbar "notebook actions" [ref=f8e340]
+          - region "notebook content" [active] [ref=f8e342]:
+            - generic [ref=f8e344]:
+              - generic:
+                - heading [level=3]
+              - generic [ref=f8e345]:
+                - heading "Notebook" [level=2] [ref=f8e352]
+                - generic [ref=f8e353]:
+                  - generic "Python 3 (ipykernel)" [ref=f8e354] [cursor=pointer]:
+                    - img "Python 3 (ipykernel)" [ref=f8e356]
+                    - generic "Python 3 (ipykernel)" [ref=f8e357]:
+                      - paragraph [ref=f8e358]: Python 3 (ipykernel)
+                  - generic "MATLAB Kernel" [ref=f8e359] [cursor=pointer]:
+                    - img "MATLAB Kernel" [ref=f8e361]
+                    - generic "MATLAB Kernel" [ref=f8e362]:
+                      - paragraph [ref=f8e363]: MATLAB Kernel
+                  - generic "Open MATLAB [↗]" [ref=f8e364] [cursor=pointer]:
+                    - img "Open MATLAB [↗]" [ref=f8e366]
+                    - generic "Open MATLAB [↗]" [ref=f8e367]:
+                      - paragraph [ref=f8e368]: Open MATLAB [↗]
+              - generic [ref=f8e369]:
+                - heading "Console" [level=2] [ref=f8e375]
+                - generic [ref=f8e376]:
+                  - generic "Python 3 (ipykernel)" [ref=f8e377] [cursor=pointer]:
+                    - img "Python 3 (ipykernel)" [ref=f8e379]
+                    - generic "Python 3 (ipykernel)" [ref=f8e380]:
+                      - paragraph [ref=f8e381]: Python 3 (ipykernel)
+                  - generic "MATLAB Kernel" [ref=f8e382] [cursor=pointer]:
+                    - img "MATLAB Kernel" [ref=f8e384]
+                    - generic "MATLAB Kernel" [ref=f8e385]:
+                      - paragraph [ref=f8e386]: MATLAB Kernel
+              - generic [ref=f8e387]:
+                - heading "Other" [level=2] [ref=f8e393]
+                - generic [ref=f8e394]:
+                  - generic "Start a new terminal session" [ref=f8e395] [cursor=pointer]:
+                    - generic "Start a new terminal session" [ref=f8e401]:
+                      - paragraph [ref=f8e402]: Terminal
+                  - generic "Create a new MATLAB file" [ref=f8e403] [cursor=pointer]:
+                    - generic "Create a new MATLAB file" [ref=f8e414]:
+                      - paragraph [ref=f8e415]: MATLAB File
+                  - generic "Create a new text file" [ref=f8e416] [cursor=pointer]:
+                    - generic "Create a new text file" [ref=f8e421]:
+                      - paragraph [ref=f8e422]: Text File
+                  - generic "Create a new markdown file" [ref=f8e423] [cursor=pointer]:
+                    - generic "Create a new markdown file" [ref=f8e428]:
+                      - paragraph [ref=f8e429]: Markdown File
+                  - generic "Create a new Python file" [ref=f8e430] [cursor=pointer]:
+                    - generic "Create a new Python file" [ref=f8e436]:
+                      - paragraph [ref=f8e437]: Python File
+                  - generic "Live updating code documentation from the active kernel" [ref=f8e438] [cursor=pointer]:
+                    - generic "Live updating code documentation from the active kernel" [ref=f8e443]:
+                      - paragraph [ref=f8e444]: Show Contextual Help
+    - complementary "alternate sidebar" [ref=f8e245]:
+      - tablist "alternate sidebar" [ref=f8e246]:
+        - tab "Property Inspector" [ref=f8e247]
+        - tab "Debugger" [ref=f8e251]
+  - contentinfo [ref=f8e255]:
+    - generic [ref=f8e256]:
+      - generic [ref=f8e257]:
+        - switch "Simple" [ref=f8e259]:
+          - generic "Simple Interface (Ctrl+Shift+D)" [ref=f8e260]: Simple
+        - generic [ref=f8e263] [cursor=pointer]:
+          - generic [ref=f8e264]: "2"
+          - generic [ref=f8e272]: "0"
+      - generic [ref=f8e279]:
+        - generic "No notifications" [ref=f8e281]: "0"
+        - generic [ref=f8e287]: Launcher

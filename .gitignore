@@ -21,8 +21,8 @@ decoderComparisonData*
 *ppo_sb3.py
 .superpowers
 .pytest_cache
-
-
+*CLAUDE*
+*.png
 
 
 
