@@ -37,7 +37,7 @@ from scipy.stats import spearmanr
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evaluateTransfer import loadCheckpoint, binomialNllOfCurve, noiseFloorNll  # noqa: E402
 
-from qecc.codeEvaluationDataset import (CANONICAL_ERROR_RANGE, loadCodeEvaluations,  # noqa: E402
+from qecc.codeEvaluationDataset import (NAMED_ERROR_RANGES, CANONICAL_ERROR_RANGE, loadCodeEvaluations,  # noqa: E402
                                         rewardFromCounts, toTensors)
 from qecc.codeSurrogate import rewardFromCurve  # noqa: E402
 
@@ -258,6 +258,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoints", nargs="+", required=True,
                         help="One or more surrogate checkpoints; >=2 enables paired comparison.")
+    parser.add_argument("--error-range", default="linear5", choices=sorted(NAMED_ERROR_RANGES))
     parser.add_argument("--data-root", required=True,
                         help="Base data directory. With --sizes, a per-size subfolder "
                              "l_{l}_m_{m} is used when it exists (falls back to the base, "

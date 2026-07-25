@@ -14,7 +14,9 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
+GEOMETRIC5_ERROR_RANGE = np.geomspace(0.001, 0.1, 5)
 CANONICAL_ERROR_RANGE = np.linspace(0.0001, 0.1, 5)
+NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE, "geometric5": GEOMETRIC5_ERROR_RANGE}
 GRID_TOLERANCE = 1e-9
 
 

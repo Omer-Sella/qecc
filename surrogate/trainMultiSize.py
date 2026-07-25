@@ -43,6 +43,9 @@ from qecc.codeEvaluationDataset import (loadCodeEvaluations, splitData, toTensor
 from qecc.codeSurrogate import (CodeCurvePredictor, binomialCurveLoss,  # noqa: E402
                                 kPredictionLoss)
 
+GEOMETRIC5_ERROR_RANGE = np.geomspace(0.001, 0.1, 5)
+CANONICAL_ERROR_RANGE = np.linspace(0.0001, 0.1, 5)
+NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE, "geometric5": GEOMETRIC5_ERROR_RANGE}
 
 def parseSizes(tokens):
     if tokens is None:
@@ -52,10 +55,10 @@ def parseSizes(tokens):
     return [tuple(int(part) for part in token.split(",")) for token in tokens]
 
 
-def loadSizeData(dataRoot, l, m, maxCodes, seed):
+def loadSizeData(dataRoot, l, m, maxCodes, seed, errorRange = CANONICAL_ERROR_RANGE):
     sizeSubfolder = os.path.join(dataRoot, f"l_{l}_m_{m}")
     root = sizeSubfolder if os.path.isdir(sizeSubfolder) else dataRoot
-    data = loadCodeEvaluations(root, l, m)
+    data = loadCodeEvaluations(root, l, m, errorRange=errorRange)
     if maxCodes and data.bits.shape[0] > maxCodes:
         keep = np.random.default_rng(seed).choice(data.bits.shape[0], maxCodes, replace=False)
         data = _subset(data, keep)
@@ -171,6 +174,7 @@ def main():
                         help="Output path; default $QECC_DATA/supervisedLearning/<timestamp>/"
                              "surrogate_multi.pth")
     parser.add_argument("--report", default=None)
+    parser.add_argument("--error-range", default="linear5", choices=sorted(NAMED_ERROR_RANGES))
     arguments = parser.parse_args()
 
     sizes = parseSizes(arguments.sizes)
@@ -187,12 +191,12 @@ def main():
     rng = np.random.default_rng(arguments.seed)
     print(f"device: {device}; sizes: {sizes}; curve loss on: {sorted(curveSizes) or 'NONE'}; "
           f"lr: {learningRate}; H: {arguments.number_of_harmonics or 'checkpoint/default'}")
-
+    
     slots = []
     datasetSizes = {}
     for l, m in sizes:
         data = loadSizeData(arguments.data_root, l, m, arguments.max_codes_per_size,
-                            arguments.seed)
+                                arguments.seed, NAMED_ERROR_RANGES[arguments.error_range])
         slot = SizeSlot(data, device, arguments.seed, useCurveLoss=(l, m) in curveSizes)
         datasetSizes[slot.name] = {"total": int(data.bits.shape[0]),
                                    "train": int(slot.numberOfTrainRows())}
@@ -267,6 +271,7 @@ def main():
         "hyperParameters": hyperParameters,
         "history": history,
         "trainedOn": {"sizes": sizes, "curveSizes": sorted(curveSizes),
+                      "errorRange": arguments.error_range,
                       "initCheckpoint": arguments.init_checkpoint,
                       "seed": arguments.seed, "kLossWeight": arguments.k_loss_weight,
                       "sizeWeighting": arguments.size_weighting, "lr": learningRate,
