@@ -257,12 +257,12 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--env-l", type=int, default=6, choices = [3,6,9,12,15,18,21,30,31],
+        "--env-l", type=int, default=6,
         help="parameter l for bb code construction. Can be any integer, but for now I limited the choices.",
     )
 
     parser.add_argument(
-        "--env-m", type=int, default=6, choices = [3,6,9,12,15,18,21,30,31],
+        "--env-m", type=int, default=6,
         help="parameter m for bb code construction. Can be any integer, but for now I limited the choices.",
     )
     
