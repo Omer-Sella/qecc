@@ -70,8 +70,9 @@ def test_rewardMatchesTrapezoidReconstruction():
     counts = np.array([[0, 10, 20, 30, 40]])
     samples = np.array([50])
     ber = counts[0] / 50.0
+    l,m = 6,6
     expected = np.trapezoid(1.0 - ber, CANONICAL_ERROR_RANGE)
-    reward = rewardFromCounts(counts, samples, CANONICAL_ERROR_RANGE)
+    reward = rewardFromCounts(counts, samples, CANONICAL_ERROR_RANGE, l ,m)
     assert reward.shape == (1,)
     np.testing.assert_allclose(reward[0], expected, rtol=1e-12)
 

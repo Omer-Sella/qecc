@@ -91,10 +91,13 @@ def loadCodeEvaluations(rootDirectory, l, m, errorRange=CANONICAL_ERROR_RANGE):
     return CodeEvaluationData(bitsArray, countsArray, samplesArray, kArray, l, m)
 
 
-def rewardFromCounts(counts, samples, errorRange):
+def rewardFromCounts(counts, samples, errorRange, l,m):
     """Reconstruct the environment reward: trapezoid(1 - combinedBER, errorRange)."""
     ber = counts / samples[:, None]
-    return np.trapezoid(1.0 - ber, np.asarray(errorRange, dtype=float), axis=-1)
+    # Old reward return np.trapezoid(1.0 - ber, np.asarray(errorRange, dtype=float), axis=-1)
+    
+    chanceOfNoError =  (1 - 3 * np.asarray(errorRange, dtype=np.float64)) ** (2 * l * m)
+    return np.trapezoid((1.0 - ber)- chanceOfNoError, np.asarray(errorRange, dtype=float), axis=-1)
 
 
 def _subset(data, indices):

@@ -41,7 +41,7 @@ def topKOverlap(trueValues, predictedValues, k):
     return len(trueTop & predictedTop) / k
 
 
-def evaluateOnData(model, data, batchSize=1024):
+def evaluateOnData(model, data, batchSize=1024, l = None, m = None):
     bits, _counts, _samples, _k = toTensors(data)
     curves = []
     kPredictions = []
@@ -54,7 +54,7 @@ def evaluateOnData(model, data, batchSize=1024):
             kPredictions.append(torch.expm1(kLogPrediction))
     curve = torch.cat(curves).numpy()
     kPredicted = torch.cat(kPredictions).numpy()
-    trueReward = rewardFromCounts(data.counts, data.samples, CANONICAL_ERROR_RANGE)
+    trueReward = rewardFromCounts(data.counts, data.samples, CANONICAL_ERROR_RANGE, l, m)
     predictedReward = rewardFromCurve(torch.as_tensor(curve),
                                       CANONICAL_ERROR_RANGE).numpy()
     kTop = min(50, max(1, data.bits.shape[0] // 10))
@@ -121,7 +121,7 @@ def main():
 
     model = loadCheckpoint(arguments.checkpoint)
     data = loadCodeEvaluations(arguments.data_root, arguments.l, arguments.m)
-    metrics = evaluateOnData(model, data)
+    metrics = evaluateOnData(model, data, arguments.l, arguments.m)
     title = (f"{arguments.checkpoint} on l={arguments.l}, m={arguments.m} "
              f"({metrics['numberOfCodes']} codes) — {datetime.date.today().isoformat()}")
     print(appendReport(reportPath, title, arguments.data_root, metrics))

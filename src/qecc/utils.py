@@ -3,6 +3,7 @@ from qecc.gf4 import integerToDualBinary
 from qecc.logicals import computeLogicals
 from qecc.minSum import ldpcDecoder
 from qecc.memBP import decode
+from scipy.integrate import trapezoid
 import time
 from qecc.polynomialCodes import A1_HX, A1_HZ
 LDPC_INT_DATA_TYPE = np.int32
@@ -211,6 +212,14 @@ def binaryDecoderToDualBinaryDecoderWrapper(binaryDecoderFunction):
     return dualDecoder
 
 
+
+def calculateRewardFromSamples(logicalErrorCount, numberOfSamples, errorRange, l, m, rewardEngineering = True):
+    logicalErrorRate = logicalErrorCount / numberOfSamples
+    chanceOfNoError =  (1 - 3 * np.asarray(errorRange, dtype=np.float64)) ** (2 * l * m)
+    reward = trapezoid((1 - logicalErrorRate) - chanceOfNoError, errorRange) 
+    if rewardEngineering:
+        reward = reward / np.abs(np.min(errorRange) - np.max(errorRange))
+    return reward
 
 
 

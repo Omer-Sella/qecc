@@ -25,3 +25,5 @@ def sameCode(codeA, codeB):
 
 def codeWeights(parityMatrix):
        return np.nonzero(parityMatrix)
+
+
