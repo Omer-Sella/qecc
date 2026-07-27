@@ -3,6 +3,7 @@ import sys
 import warnings
 
 import numpy as np
+from qecc.utils import CANONICAL_ERROR_RANGE
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "surrogate"))
@@ -35,7 +36,7 @@ def test_evaluateOnDataReturnsAllMetrics():
         samples=np.full(n, 50, dtype=np.int64),
         k=np.full(n, 8, dtype=np.int64), l=6, m=6)
     metrics = evaluateOnData(CodeCurvePredictor(dModel=32, nHead=2, numLayers=1,
-                                                dimFeedforward=64), data)
+                                                dimFeedforward=64), data, errorRange = CANONICAL_ERROR_RANGE)
     for key in ("nll", "noiseFloor", "rewardMae", "kMae", "spearman", "kendall", "topK50"):
         assert key in metrics and np.isfinite(metrics[key])
 
@@ -72,7 +73,7 @@ def test_evaluateOnDataConstantRewardEmitsNoWarning():
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
         metrics = evaluateOnData(CodeCurvePredictor(dModel=32, nHead=2, numLayers=1,
-                                                     dimFeedforward=64), data)
+                                                     dimFeedforward=64), data, errorRange = CANONICAL_ERROR_RANGE)
     assert np.isnan(metrics["spearman"])
     assert np.isnan(metrics["kendall"])
     for key in ("nll", "noiseFloor", "rewardMae", "kMae", "topK50"):
