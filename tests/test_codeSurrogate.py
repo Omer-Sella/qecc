@@ -2,8 +2,9 @@ import numpy as np
 import pytest
 import torch
 from qecc.codeSurrogate import (CodeCurvePredictor, binomialCurveLoss,
-                                kPredictionLoss, rewardFromCurve)
-from qecc.codeEvaluationDataset import CANONICAL_ERROR_RANGE
+                                kPredictionLoss)
+
+from qecc.utils import calculateRewardFromSamples, CANONICAL_ERROR_RANGE
 
 
 def makeBatch(l, m, batchSize=4, seed=0):
@@ -41,8 +42,8 @@ def test_kPredictionLossZeroAtExactPrediction():
 def test_rewardCollapseMatchesNumpyTrapezoid():
     curve = torch.tensor([[0.0, 0.2, 0.4, 0.6, 0.8]])
     expected = np.trapezoid(1.0 - curve.numpy()[0], CANONICAL_ERROR_RANGE)
-    reward = rewardFromCurve(curve, CANONICAL_ERROR_RANGE)
-    torch.testing.assert_close(reward, torch.tensor([expected], dtype=torch.float32),
+    reward = calculateRewardFromSamples(curve, numberOfSamples=1, errorRange=CANONICAL_ERROR_RANGE, l = 6, m = 6, rewardEngineering=False)
+    np.testing.assert_allclose(reward, torch.tensor([expected], dtype=torch.float32),
                                rtol=1e-6, atol=1e-8)
 
 

@@ -33,20 +33,21 @@ import sys
 import numpy as np
 import torch
 from scipy.stats import spearmanr
+from qecc.utils import calculateRewardFromSamples
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evaluateTransfer import loadCheckpoint, binomialNllOfCurve, noiseFloorNll  # noqa: E402
 
 from qecc.codeEvaluationDataset import (NAMED_ERROR_RANGES, CANONICAL_ERROR_RANGE, loadCodeEvaluations,  # noqa: E402
-                                        rewardFromCounts, toTensors)
-from qecc.codeSurrogate import rewardFromCurve  # noqa: E402
+                                        toTensors)
+
 
 
 # ---------------------------------------------------------------------------
 # Per-code predictions
 # ---------------------------------------------------------------------------
 
-def predictPerCode(model, data, batchSize=1024):
+def predictPerCode(model, data, errorRange, batchSize=1024, rewardEngineering = True):
     """Forward the model over the whole dataset; return per-code predictions."""
     bits, _counts, _samples, _k = toTensors(data)
     curves, kPredictions = [], []
@@ -59,7 +60,11 @@ def predictPerCode(model, data, batchSize=1024):
     curve = torch.cat(curves).numpy()
     return {
         "curve": curve,
-        "predictedReward": rewardFromCurve(torch.as_tensor(curve), CANONICAL_ERROR_RANGE).numpy(),
+        "predictedReward": calculateRewardFromSamples(curve, numberOfSamples=1, #numberOfSamples=1 because the sigmoid curve is already a rate 
+                                                      errorRange=errorRange,
+                                                      l = data.l,
+                                                      m = data.m,
+                                                      rewardEngineering=rewardEngineering),
         "kPredicted": torch.cat(kPredictions).numpy(),
     }
 
@@ -120,7 +125,7 @@ def calibrationTable(curve, counts, samples, numberOfBins=10):
     return rows, float(ece)
 
 
-def labelNoiseCeiling(counts, samples, errorRange, numberOfReplicates=200, seed=0):
+def labelNoiseCeiling(counts, samples, errorRange, l, m, numberOfReplicates=200, seed=0, rewardEngineering = True):
     """Replicate reliability of the labels themselves, and the implied model ceiling.
 
     Draw two synthetic replicates of every code's counts from Binomial(samples, pHat),
@@ -135,10 +140,10 @@ def labelNoiseCeiling(counts, samples, errorRange, numberOfReplicates=200, seed=
     grid = np.asarray(errorRange, dtype=float)
     correlations = np.empty(numberOfReplicates)
     for replicateIndex in range(numberOfReplicates):
-        rewardA = np.trapezoid(1.0 - rng.binomial(integerSamples, pHat) / integerSamples,
-                               grid, axis=-1)
-        rewardB = np.trapezoid(1.0 - rng.binomial(integerSamples, pHat) / integerSamples,
-                               grid, axis=-1)
+        rewardA = calculateRewardFromSamples(rng.binomial(integerSamples, pHat), integerSamples, errorRange = errorRange, l = l, m = m, rewardEngineering = rewardEngineering)#np.trapezoid(1.0 - rng.binomial(integerSamples, pHat) / integerSamples,
+                               #grid, axis=-1)
+        rewardB = calculateRewardFromSamples(rng.binomial(integerSamples, pHat), integerSamples, errorRange = errorRange, l = l, m = m, rewardEngineering = rewardEngineering) # np.trapezoid(1.0 - rng.binomial(integerSamples, pHat) / integerSamples,
+                               #grid, axis=-1)
         correlations[replicateIndex] = spearmanSafe(rewardA, rewardB)
     reliability = float(np.nanmean(correlations))
     ceiling = float(np.sqrt(max(reliability, 0.0)))
@@ -283,12 +288,15 @@ def main():
                              "next to the FIRST checkpoint.")
     parser.add_argument("--csv", default=None,
                         help="CSV path; default analysis.csv next to the report.")
+    parser.add_argument("--reward-engineering", type = str, default="True", options = ["true", "True", "false", "False"],
+                            help="Whether or not we divide the integral by the width of the error range")
     arguments = parser.parse_args()
 
     reportPath = arguments.report or os.path.join(
         os.path.dirname(arguments.checkpoints[0]) or ".", "surrogate-transfer-analysis.md")
     csvPath = arguments.csv or os.path.join(os.path.dirname(reportPath) or ".", "analysis.csv")
 
+    rewardEngineering = arguments.reward_engineering.lower() == "true"
     if arguments.sizes:
         sizes = []
         for token in arguments.sizes:
@@ -304,15 +312,16 @@ def main():
         sizeDataRoot = sizeSubfolder if os.path.isdir(sizeSubfolder) else arguments.data_root
         print(f"\n===== analysing l={l}, m={m} from {sizeDataRoot} =====")
         try:
-            analyseOneSize(arguments, l, m, sizeDataRoot, reportPath, csvPath)
+            analyseOneSize(arguments, l, m, sizeDataRoot, reportPath, csvPath, rewardEngineering=rewardEngineering)
         except ValueError as error:
             print(f"SKIP l={l}, m={m}: {error}")
 
 
-def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath):
+def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath, rewardEngineering):
     regretKs = [int(token) for token in arguments.regret_ks.split(",")]
 
-    data = loadCodeEvaluations(dataRoot, l, m)
+    errorRange = NAMED_ERROR_RANGES[arguments.error_range]
+    data = loadCodeEvaluations(dataRoot, l, m, errorRange=errorRange)
     rng = np.random.default_rng(arguments.seed)
     if arguments.max_codes and data.bits.shape[0] > arguments.max_codes:
         keep = rng.choice(data.bits.shape[0], size=arguments.max_codes, replace=False)
@@ -322,14 +331,16 @@ def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath):
     else:
         subsampleNote = ""
 
-    trueReward = rewardFromCounts(data.counts, data.samples, CANONICAL_ERROR_RANGE)
+    trueReward = calculateRewardFromSamples(data.counts, data.samples[:,None], 
+                                            errorRange=errorRange, 
+                                            l = data.l, m = data.m)
     trueK = data.k.astype(float)
     numberOfCodes = data.bits.shape[0]
     resampleIndices = makeResampleIndices(numberOfCodes, arguments.bootstrap, arguments.seed)
 
     reliability, reliabilityCi, ceiling = labelNoiseCeiling(
-        data.counts.astype(float), data.samples.astype(float), CANONICAL_ERROR_RANGE,
-        arguments.ceiling_replicates, arguments.seed)
+        data.counts.astype(float), data.samples.astype(float), errorRange, data.l, data.m, 
+        arguments.ceiling_replicates, arguments.seed,  rewardEngineering)
 
     today = datetime.date.today().isoformat()
     lines = [f"\n# Analysis: l={l}, m={m} "
@@ -350,7 +361,9 @@ def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath):
             inSample = ""                                  # unknown (older checkpoints)
         else:
             inSample = (l, m) in {tuple(s) for s in trainedSizes}
-        predictions = predictPerCode(model, data)
+        predictions = predictPerCode(model, data, errorRange = errorRange, 
+                                     batchSize = 1024, 
+                                     rewardEngineering = rewardEngineering)
         result = analyseModel(predictions, trueReward, trueK, arguments.k_min,
                               regretKs, resampleIndices)
         result["nll"] = binomialNllOfCurve(predictions["curve"], data.counts.astype(float),

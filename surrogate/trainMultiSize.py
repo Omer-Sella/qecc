@@ -299,7 +299,7 @@ def main():
 
     # Per-size held-out evaluation, INCLUDING the within-6,6 regression check.
     for slot in slots:
-        metrics = evaluateOnData(model, slot.test)
+        metrics = evaluateOnData(model, slot.test, errorRange = NAMED_ERROR_RANGES[arguments.error_range])
         title = (f"{checkpointPath} on held-out test l={slot.l}, m={slot.m} "
                  f"({metrics['numberOfCodes']} codes) — {datetime.date.today().isoformat()}")
         print(appendReport(reportPath, title,

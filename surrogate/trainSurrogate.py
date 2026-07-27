@@ -14,6 +14,7 @@ import torch
 
 from qecc.codeEvaluationDataset import loadCodeEvaluations, splitData, toTensors
 from qecc.codeSurrogate import CodeCurvePredictor, binomialCurveLoss, kPredictionLoss
+from qecc.utils import NAMED_ERROR_RANGES
 
 
 def resolveDevice(requested):
@@ -152,7 +153,7 @@ def main():
     # Evaluate on the held-out test split (10% of the real logged codes, never
     # seen in training or per-epoch monitoring) and append it to the report.
     from evaluateTransfer import evaluateOnData, appendReport
-    testMetrics = evaluateOnData(model, testData)
+    testMetrics = evaluateOnData(model, testData, errorRange=NAMED_ERROR_RANGES[arguments.errorRange])
     title = (f"{checkpointPath} on held-out test l={arguments.l}, m={arguments.m} "
              f"({testMetrics['numberOfCodes']} codes) — {datetime.date.today().isoformat()}")
     print(appendReport(reportPath, title,

@@ -16,10 +16,9 @@ import os
 import numpy as np
 import torch
 from scipy.stats import kendalltau, spearmanr
-
-from qecc.codeEvaluationDataset import (CANONICAL_ERROR_RANGE, loadCodeEvaluations,
-                                        rewardFromCounts, toTensors)
-from qecc.codeSurrogate import CodeCurvePredictor, rewardFromCurve
+from qecc.utils import calculateRewardFromSamples
+from qecc.codeEvaluationDataset import (NAMED_ERROR_RANGES, CANONICAL_ERROR_RANGE, GEOMETRIC5_ERROR_RANGE, loadCodeEvaluations, toTensors)
+from qecc.codeSurrogate import CodeCurvePredictor
 
 EPSILON = 1e-6
 
@@ -41,7 +40,7 @@ def topKOverlap(trueValues, predictedValues, k):
     return len(trueTop & predictedTop) / k
 
 
-def evaluateOnData(model, data, batchSize=1024, l = None, m = None):
+def evaluateOnData(model, data, errorRange, batchSize = 1024, rewardEngineering = True):
     bits, _counts, _samples, _k = toTensors(data)
     curves = []
     kPredictions = []
@@ -54,9 +53,14 @@ def evaluateOnData(model, data, batchSize=1024, l = None, m = None):
             kPredictions.append(torch.expm1(kLogPrediction))
     curve = torch.cat(curves).numpy()
     kPredicted = torch.cat(kPredictions).numpy()
-    trueReward = rewardFromCounts(data.counts, data.samples, CANONICAL_ERROR_RANGE, l, m)
-    predictedReward = rewardFromCurve(torch.as_tensor(curve),
-                                      CANONICAL_ERROR_RANGE).numpy()
+
+    trueReward = calculateRewardFromSamples(data.counts, 
+                                            data.samples[:, None], #The None in data.samples[:, None] is required because counts is (N, 5) 
+                                            errorRange=errorRange, 
+                                            l = data.l, m = data.m)
+    predictedReward = calculateRewardFromSamples(curve, numberOfSamples=1, # Important ! the curve predicted by the model should already represent error RATE !!!
+                                                errorRange=errorRange,
+                                                l = data.l, m = data.m)
     kTop = min(50, max(1, data.bits.shape[0] // 10))
     # Rank correlation is genuinely undefined when either series is constant
     # (zero range); short-circuit instead of calling scipy, which would emit
@@ -111,6 +115,7 @@ def main():
     parser.add_argument("--data-root", required=True)
     parser.add_argument("--l", type=int, required=True)
     parser.add_argument("--m", type=int, required=True)
+    parser.add_argument("--error-range", type=str, required=True, options = [NAMED_ERROR_RANGES.keys()])
     parser.add_argument("--report", default=None,
                         help="Defaults to surrogate-transfer-report.md next to the checkpoint")
     arguments = parser.parse_args()
@@ -118,10 +123,10 @@ def main():
     # training run and its cross-size transfer evaluations share one directory.
     reportPath = arguments.report or os.path.join(
         os.path.dirname(arguments.checkpoint) or ".", "surrogate-transfer-report.md")
-
+    errorRange = arguments.error_range
     model = loadCheckpoint(arguments.checkpoint)
     data = loadCodeEvaluations(arguments.data_root, arguments.l, arguments.m)
-    metrics = evaluateOnData(model, data, arguments.l, arguments.m)
+    metrics = evaluateOnData(model, data, batchSize=1024, errorRange=errorRange, rewardEngineering=rewardEngineering)
     title = (f"{arguments.checkpoint} on l={arguments.l}, m={arguments.m} "
              f"({metrics['numberOfCodes']} codes) — {datetime.date.today().isoformat()}")
     print(appendReport(reportPath, title, arguments.data_root, metrics))

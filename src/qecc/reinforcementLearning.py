@@ -57,7 +57,7 @@ from torchrl.objectives.value import GAE
 from tqdm import tqdm
 from torchrl.envs.transforms import Transform
 from torch.distributions import Bernoulli, Independent
-from qecc.bb_gym import exampleDecoderFunction2
+#from qecc.bb_gym import exampleDecoderFunction2
 from qecc.modelArchitectures import create_actor_value_nets, create_value_net, hybridNet, setEncoderFrozen
 warnings.filterwarnings("ignore")
 
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     
     parser.add_argument(
         "--seed-for-environment", type=int, default=7134066,
-        help="Random seed for reproducibility. NOT SUPPORTED YET AS THIS IS DONE INTERNALLY", #  num_cells = 256  # number of cells in each layer i.e. output dim.
+        help="Random seed for evaluating the code and decoder in a monte carlo simulation.", #  num_cells = 256  # number of cells in each layer i.e. output dim.
     )
     parser.add_argument(
         "--lr", type=float, default=3e-4,
@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--env-reward-engineering", type=str, default = "False", choices = ["True", "False", "true", "false"],
-        help="Whether to exponentiate the already positive reward.",
+        help="Whether to divide the integral of the error curve by the error range width. This is important for if this is ever ran with only one error point.",
     )
 
     parser.add_argument(
@@ -336,7 +336,7 @@ if __name__ == "__main__":
     
     env_reward_engineering = parsedArguments.env_reward_engineering.lower() == "true"
     resolvedArguments["env_reward_engineering"] =  env_reward_engineering
-    resolvedArguments["env_reward_integral"] = "Between prob. of no error and curve."
+    
     env_bit_flipping = parsedArguments.env_bit_flipping.lower() == "true"
     resolvedArguments["env_bit_flipping"] = env_bit_flipping
     #env_version = parsedArguments.env_version
@@ -673,7 +673,8 @@ if __name__ == "__main__":
                 #logs["eval reward"].append(eval_rollout["next", "reward"].mean().item())
                 dist = eval_policy.get_dist(eval_rollout.to(trainingDevice))
                 entropiesDuringEvaluation = dist.entropy().cpu().numpy()
-                componentEntropiesDuringEvaluation = dist.blockEntropies().cpu().numpy() # The shape is (T, 4), order [aX, bX, aY, bY]
+                if env_bit_flipping:
+                    componentEntropiesDuringEvaluation = dist.blockEntropies().cpu().numpy() # The shape is (T, 4), order [aX, bX, aY, bY]
                 rewards = eval_rollout["next", "reward"].cpu().numpy() 
                 if env_useDictObservation:
                     evalAX = eval_rollout["next", "aX"].cpu().numpy()
@@ -687,11 +688,13 @@ if __name__ == "__main__":
                     #myLogger.keyValue("action", eval_rollout["action"].cpu().numpy())
                     myLogger.keyValue("reward", rewards[timeIndex].item())
                     myLogger.keyValue("policy entropy", entropiesDuringEvaluation[timeIndex].item())
-                    myLogger.keyValue("policy entropy aX", componentEntropiesDuringEvaluation[timeIndex, 0].item())
-                    myLogger.keyValue("policy entropy bX", componentEntropiesDuringEvaluation[timeIndex, 1].item())
-                    myLogger.keyValue("policy entropy aY", componentEntropiesDuringEvaluation[timeIndex, 2].item())
-                    myLogger.keyValue("policy entropy bY", componentEntropiesDuringEvaluation[timeIndex, 3].item())
                     myLogger.keyValue("Encoder freeze", isPretrainedEncoderFrozen)
+                    if env_bit_flipping:
+                        myLogger.keyValue("policy entropy aX", componentEntropiesDuringEvaluation[timeIndex, 0].item())
+                        myLogger.keyValue("policy entropy bX", componentEntropiesDuringEvaluation[timeIndex, 1].item())
+                        myLogger.keyValue("policy entropy aY", componentEntropiesDuringEvaluation[timeIndex, 2].item())
+                        myLogger.keyValue("policy entropy bY", componentEntropiesDuringEvaluation[timeIndex, 3].item())
+                    
                     if env_useDictObservation:
                         myLogger.keyValue("postAction_aX", evalAX[timeIndex].astype(int))
                         myLogger.keyValue("postAction_bX", evalBX[timeIndex].astype(int))

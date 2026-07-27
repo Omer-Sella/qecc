@@ -8,7 +8,11 @@ import time
 from qecc.polynomialCodes import A1_HX, A1_HZ
 LDPC_INT_DATA_TYPE = np.int32
 FLOAT_DATA_TYPE_UTILS = np.float32
-
+GEOMETRIC5_ERROR_RANGE = np.geomspace(0.001, 0.1, 5)
+CANONICAL_ERROR_RANGE = np.linspace(0.0001, 0.1, 5)
+FIVE_POINT_GRID = np.linspace(1e-4, 1e-1, 5)
+TEN_POINT_GRID = np.linspace(1e-4, 1e-1, 10)
+NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE, "geometric5": GEOMETRIC5_ERROR_RANGE}
 def minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H):
     """
     parameters
@@ -25,8 +29,8 @@ def minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIteratio
         Parity check matrix.
     Returns
     ------- 
-    berArray : ndarray
-        Array of bit error rates for each error probability in errorRange.
+    logical error count : ndarray
+        Array of counted errors for each error probability in errorRange. NOTE THIS IS ERROR COUNT, NOT ERROR RATE !!!
 
     Notes
     -----
@@ -215,8 +219,10 @@ def binaryDecoderToDualBinaryDecoderWrapper(binaryDecoderFunction):
 
 def calculateRewardFromSamples(logicalErrorCount, numberOfSamples, errorRange, l, m, rewardEngineering = True):
     logicalErrorRate = logicalErrorCount / numberOfSamples
-    chanceOfNoError =  (1 - 3 * np.asarray(errorRange, dtype=np.float64)) ** (2 * l * m)
-    reward = trapezoid((1 - logicalErrorRate) - chanceOfNoError, errorRange) 
+    #chanceOfNoError =  (1 - 3 * np.asarray(errorRange, dtype=np.float64)) ** (2 * l * m)
+    
+    #reward = trapezoid((1 - logicalErrorRate) - chanceOfNoError, errorRange) 
+    reward = trapezoid(1 - logicalErrorRate, errorRange) 
     if rewardEngineering:
         reward = reward / np.abs(np.min(errorRange) - np.max(errorRange))
     return reward

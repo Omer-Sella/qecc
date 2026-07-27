@@ -14,9 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
-GEOMETRIC5_ERROR_RANGE = np.geomspace(0.001, 0.1, 5)
-CANONICAL_ERROR_RANGE = np.linspace(0.0001, 0.1, 5)
-NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE, "geometric5": GEOMETRIC5_ERROR_RANGE}
+from qecc.utils import CANONICAL_ERROR_RANGE
 GRID_TOLERANCE = 1e-9
 
 
@@ -52,15 +50,39 @@ def _foldCoefficients(values, period):
             folded[i % period] ^= 1
     return folded
 
+def _gridProjection(recordGrid, errorRange, tolerance=GRID_TOLERANCE):
+    """Column indices of errorRange inside recordGrid, or None if recordGrid lacks a point."""
+    columns = []
+    for point in errorRange:
+        hits = np.flatnonzero(np.isclose(recordGrid, point, rtol=0, atol=tolerance))
+        if hits.size != 1:
+            return None
+        columns.append(int(hits[0]))
+    if not len(columns) == len(errorRange):
+        raise ValueError("You plugged an error range that is only partially found in the records. This guard is to make sure you don't accidentally ask for 5 error points and get 3 matching. If this was intended you would have to manually remove this safeguard.")
+    return columns
 
 def loadCodeEvaluations(rootDirectory, l, m, errorRange=CANONICAL_ERROR_RANGE):
     """Load, filter to (l, m) and the canonical grid, dedup by summing counts."""
     aggregated = {}  # bits tuple -> [counts (5,), samples, k]
     dropped = 0
+    projections = {}
     for record in _iterRecords(rootDirectory):
         if record["l"] != l or record["m"] != m:
             continue
         recordGrid = np.asarray(record["errorRange"], dtype=float)
+
+        gridKey = recordGrid.tobytes() # We're checking if the error range (grid) in the record has already been parsed in some past record. If yes, we use the projection already computed. If no, we calculate a projection
+        if gridKey not in projections:
+            projections[gridKey] = _gridProjection(recordGrid, errorRange)
+        columns = projections[gridKey]
+        if columns is None:
+            dropped += 1
+            continue
+        combined = (np.asarray(record["logicalErrorCounts"], dtype=np.int64)[columns] +
+                    np.asarray(record["decoderFailureCounts"], dtype=np.int64)[columns])
+
+
         if recordGrid.shape != np.shape(errorRange) or \
                 not np.allclose(recordGrid, errorRange, atol=GRID_TOLERANCE):
             dropped += 1
@@ -81,7 +103,8 @@ def loadCodeEvaluations(rootDirectory, l, m, errorRange=CANONICAL_ERROR_RANGE):
             entry[0] = entry[0] + combined
             entry[1] = entry[1] + int(record["numberOfSamples"])
     if dropped:
-        print(f"loadCodeEvaluations: dropped {dropped} records with a non-canonical errorRange")
+        print(f"loadCodeEvaluations: kept {len(aggregated)} codes on the requested grid; "
+              f"dropped {dropped} records whose grid does not contain all its points")
     if not aggregated:
         raise ValueError(f"No records found for l={l}, m={m} under {rootDirectory}")
     bitsArray = np.array(list(aggregated.keys()), dtype=np.int8)
@@ -89,15 +112,6 @@ def loadCodeEvaluations(rootDirectory, l, m, errorRange=CANONICAL_ERROR_RANGE):
     samplesArray = np.array([entry[1] for entry in aggregated.values()], dtype=np.int64)
     kArray = np.array([entry[2] for entry in aggregated.values()], dtype=np.int64)
     return CodeEvaluationData(bitsArray, countsArray, samplesArray, kArray, l, m)
-
-
-def rewardFromCounts(counts, samples, errorRange, l,m):
-    """Reconstruct the environment reward: trapezoid(1 - combinedBER, errorRange)."""
-    ber = counts / samples[:, None]
-    # Old reward return np.trapezoid(1.0 - ber, np.asarray(errorRange, dtype=float), axis=-1)
-    
-    chanceOfNoError =  (1 - 3 * np.asarray(errorRange, dtype=np.float64)) ** (2 * l * m)
-    return np.trapezoid((1.0 - ber)- chanceOfNoError, np.asarray(errorRange, dtype=float), axis=-1)
 
 
 def _subset(data, indices):

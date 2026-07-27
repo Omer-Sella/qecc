@@ -40,10 +40,10 @@ from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB, bbCodes
 from qecc.logicals import calculateCodeDimension, computeLogicals
 from qecc import funWithMatrices
 from qecc.loggerForReinforcementLearning import logger
-from qecc.codeEvaluationDataset import loadCodeEvaluations, rewardFromCounts
+from qecc.codeEvaluationDataset import loadCodeEvaluations
+from qecc.utils import calculateRewardFromSamples
 
-FIVE_POINT_GRID = np.linspace(1e-4, 1e-1, 5)
-TEN_POINT_GRID = np.linspace(1e-4, 1e-1, 10)
+
 
 # The published Bivariate Bicycle codes (Bravyi et al 2024, Table 3), keyed by (l, m),
 # used as reference anchors. Polynomials as monomial-exponent lists, matching
@@ -274,7 +274,8 @@ def worstLoggedCodes(qeccDataRoot, l, m, kMin, numWorst):
     """
     
     data = loadCodeEvaluations(dataRoot, l, m)
-    rewards = rewardFromCounts(data.counts, data.samples, FIVE_POINT_GRID)
+    
+    rewards = calculateRewardFromSamples(data.counts, data.samples, errorRange = errorRange, l = data.l, m = data.m, rewardEngineering = rewardEngineering)
     eligible = np.where(data.k >= kMin)[0]
     if len(eligible) == 0:
         return []

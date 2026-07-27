@@ -12,6 +12,7 @@ Trained with Binomial NLL against the logged counts.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from qecc.utils import calculateRewardFromSamples
 
 from qecc.attentionArchitectures import (
     TOKEN_FEATURE_SIZE, AttentionPool, CodeEncoder, buildTokenFeatures,
@@ -65,7 +66,3 @@ def kPredictionLoss(kLogPrediction, k):
     the former clip(k/6, 0, 2) input encoding."""
     return F.mse_loss(kLogPrediction, torch.log1p(k))
 
-
-def rewardFromCurve(curve, errorRange):
-    grid = torch.as_tensor(errorRange, dtype=curve.dtype, device=curve.device)
-    return torch.trapezoid(1.0 - curve, grid, dim=-1)

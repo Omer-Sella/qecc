@@ -1,16 +1,16 @@
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from scipy.integrate import trapezoid
 from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB
 from qecc.logicals import calculateCodeDimension
 from qecc.gf4 import integerToDualBinary
-from ldpc import BpOsdDecoder
+from ldpc import BpOsdDecoder #noqa
 from qecc.logicals import computeLogicals
 import json
 import os
 import platform
 from datetime import datetime, timezone
+from qecc.utils import calculateRewardFromSamples
 
 
 INT_DATA_TYPE = np.int16
@@ -29,7 +29,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = None, seed = 0, codeLogging = True, bitFlipping = False, useDictObservation = False):
+    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = False, seed = 0, codeLogging = True, bitFlipping = False, useDictObservation = False):
         
         
         self.useDictObservation = useDictObservation
@@ -96,13 +96,14 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             self.observation_space = spaces.MultiBinary(len(self._getObservation()))
 
         self.chanceOfNoErrors = (1 - 3 * np.asarray(self.errorRange, dtype=np.float64)) ** (2 * l * m)
-        if rewardEngineering:
-            # The old rewarding system has a few downdraws that should be documented in the paper, I'm switching to a reward system that takes into account qubit coverage, code size offset
-            def rewardEngineeringFunction(plainReward): # Normalize the reward according to the width of the error range
-                return plainReward / np.abs(np.min(self.errorRange) - np.max(self.errorRange))
-            self.rewardEngineering = rewardEngineeringFunction
-        else:
-            self.rewardEngineering = lambda x: x
+        self.rewardEngineering = rewardEngineering
+        # if rewardEngineering is not False: #I'm moving reward engineering to be part of a function in utils since it is consumed by other functions.
+        #     # The old rewarding system has a few downdraws that should be documented in the paper, I'm switching to a reward system that takes into account qubit coverage, code size offset
+        #     def rewardEngineeringFunction(plainReward): # Normalize the reward according to the width of the error range
+        #         return plainReward / np.abs(np.min(self.errorRange) - np.max(self.errorRange))
+        #     self.rewardEngineering = rewardEngineeringFunction
+        # else:
+        #     self.rewardEngineering = lambda x: x
     
     # Gymnasium spec requires a render function and a close function:
     def render(self):
@@ -203,7 +204,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             #seedForEvaluation = self.np_random.integers(0, 2**32 - 1) #Changed to environment seed
             self.seed = self.seed + 1
             logicalErrorRate = self.decoderEvaluation(self.seed)
-            reward = self.rewardEngineering(self._calculateReward(logicalErrorRate))
+            reward = calculateRewardFromSamples(logicalErrorCount=logicalErrorRate, numberOfSamples=self.numberOfSamples, errorRange=self.errorRange, l = self._l, m = self._m, rewardEngineering=self.rewardEngineering)
         else:
             reward = (self.numberOfLogicalQubits - self.minimumNumberOfLogicalQubits) / self.minimumNumberOfLogicalQubits
 
@@ -268,12 +269,12 @@ class bicycleBivariateCodeEnvironment(gym.Env):
                       self.numberOfSamples, self.seed, "dual binary bposd 0", "depolarizing",
                       runId=None, logDirectory=None)
 
-        return (logicalErrorRate + decoderFailure)/self.numberOfSamples
+        return logicalErrorRate + decoderFailure# I removed the division /self.numberOfSamples this is now done when calculating the reward.
     
-    def _calculateReward(self, logicalErrorRate):      
-        # Old integral is between 1 and the curve: reward = trapezoid(1 - logicalErrorRate , self.errorRange)
-        reward = trapezoid((1 - logicalErrorRate) - self.chanceOfNoErrors, self.errorRange) #New integral is between the probability of no errors and the curve
-        return reward
+    # def _calculateReward(self, logicalErrorRate):     Moved this function to utils since it is consumed by policy evaluation and post processing
+    #     # Old integral is between 1 and the curve: reward = trapezoid(1 - logicalErrorRate , self.errorRange)
+    #     reward = trapezoid((1 - logicalErrorRate) - self.chanceOfNoErrors, self.errorRange) #New integral is between the probability of no errors and the curve
+    #     return reward
     
     def getSeed(self):
         return self.seed
