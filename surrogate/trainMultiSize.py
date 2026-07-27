@@ -42,10 +42,7 @@ from qecc.codeEvaluationDataset import (loadCodeEvaluations, splitData, toTensor
                                         _subset)
 from qecc.codeSurrogate import (CodeCurvePredictor, binomialCurveLoss,  # noqa: E402
                                 kPredictionLoss)
-
-GEOMETRIC5_ERROR_RANGE = np.geomspace(0.001, 0.1, 5)
-CANONICAL_ERROR_RANGE = np.linspace(0.0001, 0.1, 5)
-NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE, "geometric5": GEOMETRIC5_ERROR_RANGE}
+from qecc.utils import NAMED_ERROR_RANGES, CANONICAL_ERROR_RANGE
 
 def parseSizes(tokens):
     if tokens is None:

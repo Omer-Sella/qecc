@@ -38,8 +38,9 @@ from qecc.utils import calculateRewardFromSamples
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from evaluateTransfer import loadCheckpoint, binomialNllOfCurve, noiseFloorNll  # noqa: E402
 
-from qecc.codeEvaluationDataset import (NAMED_ERROR_RANGES, CANONICAL_ERROR_RANGE, loadCodeEvaluations,  # noqa: E402
+from qecc.codeEvaluationDataset import (loadCodeEvaluations,  # noqa: E402
                                         toTensors)
+from qecc.utils import NAMED_ERROR_RANGES #, CANONICAL_ERROR_RANGE
 
 
 

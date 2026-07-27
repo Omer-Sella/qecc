@@ -17,7 +17,8 @@ import numpy as np
 import torch
 from scipy.stats import kendalltau, spearmanr
 from qecc.utils import calculateRewardFromSamples
-from qecc.codeEvaluationDataset import (NAMED_ERROR_RANGES, CANONICAL_ERROR_RANGE, GEOMETRIC5_ERROR_RANGE, loadCodeEvaluations, toTensors)
+from qecc.codeEvaluationDataset import (loadCodeEvaluations, toTensors)
+from qecc.utils import NAMED_ERROR_RANGES #, GEOMETRIC5_ERROR_RANGE
 from qecc.codeSurrogate import CodeCurvePredictor
 
 EPSILON = 1e-6
@@ -115,15 +116,17 @@ def main():
     parser.add_argument("--data-root", required=True)
     parser.add_argument("--l", type=int, required=True)
     parser.add_argument("--m", type=int, required=True)
-    parser.add_argument("--error-range", type=str, required=True, options = [NAMED_ERROR_RANGES.keys()])
+    parser.add_argument("--error-range", type=str, required=True, choices = sorted(NAMED_ERROR_RANGES))
     parser.add_argument("--report", default=None,
                         help="Defaults to surrogate-transfer-report.md next to the checkpoint")
+    parser.add_argument("--reward-engineering", type = str, default="true", choices=["true", "false", "True", "False"])
     arguments = parser.parse_args()
     # Default: append to the report in the checkpoint's own run folder, so a
     # training run and its cross-size transfer evaluations share one directory.
     reportPath = arguments.report or os.path.join(
         os.path.dirname(arguments.checkpoint) or ".", "surrogate-transfer-report.md")
     errorRange = arguments.error_range
+    rewardEngineering = arguments.reward_engineering.lower() == "true"
     model = loadCheckpoint(arguments.checkpoint)
     data = loadCodeEvaluations(arguments.data_root, arguments.l, arguments.m)
     metrics = evaluateOnData(model, data, batchSize=1024, errorRange=errorRange, rewardEngineering=rewardEngineering)
