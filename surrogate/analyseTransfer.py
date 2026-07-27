@@ -289,7 +289,7 @@ def main():
                              "next to the FIRST checkpoint.")
     parser.add_argument("--csv", default=None,
                         help="CSV path; default analysis.csv next to the report.")
-    parser.add_argument("--reward-engineering", type = str, default="True", options = ["true", "True", "false", "False"],
+    parser.add_argument("--reward-engineering", type = str, default="True", choices = ["true", "True", "false", "False"],
                             help="Whether or not we divide the integral by the width of the error range")
     arguments = parser.parse_args()
 
