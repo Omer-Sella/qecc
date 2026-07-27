@@ -82,18 +82,11 @@ def loadCodeEvaluations(rootDirectory, l, m, errorRange=CANONICAL_ERROR_RANGE):
         combined = (np.asarray(record["logicalErrorCounts"], dtype=np.int64)[columns] +
                     np.asarray(record["decoderFailureCounts"], dtype=np.int64)[columns])
 
-
-        if recordGrid.shape != np.shape(errorRange) or \
-                not np.allclose(recordGrid, errorRange, atol=GRID_TOLERANCE):
-            dropped += 1
-            continue
         foldedAX = _foldCoefficients(record["aX"], l)
         foldedBX = _foldCoefficients(record["bX"], l)
         foldedAY = _foldCoefficients(record["aY"], m)
         foldedBY = _foldCoefficients(record["bY"], m)
         bits = tuple(foldedAX) + tuple(foldedAY) + tuple(foldedBX) + tuple(foldedBY)
-        combined = np.asarray(record["logicalErrorCounts"], dtype=np.int64) + \
-                   np.asarray(record["decoderFailureCounts"], dtype=np.int64)
         entry = aggregated.get(bits)
         if entry is None:
             aggregated[bits] = [combined,
