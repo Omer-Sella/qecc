@@ -12,7 +12,23 @@ GEOMETRIC5_ERROR_RANGE = np.geomspace(0.001, 0.1, 5)
 CANONICAL_ERROR_RANGE = np.linspace(0.0001, 0.1, 5)
 FIVE_POINT_GRID = np.linspace(1e-4, 1e-1, 5)
 TEN_POINT_GRID = np.linspace(1e-4, 1e-1, 10)
-NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE, "geometric5": GEOMETRIC5_ERROR_RANGE}
+
+LINEAR5 = np.linspace(0.0001,0.1,5)
+GEOMETRIC5 = np.geomspace(0.001, 0.1, 5)
+GEOMETRIC7 = np.geomspace(0.001, 0.1, 7)
+GEOMETRIC10 = np.geomspace(0.0001, 0.1, 10)
+UNION_ERROR_RANGE = np.unique(np.round(np.concatenate([
+            np.linspace(0.0001, 0.1, 5),
+            np.geomspace(0.001, 0.1, 5),
+            np.geomspace(0.001, 0.1, 7),
+            np.geomspace(0.0001, 0.1, 10)]), 10))
+
+NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE, 
+                      "geometric5": GEOMETRIC5_ERROR_RANGE, 
+                      "dataCollection": UNION_ERROR_RANGE, 
+                      "geometric7": GEOMETRIC7, 
+                      "geometric10": GEOMETRIC10, 
+                      "union" : UNION_ERROR_RANGE}
 def minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H):
     """
     parameters
