@@ -14,7 +14,7 @@ from openpyxl import load_workbook
 from operator import attrgetter
 from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB
 from qecc.logicals import calculateCodeDimension
-import sys
+import shutil
 
 
 FONT_SIZE = 12
@@ -208,12 +208,14 @@ def findWorstCodes(pathToCodeLogs, numberOfWorstCodesToGet = 100):
 
 
 
+import textwrap
 
-def clipLine(s, maxLen=30):
-    if len(s) <= maxLen:
-        returnedList = [s]
-    else:
-        returnedList = [s[:maxLen], s[maxLen:]] # Ad-hoc solution, but realistically that's all I need
+def clipLine(s, maxLen=42):
+    # if len(s) <= maxLen:
+    #     returnedList = [s]
+    # else:
+    #     returnedList = [s[:maxLen], s[maxLen:]] # Ad-hoc solution, but realistically that's all I need
+    return textwrap.wrap(s, maxLen) or [""]
 
     return returnedList
 def readComments(filePath):
@@ -332,21 +334,39 @@ def analyseEvaluation(filePath, baseline = None):
     comments = readComments(filePath)
     env_l = int(comments["env_l"]) if "env_l" in comments else None
     env_m = int(comments["env_m"]) if "env_m" in comments else None
+    
     codeParameters = f" for code parameters (l={comments['env_l']}, m={comments['env_m']})" if "env_l" in comments else ""
     sns.set_theme()
     df = pd.read_csv(filePath, sep='\t', comment = "#")
     
     
-    #fig, ax = plt.subplots(1, 3, figsize = (24, 8), sharex=True)
+    height = 2
+    width = 3
+    rewardAxIndex = 0
+    entropyAxIndex = 1
+    stepsToBestAxIndex = 2
+    #boxPlotAxIndex = 2
+    numberOfLogicalQubitsAxIndex = 3
+    
+
+    fig, allAx = plt.subplots(height, width, figsize=(24, 10), sharex=True,
+                                            gridspec_kw={"width_ratios": [4] + [6]*(width -1)})
+    allAx = allAx.flatten()
+    newAx = []
+    gs = allAx[0].get_gridspec()
+    for i,a in enumerate(allAx):
+        if i % width == 0:
+            a.remove()
+        else:
+            newAx.append(a)
+    axText = fig.add_subplot(gs[:,0])
+    axText.set_axis_off()
+    ax = np.array(newAx)
     polynomials = [p for p in ("postAction_aX","postAction_bX","postAction_aY","postAction_bY") if p in df.columns]
     if "Number of logical qubits" in df.columns:
-        fig, allAx = plt.subplots(1, 6, figsize=(26, 8), sharex=True,
-                                gridspec_kw={"width_ratios": [3.2, 6, 6, 6, 6, 6]})
-
-        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = allAx[5], showfliers = True)
+        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = allAx[numberOfLogicalQubitsAxIndex], showfliers = True)
     elif polynomials: # So we have the polynomials but not logging of num of logical qubits
-        fig, allAx = plt.subplots(1, 6, figsize=(26, 8), sharex=True,
-                                        gridspec_kw={"width_ratios": [4.2, 6, 6, 6, 6, 6]})
+        
         for col in ["postAction_aX", "postAction_bX", "postAction_aY", "postAction_bY"]:
             df[col.replace("postAction_", "")] = df[col].apply(parsePolynomial)
         logicalQubits = []
@@ -360,27 +380,28 @@ def analyseEvaluation(filePath, baseline = None):
             Hx, Hz = bicycleCodeFromAB(A, B)
             logicalQubits.append( calculateCodeDimension(Hx,Hz))
         df["Number of logical qubits"] = logicalQubits
-        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = allAx[5], showfliers = True)
-    else: 
-        fig, allAx = plt.subplots(1, 5, figsize=(26, 8), sharex=True,
-                                        gridspec_kw={"width_ratios": [3.2, 6, 6, 6, 6]})
-    axText, ax = allAx[0], allAx[1:]  
+        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = ax[numberOfLogicalQubitsAxIndex], showfliers = True)
+    else: # Legacy 
+        pass
+        
+    
+    
 
-    sns.boxplot(data=df, x="evaluation number", y="reward", ax=ax[0], showfliers=True)
+    #sns.boxplot(data=df, x="evaluation number", y="reward", ax=ax[0], showfliers=True)
     
     dfEvalNumber = df.groupby(["evaluation number"])
     #dfEvalNumber.reward.mean().plot(ax = ax[1])
     xmin = 0
     xmax = len(dfEvalNumber.groups)
-    sns.lineplot(data=df, x= "evaluation number", y="reward", ax = ax[1])
+    sns.lineplot(data=df, x= "evaluation number", y="reward", ax = ax[rewardAxIndex], label = "Average reward")
     maxReward = dfEvalNumber["reward"].max()
-    ax[1].plot(maxReward.index, maxReward.values, color="crimson", linewidth=1.6, label="Max reward")
+    ax[rewardAxIndex].plot(maxReward.index, maxReward.values, color="crimson", linewidth=1.6, label="Max reward")
     stepsToBest = (df.groupby("evaluation number")["reward"]
                  .apply(lambda s: int(np.argmax(s.to_numpy()))))   # argmax -> first max on ties
-    ax[3].plot(stepsToBest.index, stepsToBest.values, marker="o")
-    ax[3].set_title("Steps to best code per evaluation", fontsize=FONT_SIZE)
-    ax[3].set_xlabel("Evaluation number", fontsize=FONT_SIZE)
-    ax[3].set_ylabel("Step index of best (first max-reward) code", fontsize=FONT_SIZE)
+    ax[stepsToBestAxIndex].plot(stepsToBest.index, stepsToBest.values, marker="o")
+    ax[stepsToBestAxIndex].set_title("Steps to best code per evaluation", fontsize=FONT_SIZE)
+    ax[stepsToBestAxIndex].set_xlabel("Evaluation number", fontsize=FONT_SIZE)
+    ax[stepsToBestAxIndex].set_ylabel("Step index of best (first max-reward) code", fontsize=FONT_SIZE)
     
     
     if baseline is None and (env_l,env_m) in baselinesNormalized.keys(): # Baseline was not given by the user, so # check if there is already a baseline in the dictionary at the top of this module                    
@@ -391,8 +412,8 @@ def analyseEvaluation(filePath, baseline = None):
                 baseline = baselines[(env_l,env_m)]
         
     if baseline is not None: # Wow this is bad coding ! - basically, if either the user gave baseline or the baseline was found in the dict at the top of the file ...
-        ax[0].hlines(baseline, xmin, xmax, label = f"Reward for baseline code ({env_l},{env_m})")
-        ax[1].hlines(baseline, xmin, xmax, label = f"Reward for baseline code ({env_l},{env_m})")
+        ax[rewardAxIndex].hlines(baseline, xmin, xmax, colors = "green", linestyles = "dotted", label = f"Reward for baseline code ({env_l},{env_m})")
+        #ax[boxPlotAxIndex].hlines(baseline, xmin, xmax, label = f"Reward for baseline code ({env_l},{env_m})")
 
     
     entropyColumns = [c for c in ("policy entropy",
@@ -405,7 +426,7 @@ def analyseEvaluation(filePath, baseline = None):
         for col in entropyColumns:
             isTotal = (col == "policy entropy")
             meanByEval[col].plot(
-                ax=ax[2],
+                ax=ax[entropyAxIndex],
                 label="total" if isTotal else col.replace("policy entropy ", ""),
                 color="black" if isTotal else None,               # components use the colour cycle
                 linewidth=2.4 if isTotal else 1.4,
@@ -413,12 +434,12 @@ def analyseEvaluation(filePath, baseline = None):
                 zorder=3       if isTotal else 2,
             )
         # If there is information about the entropy epsilon in the comments, include it in the title of the entropy plot.
-        entropyInformationString = f" Entropy epsilon = {comments['entropy_eps']}" if "entropy_eps" in comments else ""
+        entropyInformationString = f" Ent. eps. = {comments['entropy_eps']}" if "entropy_eps" in comments else ""
         titleString = f"Policy entropy (total and per polynomial block)." + entropyInformationString
-        ax[2].set_title(titleString, fontsize = FONT_SIZE)
-        ax[2].set_xlabel("Evaluation number", fontsize = FONT_SIZE)
-        ax[2].set_ylabel("Entropy", fontsize = FONT_SIZE)
-        ax[2].legend(fontsize=FONT_SIZE)
+        ax[entropyAxIndex].set_title(titleString, fontsize = FONT_SIZE)
+        ax[entropyAxIndex].set_xlabel("Evaluation number", fontsize = FONT_SIZE)
+        ax[entropyAxIndex].set_ylabel("Entropy", fontsize = FONT_SIZE)
+        ax[entropyAxIndex].legend(fontsize=FONT_SIZE)
     if "Encoder freeze" in df.columns:
         frozen = df["Encoder freeze"].astype(str).str.lower() == "true"   # normalise either dtype
         unfrozenRows = df.loc[~frozen, "evaluation number"]
@@ -427,8 +448,8 @@ def analyseEvaluation(filePath, baseline = None):
         
         # If there is information about the encoder weights freeze / unfreeze include it as annotation in the plot.
         if unfreezeEval is not None: 
-            ax[2].axvline(unfreezeEval, color="crimson", linestyle="--", linewidth=1.5)
-            ax[2].text(unfreezeEval, ax[2].get_ylim()[1], "  Encoder unfreeze",
+            ax[entropyAxIndex].axvline(unfreezeEval, color="crimson", linestyle="--", linewidth=1.5)
+            ax[entropyAxIndex].text(unfreezeEval, ax[entropyAxIndex].get_ylim()[1], "  Encoder unfreeze",
                 color="crimson", va="top", ha="left", fontsize=FONT_SIZE)
 
             atUnfreeze = df["evaluation number"] == unfreezeEval
@@ -436,9 +457,9 @@ def analyseEvaluation(filePath, baseline = None):
             entropyY = df.loc[atUnfreeze, "policy entropy"].mean()  # mean total entropy at that eval
             evalOrder = sorted(df["evaluation number"].unique())
             pos = evalOrder.index(unfreezeEval)
-            markUnfreeze(ax[0], pos,          rewardY)    # boxplot:  category-index x, reward y
-            markUnfreeze(ax[1], unfreezeEval, rewardY)    # lineplot: value x,          reward y
-            markUnfreeze(ax[2], unfreezeEval, entropyY) 
+            #markUnfreeze(ax[boxPLotAxIndex], pos,          rewardY)    # boxplot:  category-index x, reward y
+            markUnfreeze(ax[rewardAxIndex], unfreezeEval, rewardY)    # lineplot: value x,          reward y
+            markUnfreeze(ax[entropyAxIndex], unfreezeEval, entropyY) 
 
 
     evalOrder = sorted(df["evaluation number"].unique())
@@ -446,7 +467,7 @@ def analyseEvaluation(filePath, baseline = None):
     tickPos = list(range(0, len(evalOrder), step))     # 0, 5, 10, ...
 
     # Set the figure property for the plots of the undiscounted reward.  Remember that entropy gets its own treatment.
-    for i in [0,1]:
+    for i in [rewardAxIndex,]:
         ax[i].set_title('Undiscounted reward as a function of evaluation number' + codeParameters, fontsize = FONT_SIZE)
         ax[i].set_ylabel('Reward', fontsize = FONT_SIZE)
         ax[i].set_xlabel('Evaluation number', fontsize = FONT_SIZE)
@@ -463,6 +484,7 @@ def analyseEvaluation(filePath, baseline = None):
 
     text = [f"{k} = {v}" for k, v in comments.items()]
     text.append(f"{os.path.basename(pathBreakdown[0])}")
+    text = [f"{k} = {v}" for k, v in sorted(comments.items(), key=lambda kv: not kv[0].startswith("env_"))] # put env_ variables first
     wrappedText = []
     for t in text:
         temp = clipLine(t)
@@ -471,7 +493,7 @@ def analyseEvaluation(filePath, baseline = None):
 
     figureExplanatoryText = "\n".join(wrappedText)
     axText.text(0.0, 1.0, figureExplanatoryText, transform=axText.transAxes,
-                va="top", ha="left", fontsize=SUMMARY_FONT_SIZE, family="monospace", clip_on=True)
+                va="top", ha="left", fontsize=SUMMARY_FONT_SIZE, family="monospace", clip_on=False)
     
     #fig.text(0.5, 0.5, 'Hello, Matplotlib!', fontsize=20, color='blue', ha='center', va='center')
 
@@ -535,11 +557,34 @@ def crawl(dataFolder, baseline=None):
     print(f"\nDone. processed={processed}, skipped={skipped}, failed={failed}")
 
 
+
+
+def pruneByEntropyEps(dataFolder, threshold=0.3, dryRun=True):
+    """Delete run folders whose experiment.txt has entropy_eps >= threshold.
+    dryRun=True only prints what would go. Returns the list of matched folders."""
+    matched = []
+    for dirpath, _dirnames, filenames in os.walk(dataFolder):
+        for experiment in fnmatch.filter(filenames, "*experiment.txt"):
+            try:
+                comments = readComments(os.path.join(dirpath, experiment))
+                eps = float(comments["entropy_eps"])
+            except (KeyError, ValueError, OSError):
+                continue                      # no key, unparseable, or unreadable -> keep
+            if eps >= threshold:
+                matched.append((dirpath, eps))
+            break                             # one verdict per folder
+    for folder, eps in matched:
+        print(f"{'WOULD DELETE' if dryRun else 'DELETING'} (entropy_eps={eps}): {folder}")
+        if not dryRun:
+            shutil.rmtree(folder)
+    print(f"\n{len(matched)} folders {'would be' if dryRun else ''} deleted.")
+    return matched
+
 if __name__ == "__main__":
-    #analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\2026-07-14_08-27-56\experiment.txt")
+    #analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\2026-07-27_21-50-20_734978\search_9_6_seed_2236067_experiment.txt")
     dataFolder = os.environ.get("QECC_DATA")
     crawl(dataFolder)
-
+    
 
 
 

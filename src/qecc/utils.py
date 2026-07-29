@@ -139,7 +139,7 @@ def wrapperForRoffesLdpc(H, syndrome, initialValues, decoderStoppingCriterion, m
     Check description here: https://github.com/quantumgizmos/bp_osd/blob/main/README.ipynb
     Remember that Roffe's decoder is really a classical binary decoder !
     """
-    from ldpc import BpOsdDecoder
+    from ldpc import BpOsdDecoder #noqa
     p_error = np.average(initialValues[:,1]) # initialValues[i,1] is the probability of error for the ith coordinate
     bpDecoder=BpOsdDecoder(H,#the parity check matrix
         error_rate=p_error,
@@ -277,7 +277,8 @@ if __name__ == "__main__":
     # from qecc.minSum import ldpcDecoderWrapper
     # import numpy as np
     #errorRange = np.linspace(10**-4, 10**-1, 10)
-    errorRange = np.linspace(10**-4, 10**-1, 5)
+    from qecc.utils import NAMED_ERROR_RANGES
+    errorRange = NAMED_ERROR_RANGES["geometric5"]#np.linspace(10**-4, 10**-1, 5)
 
     NUMBER_OF_SAMPLES = 50#100
     NUMBER_OF_DECODER_ITERATIONS = 50
@@ -319,5 +320,5 @@ if __name__ == "__main__":
                 "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, 
                 "Number of samples": NUMBER_OF_SAMPLES, 
                 "Decoder": "Dual binary BPOSD" }
-        fileName = "c:/users/omer/qecc/decoderComparisonData/code_evaluation_for_bb_gym_reward_calculation_50_samples_50_iterations_" + key + ".npy"
+        fileName = "c:/users/omer/qecc/decoderComparisonData/code_evaluation_for_bb_gym_reward_calculation_50_samples_50_iterations_geometric5_" + key + ".npy"
         np.save(fileName, data, allow_pickle=True)

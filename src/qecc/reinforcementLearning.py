@@ -285,6 +285,11 @@ if __name__ == "__main__":
         "--env-code-logging", type = str, default = "True", choices=["true", "True", "false", "False"],
         help = "Whether or not the environment logs codes and their evaluation."
     )
+
+    parser.add_argument(
+            "--env-reset-type", type = str, default = "Zero", choices=["zero", "Zero", "random3", "Random3"],
+            help = "What type of reset the environment uses. Zero means all zero polynomials, random3 means up to three non zero coefficients."
+        )
     parser.add_argument(
         "--model-architecture", default = "mlp", type = str, choices = ["mlp", "hybrid"],
         help = "Use mlp for the first version, where we only expose the code as a flat vector. For now, this parameter is overrdien internally to mirror --env-preamble-polynomilas-to-observation."
@@ -369,6 +374,9 @@ if __name__ == "__main__":
             np.geomspace(0.0001, 0.1, 10)]), 10))
     else:
         raise ValueError("Error range not found")
+
+    env_reset_type = parsedArguments.env_reset_type.lower()
+    resolvedArguments["env_reset_type"] = env_reset_type
     resolvedArguments["env_error_range"] = str(list(np.round(resolved_env_error_range,6)))
     model_architecture = parsedArguments.model_architecture    
     model_path_to_take_surrogate = parsedArguments.model_surrogate_model_path
@@ -457,7 +465,8 @@ if __name__ == "__main__":
                           rewardEngineering = env_reward_engineering, 
                           codeLogging = env_code_logging,
                           bitFlipping = env_bit_flipping, 
-                          useDictObservation = env_useDictObservation)  # removed device = device, since this will run on the CPU always
+                          useDictObservation = env_useDictObservation,  # removed device = device, since this will run on the CPU always
+                          resetType = env_reset_type)
         # If we're not taking care of it inside the model, then we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
         # We also need to change 0,1 to -1,1 if this is not taken cared of inside the model
         if env_useDictObservation: # WARNING - if env_useDictObservation is True, that means that normalization has to happen inside the model forward method.

@@ -29,9 +29,17 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, numberOfSamples = 50, numberOfIterations = 50, rewardEngineering = False, seed = 0, codeLogging = True, bitFlipping = False, useDictObservation = False):
+    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, 
+                 numberOfSamples = 50, 
+                 numberOfIterations = 50, 
+                 rewardEngineering = False, 
+                 seed = 0, 
+                 codeLogging = True, 
+                 bitFlipping = False, 
+                 useDictObservation = False,
+                 resetType = "zero"):
         
-        
+        self.resetType = resetType
         self.useDictObservation = useDictObservation
         self.codeLogging = codeLogging
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
@@ -144,12 +152,23 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         else:
             self.seed = seed
         super().reset(seed = self.seed)
+        
         self.aX = self.aX * 0
         self.aY = self.aY * 0
         self.bX = self.bX * 0
         self.bY = self.bY * 0
         
-        self.A, self.B = generateABmatrices(self._l, self._m, # TODO: Omer: right now reset sends everything to 0, in the future you may want to actually randomize.
+        if self.resetType == "random3":
+            #localRandom = np.random.RandomState(self.seed) 
+            for p in [self.aX, self.aY, self.bX, self.bY]:
+                numberOfNonZero = self.np_random.integers(0,4)
+                p[self.np_random.choice(len(p), size = numberOfNonZero, replace = False)] = 1
+        elif self.resetType == "zero":
+            pass
+        else:
+            raise ValueError(f"Not implemented for reset type {self.resetType}")
+        
+        self.A, self.B = generateABmatrices(self._l, self._m, # 
                                             np.where(self.aX !=0)[0], 
                                                np.where(self.aY !=0)[0], 
                                                np.where(self.bX !=0)[0], 
@@ -196,11 +215,12 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         self.numberOfLogicalQubits = calculateCodeDimension(self.Hx, self.Hz)
 
 
-        numberOfAllZeroColumnsX = int(np.sum(np.sum(self.Hx, axis=0) == 0))
-        numberOfAllZeroColumnsZ = int(np.sum(np.sum(self.Hz, axis=0) == 0))
-        if numberOfAllZeroColumnsX + numberOfAllZeroColumnsZ > 0:
-            reward = -(numberOfAllZeroColumnsX + numberOfAllZeroColumnsZ) / (2 * self.Hx.shape[1])
-        elif  self.numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
+        #numberOfAllZeroColumnsX = int(np.sum(np.sum(self.Hx, axis=0) == 0))
+        #numberOfAllZeroColumnsZ = int(np.sum(np.sum(self.Hz, axis=0) == 0))
+        #if numberOfAllZeroColumnsX + numberOfAllZeroColumnsZ > 0:
+        #    reward = -(numberOfAllZeroColumnsX + numberOfAllZeroColumnsZ) / (2 * self.Hx.shape[1])
+        #el
+        if  self.numberOfLogicalQubits >= self.minimumNumberOfLogicalQubits:
             #seedForEvaluation = self.np_random.integers(0, 2**32 - 1) #Changed to environment seed
             self.seed = self.seed + 1
             logicalErrorRate = self.decoderEvaluation(self.seed)
