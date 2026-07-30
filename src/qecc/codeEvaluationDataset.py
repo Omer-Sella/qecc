@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
-from qecc.utils import CANONICAL_ERROR_RANGE
+#from qecc.utils import CANONICAL_ERROR_RANGE
 GRID_TOLERANCE = 1e-9
 
 
@@ -62,8 +62,8 @@ def _gridProjection(recordGrid, errorRange, tolerance=GRID_TOLERANCE):
         raise ValueError("You plugged an error range that is only partially found in the records. This guard is to make sure you don't accidentally ask for 5 error points and get 3 matching. If this was intended you would have to manually remove this safeguard.")
     return columns
 
-def loadCodeEvaluations(rootDirectory, l, m, errorRange=CANONICAL_ERROR_RANGE):
-    """Load, filter to (l, m) and the canonical grid, dedup by summing counts."""
+def loadCodeEvaluations(rootDirectory, l, m, errorRange):
+    """Load, filter to (l, m) and the specified errorRange, dedup by summing counts."""
     aggregated = {}  # bits tuple -> [counts (5,), samples, k]
     dropped = 0
     projections = {}
@@ -82,11 +82,12 @@ def loadCodeEvaluations(rootDirectory, l, m, errorRange=CANONICAL_ERROR_RANGE):
         combined = (np.asarray(record["logicalErrorCounts"], dtype=np.int64)[columns] +
                     np.asarray(record["decoderFailureCounts"], dtype=np.int64)[columns])
 
-        foldedAX = _foldCoefficients(record["aX"], l)
-        foldedBX = _foldCoefficients(record["bX"], l)
-        foldedAY = _foldCoefficients(record["aY"], m)
-        foldedBY = _foldCoefficients(record["bY"], m)
-        bits = tuple(foldedAX) + tuple(foldedAY) + tuple(foldedBX) + tuple(foldedBY)
+        # foldedAX = _foldCoefficients(record["aX"], l)
+        # foldedBX = _foldCoefficients(record["bX"], l)
+        # foldedAY = _foldCoefficients(record["aY"], m)
+        # foldedBY = _foldCoefficients(record["bY"], m)
+        #bits = tuple(foldedAX) + tuple(foldedAY) + tuple(foldedBX) + tuple(foldedBY)
+        bits = tuple(record["aX"]) + tuple(record["aY"]) + tuple(record["bX"]) + tuple(record["bY"])
         entry = aggregated.get(bits)
         if entry is None:
             aggregated[bits] = [combined,

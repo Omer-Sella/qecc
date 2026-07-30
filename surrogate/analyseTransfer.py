@@ -334,7 +334,7 @@ def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath, rewardEnginee
 
     trueReward = calculateRewardFromSamples(data.counts, data.samples[:,None], 
                                             errorRange=errorRange, 
-                                            l = data.l, m = data.m)
+                                            l = data.l, m = data.m, rewardEngineering=rewardEngineering)
     trueK = data.k.astype(float)
     numberOfCodes = data.bits.shape[0]
     resampleIndices = makeResampleIndices(numberOfCodes, arguments.bootstrap, arguments.seed)
@@ -354,7 +354,7 @@ def analyseOneSize(arguments, l, m, dataRoot, reportPath, csvPath, rewardEnginee
 
     modelResults = {}
     for checkpointPath in arguments.checkpoints:
-        model = loadCheckpoint(checkpointPath)
+        model, _ = loadCheckpoint(checkpointPath)
         # Annotate in-sample rows: checkpoints from trainMultiSize record trainedOn.sizes.
         rawCheckpoint = torch.load(checkpointPath, map_location="cpu", weights_only=False)
         trainedSizes = rawCheckpoint.get("trainedOn", {}).get("sizes")

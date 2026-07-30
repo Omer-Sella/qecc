@@ -7,7 +7,7 @@ from dataclasses import dataclass #, field
 import fnmatch
 import json
 from qecc.polynomialCodes import generateBicycleCode
-from qecc.codeUtilities import codeWeights, sameCode
+from qecc.codeUtilities import sameCode
 #import copy 
 import bisect
 from openpyxl import load_workbook
@@ -15,22 +15,36 @@ from operator import attrgetter
 from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB
 from qecc.logicals import calculateCodeDimension
 import shutil
+#from qecc.utils import NAMED_ERROR_RANGES
+from matplotlib.transforms import Bbox  
+import textwrap
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 FONT_SIZE = 12
 TICKS_FONT_SIZE = 10
 SUMMARY_FONT_SIZE = 10
 FIGURE_TITLE_FONT_SIZE = 14
-# baseline reward, not normalized to error range width, for errorRange = np.linspace(10**-4, 10**-1, 5) #Omer: I fixed this from 10 points to 5 points on 24/07/2026
-baselines = {(6,6): 0.035964,#0.033189,
-             (9,6): 0.0374625, #0.040959,
-             (15,3): 0.035964, #0.04218,
-             (12,6): 0.037462499999999996,# 0.038739,
-             (12,12): 0.041958, #0.0414,
-             (21,18): 0.0384615
-             }
-"""
+TEST_ERROR_RANGE = np.linspace(10**-4, 10**-1, 5)
 
+
+from qecc.utils import baselines
+#allSizes = ((6,6), (9,6),(12,6),(15,3),
+#            (21,18), (3,27),(5,15))
+
+"""
+Geometric5 reward with error range normalization:
+Reward for code 108_8_10 was calculated as 0.5455695787963828 
+Reward for code 144_12_12 was calculated as 0.5546604878872918 
+Reward for code 288_12_18 was calculated as 0.6001150333418372 
+Reward for code 360_12_24 was calculated as 0.6092059424327464 
+Reward for code 72_12_6 was calculated as 0.3460360942686508 
+Reward for code 756_16_34 was calculated as 0.6546604878872919 
+Reward for code 90_8_10 was calculated as 0.506331144559866 
+
+
+linear5 reward with and without normalization
 Reward for code 108_8_10 is 0.0374625 engineered reward is: 0.375
 Reward for code 144_12_12 is 0.037462499999999996 engineered reward is: 0.37499999999999994
 Reward for code 288_12_18 is 0.041958 engineered reward is: 0.42
@@ -59,23 +73,6 @@ Rater ℓ,m A B
   │ [[288, 12, 18]]│   1/48    │   ≤18   │ 0.0069 │  2×10⁻¹² │  1×10⁻²² │
   └────────────────┴───────────┴─────────┴────────┴───────────┴────────────┘
 """
-TEST_ERROR_RANGE = np.linspace(10**-4, 10**-1, 5)
-normalizingFactor = np.abs(np.min(TEST_ERROR_RANGE) - np.max(TEST_ERROR_RANGE))
-
-baselinesNormalized = {key: value/normalizingFactor for key,value in baselines.items()}
-
-
-# The published Bivariate Bicycle codes (Bravyi et al 2024, Table 3), keyed by (l, m),
-# used as reference anchors. Polynomials as monomial-exponent lists, matching
-# generateABmatrices(l, m, aX, aY, bX, bY).
-REFERENCE_CODES = {
-    (6, 6):  dict(name="[[72,12,6]]",   aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    (15, 3): dict(name="[[90,8,10]]",   aX=[9],    aY=[1, 2],  bX=[0, 2, 7],  bY=[]),
-    (9, 6):  dict(name="[[108,8,10]]",  aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    (12, 6): dict(name="[[144,12,12]]", aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    #(15, 3): dict(name="[[144,12,12]]", aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    #(21, 18): dict(name="[[144,12,12]]", aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-}
 
 
 
@@ -87,8 +84,8 @@ class VisitedCode:
     bX: np.ndarray
     aY: np.ndarray
     bY: np.ndarray
-    weightsX: np.ndarray
-    weightsZ: np.ndarray
+    #weightsX: np.ndarray
+    #weightsZ: np.ndarray
     Hx: np.ndarray 
     Hz: np.ndarray 
     reward: float
@@ -117,9 +114,10 @@ def findWorstCodes(pathToCodeLogs, numberOfWorstCodesToGet = 100):
                                     np.asarray(record["decoderFailureCounts"], dtype=np.int64)
                         logicalQubits = int(record["numberOfLogicalQubits"])
                         Hx,Hz = generateBicycleCode(l,m, aX, aY, bX, bY)
-                        wX = codeWeights(Hx)
-                        wZ = codeWeights(Hz)
-                        code = VisitedCode(l,m,aX,bX,aY,bY,wX, wZ, Hx, Hz, reward)
+                        #wX = codeWeights(Hx)
+                        #wZ = codeWeights(Hz)
+                        #code = VisitedCode(l,m,aX,bX,aY,bY,wX, wZ, Hx, Hz, reward)
+                        code = VisitedCode(l,m,aX,bX,aY,bY, Hx, Hz, reward)
                         # Check if the new code is the same as a previously logged code:
                         if len(aggregatedCodes) < numberOfWorstCodesToGet: # Populate the list
                             bisect.insort(aggregatedCodes, code, key=attrgetter("reward"))
@@ -208,7 +206,7 @@ def findWorstCodes(pathToCodeLogs, numberOfWorstCodesToGet = 100):
 
 
 
-import textwrap
+
 
 def clipLine(s, maxLen=42):
     # if len(s) <= maxLen:
@@ -217,7 +215,6 @@ def clipLine(s, maxLen=42):
     #     returnedList = [s[:maxLen], s[maxLen:]] # Ad-hoc solution, but realistically that's all I need
     return textwrap.wrap(s, maxLen) or [""]
 
-    return returnedList
 def readComments(filePath):
     """Parse the '# key = value' comment header of an experiment.txt into a dict of strings.
     Returns {} if the file has no comment header (older runs have none)."""
@@ -269,7 +266,7 @@ def buildExcelRowFromComments(comments, folderPath):
         "Q": encoderShort,                            # Encoder
         "R": float(comments.get("entropy_eps")) if comments.get("entropy_eps") else None,                        # Entropy eps
         "S": "Done",                                  # Running / processed
-        # T (Is good?) and U (Comments) are left blank for you to fill by hand.
+        # T (Is good?) and U (Comments) are left blank for me to fill by hand.
     }
     return dictForRow
 
@@ -283,7 +280,7 @@ def appendToParameterSweep(xlsxPath, comments, folderPath, pngPath, experimentPa
     XL_FOLDER_COLUMN = 8
     XL_COMMENTS_COLUMN = 23
     workBook = load_workbook(xlsxPath)    
-    workSheet = workBook[sheetName] if sheetName else workBook.active
+    workSheet = workBook[sheetName] #if sheetName else workBook.active
 
     if workSheet["V1"].value in (None, ""):
         workSheet["V1"] = "Plot"
@@ -338,7 +335,7 @@ def analyseEvaluation(filePath, baseline = None):
     codeParameters = f" for code parameters (l={comments['env_l']}, m={comments['env_m']})" if "env_l" in comments else ""
     sns.set_theme()
     df = pd.read_csv(filePath, sep='\t', comment = "#")
-    
+    dfEvalNumber = df.groupby(["evaluation number"])
     
     height = 2
     width = 3
@@ -347,6 +344,8 @@ def analyseEvaluation(filePath, baseline = None):
     stepsToBestAxIndex = 2
     #boxPlotAxIndex = 2
     numberOfLogicalQubitsAxIndex = 3
+
+    
     
 
     fig, allAx = plt.subplots(height, width, figsize=(24, 10), sharex=True,
@@ -363,10 +362,24 @@ def analyseEvaluation(filePath, baseline = None):
     axText.set_axis_off()
     ax = np.array(newAx)
     polynomials = [p for p in ("postAction_aX","postAction_bX","postAction_aY","postAction_bY") if p in df.columns]
-    if "Number of logical qubits" in df.columns:
-        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = allAx[numberOfLogicalQubitsAxIndex], showfliers = True)
-    elif polynomials: # So we have the polynomials but not logging of num of logical qubits
-        
+    
+
+    xmin = 0
+    xmax = len(dfEvalNumber.groups)
+    baselineNumberOfQubits = 0
+    if baseline is None and (env_l,env_m) in baselines.keys(): # Baseline was not given by the user, so # check if there is already a baseline in the dictionary at the top of this module                    
+        if "env_reward_engineering" in comments:
+            if comments["env_reward_engineering"].lower() == "true": # Remember that the comments are strings !
+                baseline = baselines[(env_l,env_m)][f"reward_{comments.get("env_error_range")}"] # ERROR !!! I need to make sure I get the correct errorRange !!!
+                baselineNumberOfQubits = baselines[(env_l,env_m)]["number of logical qubits"]
+            else:
+                baseline = baselines[(env_l,env_m)]["reward"]
+                baselineNumberOfQubits = baselines[(env_l,env_m)]["number of logical qubits"]
+                
+    if baseline is not None: # Wow this is bad coding ! - basically, if either the user gave baseline or the baseline was found in the dict at the top of the file ...
+        ax[rewardAxIndex].hlines(baseline, xmin, xmax, colors = "green", linestyles = "dotted", label = f"Reward for baseline code ({env_l},{env_m})")
+    
+    if polynomials:
         for col in ["postAction_aX", "postAction_bX", "postAction_aY", "postAction_bY"]:
             df[col.replace("postAction_", "")] = df[col].apply(parsePolynomial)
         logicalQubits = []
@@ -380,40 +393,39 @@ def analyseEvaluation(filePath, baseline = None):
             Hx, Hz = bicycleCodeFromAB(A, B)
             logicalQubits.append( calculateCodeDimension(Hx,Hz))
         df["Number of logical qubits"] = logicalQubits
-        sns.boxplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = ax[numberOfLogicalQubitsAxIndex], showfliers = True)
-    else: # Legacy 
-        pass
-        
-    
+
+
+    # Data validation ?
+    #if "postAction_k" in df.columns:
+    #    assert np.all(df["Number of logical qubits"] == df["postAction_k"])
     
 
-    #sns.boxplot(data=df, x="evaluation number", y="reward", ax=ax[0], showfliers=True)
     
-    dfEvalNumber = df.groupby(["evaluation number"])
-    #dfEvalNumber.reward.mean().plot(ax = ax[1])
-    xmin = 0
-    xmax = len(dfEvalNumber.groups)
+
+    if "Number of logical qubits" in df.columns or polynomials:
+        sns.lineplot(data = df, x="evaluation number", y = "Number of logical qubits", ax = ax[numberOfLogicalQubitsAxIndex], estimator="median", label = "Logical qubits median")
+    
+        bestIndex = df.groupby("evaluation number")["reward"].idxmax()   # first max on ties
+        kOfBest = df.loc[bestIndex].set_index("evaluation number")["Number of logical qubits"]
+        ax[numberOfLogicalQubitsAxIndex].plot(kOfBest.index, kOfBest.values,
+                                              color="crimson", linewidth=1.6,
+                                              label="Number of logical qubits for best performing code")
+        ax[numberOfLogicalQubitsAxIndex].hlines(baselineNumberOfQubits, xmin, xmax, colors = "green", linestyles = "dotted", label = f"Number of logical qubits for baseline code ({env_l},{env_m})")
+        ax[numberOfLogicalQubitsAxIndex].legend(fontsize=FONT_SIZE)
+    
+    
     sns.lineplot(data=df, x= "evaluation number", y="reward", ax = ax[rewardAxIndex], label = "Average reward")
     maxReward = dfEvalNumber["reward"].max()
-    ax[rewardAxIndex].plot(maxReward.index, maxReward.values, color="crimson", linewidth=1.6, label="Max reward")
+    ax[rewardAxIndex].plot(maxReward.index, maxReward.values, color="crimson", linewidth=1.6, label="Reward for best performing code")
     stepsToBest = (df.groupby("evaluation number")["reward"]
                  .apply(lambda s: int(np.argmax(s.to_numpy()))))   # argmax -> first max on ties
-    ax[stepsToBestAxIndex].plot(stepsToBest.index, stepsToBest.values, marker="o")
-    ax[stepsToBestAxIndex].set_title("Steps to best code per evaluation", fontsize=FONT_SIZE)
+    ax[stepsToBestAxIndex].plot(stepsToBest.index, stepsToBest.values, marker="o", color = "crimson", label = "Minimum steps to best performing code")
+    ax[stepsToBestAxIndex].set_title("Steps to best performing code per evaluation", fontsize=FONT_SIZE)
     ax[stepsToBestAxIndex].set_xlabel("Evaluation number", fontsize=FONT_SIZE)
     ax[stepsToBestAxIndex].set_ylabel("Step index of best (first max-reward) code", fontsize=FONT_SIZE)
     
     
-    if baseline is None and (env_l,env_m) in baselinesNormalized.keys(): # Baseline was not given by the user, so # check if there is already a baseline in the dictionary at the top of this module                    
-        if "env_reward_engineering" in comments:
-            if comments["env_reward_engineering"].lower() == "true": # Remember that the comments are strings !
-                baseline = baselinesNormalized[(env_l,env_m)]
-            else:
-                baseline = baselines[(env_l,env_m)]
-        
-    if baseline is not None: # Wow this is bad coding ! - basically, if either the user gave baseline or the baseline was found in the dict at the top of the file ...
-        ax[rewardAxIndex].hlines(baseline, xmin, xmax, colors = "green", linestyles = "dotted", label = f"Reward for baseline code ({env_l},{env_m})")
-        #ax[boxPlotAxIndex].hlines(baseline, xmin, xmax, label = f"Reward for baseline code ({env_l},{env_m})")
+    
 
     
     entropyColumns = [c for c in ("policy entropy",
@@ -475,6 +487,7 @@ def analyseEvaluation(filePath, baseline = None):
 
     for a in ax:
         a.set_xticks(tickPos)
+        a.tick_params(labelbottom=True)
         a.set_xticklabels([evalOrder[i] for i in tickPos], fontsize = TICKS_FONT_SIZE)
 
     
@@ -482,9 +495,9 @@ def analyseEvaluation(filePath, baseline = None):
     pathBreakdown = os.path.split(filePath)
     fig.suptitle(f"Evaluation summary {os.path.basename(pathBreakdown[0])}\n" , fontsize = FIGURE_TITLE_FONT_SIZE)
 
-    text = [f"{k} = {v}" for k, v in comments.items()]
-    text.append(f"{os.path.basename(pathBreakdown[0])}")
+    
     text = [f"{k} = {v}" for k, v in sorted(comments.items(), key=lambda kv: not kv[0].startswith("env_"))] # put env_ variables first
+    text.append(f"{os.path.basename(pathBreakdown[0])}")
     wrappedText = []
     for t in text:
         temp = clipLine(t)
@@ -495,18 +508,28 @@ def analyseEvaluation(filePath, baseline = None):
     axText.text(0.0, 1.0, figureExplanatoryText, transform=axText.transAxes,
                 va="top", ha="left", fontsize=SUMMARY_FONT_SIZE, family="monospace", clip_on=False)
     
-    #fig.text(0.5, 0.5, 'Hello, Matplotlib!', fontsize=20, color='blue', ha='center', va='center')
 
-    # Save output as a png image in the same folder
-    
-    imageName = os.path.join(pathBreakdown[0],"postProcessing.png")
+    folderName = os.path.basename(pathBreakdown[0])
     plt.tight_layout()
-    plt.savefig(fname = imageName)
-    plt.show()
+    
+    # Save output as a png image in the same folder
+    imageName = os.path.join(pathBreakdown[0], f"postProcessing.png")    
+    plt.savefig(fname = imageName, dpi = 100)
 
+    # Save a copy with no commentary text
+    axText.set_visible(False)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    plotsBbox = Bbox.union([a.get_tightbbox(renderer) for a in ax]).transformed(fig.dpi_scale_trans.inverted())
+    noCommentsImageName = os.path.join(pathBreakdown[0], f"no_comments_{folderName}.png")
+    fig.savefig(noCommentsImageName, bbox_inches=plotsBbox, dpi = 100)
+    axText.set_visible(True)
+    plt.show()
+    # Try appending the processed experiment to the list of experiments in the excel sheet
     try:
+        
         appendToParameterSweep(
-            os.path.join(os.environ.get("QECC_DATA"), "parameterSweep.xlsx"),
+            os.path.join(os.environ.get("QECC_DATA"), "parameterSweep.xlsx"), #noqa
             comments,
             folderPath=pathBreakdown[0],
             pngPath=imageName,
@@ -524,10 +547,6 @@ def crawl(dataFolder, baseline=None):
     # so analyseEvaluation's plt.show() becomes a no-op and the crawl runs unattended.
     import matplotlib
     matplotlib.use("Agg")
-    
-
-    
-
     processed = 0
     skipped = 0
     failed = 0
@@ -536,11 +555,6 @@ def crawl(dataFolder, baseline=None):
         experiments = fnmatch.filter(filenames, "*experiment.txt")
         if not experiments:
             continue
-
-        # if fnmatch.filter(filenames, "*.png"):          # already post-processed
-        #     print(f"SKIP (png exists): {dirpath}")
-        #     skipped += 1
-        #     continue
 
         for experiment in experiments:
             experimentPath = os.path.join(dirpath, experiment)
@@ -581,9 +595,9 @@ def pruneByEntropyEps(dataFolder, threshold=0.3, dryRun=True):
     return matched
 
 if __name__ == "__main__":
-    #analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\2026-07-27_21-50-20_734978\search_9_6_seed_2236067_experiment.txt")
-    dataFolder = os.environ.get("QECC_DATA")
-    crawl(dataFolder)
+    analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\2026-07-27_21-50-20_734978\search_9_6_seed_2236067_experiment.txt")
+    #dataFolder = os.environ.get("QECC_DATA")
+    #crawl(dataFolder)
     
 
 

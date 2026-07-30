@@ -1,10 +1,11 @@
 import numpy as np
-from qecc.gf4 import integerToDualBinary
-from qecc.logicals import computeLogicals
+from qecc.gf4 import integerToDualBinary #noqa
+from qecc.logicals import computeLogicals #noqa
 from qecc.minSum import ldpcDecoder
 from qecc.memBP import decode
 from scipy.integrate import trapezoid
 import time
+
 from qecc.polynomialCodes import A1_HX, A1_HZ
 LDPC_INT_DATA_TYPE = np.int32
 FLOAT_DATA_TYPE_UTILS = np.float32
@@ -29,6 +30,18 @@ NAMED_ERROR_RANGES = {"linear5": CANONICAL_ERROR_RANGE,
                       "geometric7": GEOMETRIC7, 
                       "geometric10": GEOMETRIC10, 
                       "union" : UNION_ERROR_RANGE}
+
+
+# baseline codes from the paperreward, not normalized to error range width, for errorRange = np.linspace(10**-4, 10**-1, 5) #Omer: I fixed this from 10 points to 5 points on 24/07/2026
+baselines = {(6,6): {"name": "[[72,12,6]]", "reward": 0.035964,"number of logical qubits": 12, "reward_geometric5": 0.3460, "reward_linear5":0.3600},#0.033189,
+             (9,6): {"name": "[[108,8,10]]", "reward": 0.0374625,"number of logical qubits": 8, "reward_geometric5": 0.5455, "reward_linear5":0.375},#0.040959,
+             (15,3): {"name": "[[90,8,10]]", "reward":0.035964,"number of logical qubits": 8, "reward_geometric5": 0.5063, "reward_linear5":0.3600}, #0.04218,
+             (12,6): {"name": "[[144,12,12]]", "reward":0.037462499999999996,"number of logical qubits": 12, "reward_geometric5": 0.554, "reward_linear5":0.3749},# 0.038739,
+#             (12,12): {"reward":0.041958,"number of logical qubits": 12, "reward_geometric5": 0.60, "reward_linear5":0.385}, #TODO: add code name and double check reward value0.0414,
+             (21,18): {"reward":0.0384615,"number of logical qubits": 16, "reward_geometric5": 0.60, "reward_linear5":0.385}, #TODO: add code name and double check reward value
+             (3,27): {},
+             (5,15): {},
+             }
 def minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H):
     """
     parameters
@@ -233,7 +246,7 @@ def binaryDecoderToDualBinaryDecoderWrapper(binaryDecoderFunction):
 
 
 
-def calculateRewardFromSamples(logicalErrorCount, numberOfSamples, errorRange, l, m, rewardEngineering = True):
+def calculateRewardFromSamples(logicalErrorCount, numberOfSamples, errorRange, l, m, rewardEngineering):
     logicalErrorRate = logicalErrorCount / numberOfSamples
     #chanceOfNoError =  (1 - 3 * np.asarray(errorRange, dtype=np.float64)) ** (2 * l * m)
     
@@ -246,8 +259,6 @@ def calculateRewardFromSamples(logicalErrorCount, numberOfSamples, errorRange, l
 
 
 if __name__ == "__main__":
-    
-    
     from qecc.qbp import refinedBPalgorithm3
     from qecc.polynomialCodes import A1_HX, A1_HZ
     from qecc.minSum import ldpcDecoderWrapper
@@ -277,7 +288,7 @@ if __name__ == "__main__":
     # from qecc.minSum import ldpcDecoderWrapper
     # import numpy as np
     #errorRange = np.linspace(10**-4, 10**-1, 10)
-    from qecc.utils import NAMED_ERROR_RANGES
+    
     errorRange = NAMED_ERROR_RANGES["geometric5"]#np.linspace(10**-4, 10**-1, 5)
 
     NUMBER_OF_SAMPLES = 50#100
@@ -306,8 +317,7 @@ if __name__ == "__main__":
         #print(f"Time taken: {end - start}")
 
         #logicalERMS, decoderFailureRateMS = decoderEvaluator(decoderFunction = ldpcDecoderWrapper, dualBinary = True, Hx = value[0], Hz = value[1], errorRange = errorRange, decoderStoppingCriterion = 20, numberOfSamples = 30)
-        combinedErrors = logicalER + decoderFailureRate
-        errorRate = combinedErrors
+        errorRate = logicalER + decoderFailureRate
         
         timeMeasured = end-start
         data = {"Code name": key, 
@@ -320,5 +330,5 @@ if __name__ == "__main__":
                 "Number of iterations": NUMBER_OF_DECODER_ITERATIONS, 
                 "Number of samples": NUMBER_OF_SAMPLES, 
                 "Decoder": "Dual binary BPOSD" }
-        fileName = "c:/users/omer/qecc/decoderComparisonData/code_evaluation_for_bb_gym_reward_calculation_50_samples_50_iterations_geometric5_" + key + ".npy"
+        fileName = "c:/users/omer/qecc/decoderComparisonData/geometric5/code_evaluation_for_bb_gym_reward_calculation_50_samples_50_iterations_geometric5_" + key + ".npy"
         np.save(fileName, data, allow_pickle=True)

@@ -36,7 +36,7 @@ from qecc.reinforcementLearning import ConcatenatedOneHotCategorical
 from qecc.utils import (decoderEvaluator, wrapperForRoffesLdpc,
                         binaryDecoderToDualBinaryDecoderWrapper)
 from qecc.bb_gym_v_0_1 import bicycleBivariateCodeEnvironment
-from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB, bbCodes
+from qecc.polynomialCodes import generateABmatrices, bicycleCodeFromAB
 from qecc.logicals import calculateCodeDimension, computeLogicals
 from qecc import funWithMatrices
 from qecc.loggerForReinforcementLearning import logger
@@ -44,16 +44,6 @@ from qecc.codeEvaluationDataset import loadCodeEvaluations
 from qecc.utils import calculateRewardFromSamples
 
 
-
-# The published Bivariate Bicycle codes (Bravyi et al 2024, Table 3), keyed by (l, m),
-# used as reference anchors. Polynomials as monomial-exponent lists, matching
-# generateABmatrices(l, m, aX, aY, bX, bY).
-REFERENCE_CODES = {
-    (6, 6):  dict(name="[[72,12,6]]",   aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    (15, 3): dict(name="[[90,8,10]]",   aX=[9],    aY=[1, 2],  bX=[0, 2, 7],  bY=[]),
-    (9, 6):  dict(name="[[108,8,10]]",  aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-    (12, 6): dict(name="[[144,12,12]]", aX=[3],    aY=[1, 2],  bX=[1, 2],  bY=[3]),
-}
 
 
 # =====================================================================================
@@ -267,13 +257,13 @@ def rollout(net, env, l, m, maxSteps, startObs):
     return visited, cycleLength
 
 
-def worstLoggedCodes(qeccDataRoot, l, m, kMin, numWorst):
+def worstLoggedCodes(qeccDataRoot, l, m, kMin, numWorst, errorRange, rewardEngineering):
     """The numWorst lowest-reward logged codes with k >= kMin, as 0/1 coefficient vectors.
 
     Bits arrive folded in [aX | aY | bX | bY] order (period l for aX/bX, m for aY/bY).
     """
     
-    data = loadCodeEvaluations(dataRoot, l, m)
+    data = loadCodeEvaluations(qeccDataRoot, l, m, errorRange=errorRange)
     
     rewards = calculateRewardFromSamples(data.counts, data.samples, errorRange = errorRange, l = data.l, m = data.m, rewardEngineering = rewardEngineering)
     eligible = np.where(data.k >= kMin)[0]
@@ -520,7 +510,7 @@ def codeKey(vc):
             tuple(int(b) for b in vc.aY), tuple(int(b) for b in vc.bY))
 
 
-def runStage1(run, qeccDataRoot, rolloutMultiplier, numWorst, numberOfIterations):
+def runStage1(run, qeccDataRoot, rolloutMultiplier, numWorst, numberOfIterations, errorRange, rewardEngineering):
     """Load the policy and produce the list of visited codes (zero start + worst starts)."""
     l, m = run["l"], run["m"]
     bitFlipping = run["comments"].get("env_bit_flipping", "False").lower() == "true"
@@ -529,7 +519,7 @@ def runStage1(run, qeccDataRoot, rolloutMultiplier, numWorst, numberOfIterations
     visited = []
 
     env = makeEnv(l, m, kMin, bitFlipping, numberOfSamples=1,
-                  numberOfIterations=numberOfIterations, errorRange=FIVE_POINT_GRID)
+                  numberOfIterations=numberOfIterations, errorRange=errorRange)
     obs, _ = env.reset(seed=0)
     zeroVisited, zeroCycle = rollout(net, env, l, m, maxSteps, obs)
     for step, state in enumerate(zeroVisited):
@@ -538,7 +528,7 @@ def runStage1(run, qeccDataRoot, rolloutMultiplier, numWorst, numberOfIterations
                                    np.array(bY), "zero", step, run["name"]))
 
     try:
-        worst = worstLoggedCodes(qeccDataRoot, l, m, kMin, numWorst) if numWorst > 0 else []
+        worst = worstLoggedCodes(qeccDataRoot, l, m, kMin, numWorst, errorRange=errorRange, rewardEngineering=rewardEngineering) if numWorst > 0 else []
     except (ValueError, FileNotFoundError) as error:
         print(f"  item (d) skipped for {run['name']}: no usable logged codes ({error})")
         worst = []
@@ -590,7 +580,8 @@ def evaluateDistinctCode(vc, decoders, grids, targetFailures, sampleCap, batchSi
 
 def referenceVisitedCodes(l, m):
     """The published reference code for (l, m) as a VisitedCode, if we have one."""
-    spec = REFERENCE_CODES.get((l, m))
+    from postProcessingRL import baselines
+    spec = baselines.get((l, m))
     if spec is None:
         return []
     aX = np.zeros(l, dtype=np.int64); aX[spec["aX"]] = 1
@@ -651,19 +642,20 @@ def buildArgumentParser():
                         help="Per-code wall-clock budget (seconds) for the distance MIP.")
     parser.add_argument("--num-processes", type=int, default=1,
                         help="Worker processes for Stage 2 over the distinct-code list.")
+    parser.add_argument("--reward-engineering", type=str, default="true", choices = ["true", "false"],
+                            help="Whether the rewrad is divided by the width of the error range.")
+    parser.add_argument("--error-range", type=str, default="linear5", choices = ["linear5", "geometric5"],
+                                help="Must be one of the named error ranges (linear5, geometric5, geometric7, union).")
     return parser
 
 
-def selectGrids(gridsArgument):
-    mapping = {"5": ("grid5", FIVE_POINT_GRID), "10": ("grid10", TEN_POINT_GRID)}
-    return dict(mapping[token] for token in gridsArgument.split(","))
-
-
 def main():
+    from qecc.utils import NAMED_ERROR_RANGES
     args = buildArgumentParser().parse_args()
     if not args.qecc_data_root:
         raise SystemExit("No data root: pass --qecc-data-root or set $QECC_DATA.")
-    grids = selectGrids(args.grids)
+    errorRange = NAMED_ERROR_RANGES[args.error_range]
+
     decoderNames = [name.strip() for name in args.decoders.split(",") if name.strip()]
     decoders = buildDecoders(decoderNames, args.num_decoder_iterations)
 
@@ -674,13 +666,13 @@ def main():
         print(f"=== run {run['name']}  (l={run['l']}, m={run['m']}) ===")
         visited, zeroCycle = runStage1(
             run, args.qecc_data_root, args.rollout_multiplier, args.num_worst,
-            args.num_decoder_iterations)
+            args.num_decoder_iterations, errorRange=errorRange, rewardEngineering=args.reward_engineering)
         pool = distinctCodes(visited) + referenceVisitedCodes(run["l"], run["m"])
         print(f"  {len(visited)} visited, {len(pool)} distinct (incl. reference); "
               f"zero-start cycle length {zeroCycle}")
 
         evaluate = functools.partial(
-            evaluateDistinctCode, decoders=decoders, grids=grids,
+            evaluateDistinctCode, decoders=decoders, grids=errorRange,
             targetFailures=args.target_failures, sampleCap=args.sample_cap,
             batchSize=args.batch_size, numberOfIterations=args.num_decoder_iterations, seed=0)
         if args.num_processes > 1:

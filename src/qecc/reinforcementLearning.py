@@ -84,7 +84,8 @@ myEvaluationKeys = ["evaluation number",
                     "policy entropy aY",
                     "policy entropy bY",
                     "Encoder freeze",
-                    "postAction_aX", "postAction_bX", "postAction_aY", "postAction_bY"
+                    "preAction_aX", "preAction_bX", "preAction_aY", "preAction_bY", "preAction_k", 
+                    "postAction_aX", "postAction_bX", "postAction_aY", "postAction_bY", "postAction_k"
                     ]
 
 
@@ -685,11 +686,15 @@ if __name__ == "__main__":
                 if env_bit_flipping:
                     componentEntropiesDuringEvaluation = dist.blockEntropies().cpu().numpy() # The shape is (T, 4), order [aX, bX, aY, bY]
                 rewards = eval_rollout["next", "reward"].cpu().numpy() 
-                if env_useDictObservation:
-                    evalAX = eval_rollout["next", "aX"].cpu().numpy()
-                    evalBX = eval_rollout["next", "bX"].cpu().numpy()
-                    evalAY = eval_rollout["next", "aY"].cpu().numpy()
-                    evalBY = eval_rollout["next", "bY"].cpu().numpy()
+                # if env_useDictObservation:
+                #     evalNextAX = eval_rollout["next", "aX"].cpu().numpy()
+                #     evalNextBX = eval_rollout["next", "bX"].cpu().numpy()
+                #     evalNextAY = eval_rollout["next", "aY"].cpu().numpy()
+                #     evalNextBY = eval_rollout["next", "bY"].cpu().numpy()
+                #     evalObservationAX = eval_rollout["aX"].cpu().numpy()
+                #     evalObservationBX = eval_rollout["bX"].cpu().numpy()
+                #     evalObservationAY = eval_rollout["aY"].cpu().numpy()
+                #     evalObservationBY = eval_rollout["bY"].cpu().numpy()
                 for timeIndex in range(eval_rollout_length):
                     #myLogger.keyValue(f"environment index", envIndex)
                     myLogger.keyValue("evaluation number", i // 10)  # i is not epochNumber, but this is purely for debug puposes.
@@ -705,10 +710,19 @@ if __name__ == "__main__":
                         myLogger.keyValue("policy entropy bY", componentEntropiesDuringEvaluation[timeIndex, 3].item())
                     
                     if env_useDictObservation:
-                        myLogger.keyValue("postAction_aX", evalAX[timeIndex].astype(int))
-                        myLogger.keyValue("postAction_bX", evalBX[timeIndex].astype(int))
-                        myLogger.keyValue("postAction_aY", evalAY[timeIndex].astype(int))
-                        myLogger.keyValue("postAction_bY", evalBY[timeIndex].astype(int))
+                        myLogger.keyValue(f"preAction_k", eval_rollout["k"][timeIndex].cpu().numpy().astype(int))
+                        myLogger.keyValue(f"postAction_k", eval_rollout["next","k"][timeIndex].cpu().numpy().astype(int))
+                        for p in ["aX", "bX", "aY", "bY"]:
+                            myLogger.keyValue(f"preAction_{p}", eval_rollout[p][timeIndex].cpu().numpy().astype(int))
+                            myLogger.keyValue(f"postAction_{p}", eval_rollout["next", p][timeIndex].cpu().numpy().astype(int))
+                        # myLogger.keyValue("postAction_aX", evalNextAX[timeIndex].astype(int))
+                        # myLogger.keyValue("postAction_bX", evalNextBX[timeIndex].astype(int))
+                        # myLogger.keyValue("postAction_aY", evalNextAY[timeIndex].astype(int))
+                        # myLogger.keyValue("postAction_bY", evalNextBY[timeIndex].astype(int))
+                        # myLogger.keyValue("preAction_aX", evalObservationAX[timeIndex].astype(int))
+                        # myLogger.keyValue("preAction_bX", evalObservationBX[timeIndex].astype(int))
+                        # myLogger.keyValue("preAction_aY", evalObservationAY[timeIndex].astype(int))
+                        # myLogger.keyValue("preAction_bY", evalObservationBY[timeIndex].astype(int))
                     myLogger.dumpLogger(printOut = False)
                 
                 del eval_rollout

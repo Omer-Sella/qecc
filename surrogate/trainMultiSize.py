@@ -202,9 +202,10 @@ def main():
         slots.append(slot)
 
     if arguments.init_checkpoint:
-        model = loadCheckpoint(arguments.init_checkpoint).to(device)
-        checkpoint = torch.load(arguments.init_checkpoint, map_location="cpu",
-                                weights_only=False)
+        model, checkpoint = loadCheckpoint(arguments.init_checkpoint)
+        model = model.to(device)
+        #checkpoint = torch.load(arguments.init_checkpoint, map_location="cpu",
+        #                        weights_only=False)
         hyperParameters = checkpoint["hyperParameters"]
         if (arguments.number_of_harmonics is not None
                 and arguments.number_of_harmonics != hyperParameters.get("numberOfHarmonics", 3)):
