@@ -119,7 +119,7 @@ def appendReport(reportPath, title, dataDescription, metrics):
 
 
 
-def evaluateSweep(reportName, modelCheckpointsPath, dataPath, codeSizes, errorRange, rewardEngineering, device = "auto", batchSize = 8192):
+def evaluateSweep(reportName, modelCheckpointsPath, dataPath, codeSizes, errorRange, rewardEngineering, device = "auto", batchSize = 8192, shard = 0, numberOfShards = 1):
     """
     Basically the same as what main does, just optimised towards loading the data once per code size, instead of per model
     Warning 1: The evaluation data is expected at dataPath/l_{l}_m_{m}
@@ -129,6 +129,7 @@ def evaluateSweep(reportName, modelCheckpointsPath, dataPath, codeSizes, errorRa
     for dirpath, dirnames, filenames in os.walk(modelCheckpointsPath):
             modelCheckpoints.extend(os.path.join(dirpath, m) for m in fnmatch.filter(filenames, "*.pth"))
     modelCheckpoints.sort()
+    modelCheckpoints = modelCheckpoints[shard::numberOfShards]
     if not os.path.isdir(os.environ.get("QECC_DATA")):
         raise ValueError("Environment variable QECC_DATA must be set.")
     reportPath = os.path.join(os.environ.get("QECC_DATA"), reportName)
@@ -212,43 +213,52 @@ def evaluateSweep(reportName, modelCheckpointsPath, dataPath, codeSizes, errorRa
             
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", required=True)
-    parser.add_argument("--data-root", required=True)
-    parser.add_argument("--l", type=int, required=True)
-    parser.add_argument("--m", type=int, required=True)
-    parser.add_argument("--error-range", type=str, required=True, choices = sorted(NAMED_ERROR_RANGES))
-    parser.add_argument("--report", default=None,
-                        help="Defaults to surrogate-transfer-report.md next to the checkpoint")
-    parser.add_argument("--reward-engineering", type = str, default="true", choices=["true", "false", "True", "False"])
-    arguments = parser.parse_args()
-    # Default: append to the report in the checkpoint's own run folder, so a
-    # training run and its cross-size transfer evaluations share one directory.
-    reportPath = arguments.report or os.path.join(
-        os.path.dirname(arguments.checkpoint) or ".", "surrogate-transfer-report.md")
-    errorRange = NAMED_ERROR_RANGES[arguments.error_range]
-    rewardEngineering = arguments.reward_engineering.lower() == "true"
-    # 1. Load model from checkpoint, instantiate a code curve and k predictor, set their weights to the checkpointed weghts.
-    model, ck = loadCheckpoint(arguments.checkpoint)
-    # 2. Load the data, i.e., the code records that contain codes with parameters l,m and CONTAIN the relevant error range (could be they have MORE - can't be less -  error points, if yes filter out just the relevant error points)
-    data = loadCodeEvaluations(arguments.data_root, arguments.l, arguments.m, errorRange=errorRange)
-    # 3. Evaluate the loaded model on the loaded data. 
-    #   Get the estimation for k and the error curve from the model, calculate the predicted reward. Compare with the true k and reward from the data.
-    metrics = evaluateOnData(model, data, batchSize=1024, errorRange=errorRange, rewardEngineering=rewardEngineering)
-    title = (f"{arguments.checkpoint} on l={arguments.l}, m={arguments.m} "
-             f"({metrics['numberOfCodes']} codes) — {datetime.date.today().isoformat()}")
-    #4. this is the part I don't like, it appends the results to a markdown file at the moment, I need to move this to pandas.
-    print(appendReport(reportPath, title, arguments.data_root, metrics))
 
-
-if __name__ == "__main__":
-    #main()
     dataPath = os.environ.get("QECC_DATA")
     if dataPath is None:
             raise ValueError("Environment variable QECC_DATA must be set and point at the data.")
     dataPath = os.path.join(dataPath, "supervisedLearning")
     modelsPath = os.path.join(dataPath, "sweep2")
     dataPath = os.path.join(dataPath, "codeEvaluationTrainingData")
-    evaluateSweep("geometric5Sweep", modelsPath, dataPath, codeSizes = sorted(baselines), errorRange="geometric5", rewardEngineering=True, device = "auto", batchSize = 16384)
+    
+    parser = argparse.ArgumentParser()
+    #parser.add_argument("--checkpoint")
+    parser.add_argument("--data-root", required=True)
+    #parser.add_argument("--l", type=int, required=True)
+    #parser.add_argument("--m", type=int, required=True)
+    parser.add_argument("--shard", type=int, required=True)
+    parser.add_argument("--number-of-shards", type=int, required=True)
+    parser.add_argument("--error-range", type=str, required=True, choices = sorted(NAMED_ERROR_RANGES))
+    parser.add_argument("--report", required = True, type = str,
+                        help="Defaults to surrogate-transfer-report.md next to the checkpoint")
+    parser.add_argument("--reward-engineering", type = str, default="true", choices=["true", "false", "True", "False"])
+    parser.add_argument("--code-sizes", nargs="+", required=True,
+                        help='sizes as l,m tokens, e.g. --code-sizes 6,6 9,6 21,18')
+    arguments = parser.parse_args()
+    # Default: append to the report in the checkpoint's own run folder, so a
+    # training run and its cross-size transfer evaluations share one directory.
+    codeSizes = [tuple(int(p) for p in t.split(",")) for t in arguments.code_sizes]
+    evaluateSweep(arguments.report, modelsPath, dataPath, codeSizes = codeSizes, errorRange=arguments.error_range, rewardEngineering=True, device = "auto", batchSize = 16384, shard = arguments.shard, numberOfShards = arguments.number_of_shards)
+    
+    # reportPath = arguments.report or os.path.join(
+    #     os.path.dirname(arguments.checkpoint) or ".", "surrogate-transfer-report.md")
+    # errorRange = NAMED_ERROR_RANGES[arguments.error_range]
+    # rewardEngineering = arguments.reward_engineering.lower() == "true"
+    # # 1. Load model from checkpoint, instantiate a code curve and k predictor, set their weights to the checkpointed weghts.
+    # model, ck = loadCheckpoint(arguments.checkpoint)
+    # # 2. Load the data, i.e., the code records that contain codes with parameters l,m and CONTAIN the relevant error range (could be they have MORE - can't be less -  error points, if yes filter out just the relevant error points)
+    # data = loadCodeEvaluations(arguments.data_root, arguments.l, arguments.m, errorRange=errorRange)
+    # # 3. Evaluate the loaded model on the loaded data. 
+    # #   Get the estimation for k and the error curve from the model, calculate the predicted reward. Compare with the true k and reward from the data.
+    # metrics = evaluateOnData(model, data, batchSize=1024, errorRange=errorRange, rewardEngineering=rewardEngineering)
+    # title = (f"{arguments.checkpoint} on l={arguments.l}, m={arguments.m} "
+    #          f"({metrics['numberOfCodes']} codes) — {datetime.date.today().isoformat()}")
+    # #4. this is the part I don't like, it appends the results to a markdown file at the moment, I need to move this to pandas.
+    # print(appendReport(reportPath, title, arguments.data_root, metrics))
+
+
+if __name__ == "__main__":
+    main()
+    
     
 
