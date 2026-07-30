@@ -249,6 +249,6 @@ if __name__ == "__main__":
     dataPath = os.path.join(dataPath, "supervisedLearning")
     modelsPath = os.path.join(dataPath, "sweep2")
     dataPath = os.path.join(dataPath, "codeEvaluationTrainingData")
-    evaluateSweep("geometric5Sweep", modelsPath, dataPath, codeSizes = sorted(baselines), errorRange="geometric5", rewardEngineering=True, device = "auto", batchSize = 32768)
+    evaluateSweep("geometric5Sweep", modelsPath, dataPath, codeSizes = sorted(baselines), errorRange="geometric5", rewardEngineering=True, device = "auto", batchSize = 16384)
     
 
