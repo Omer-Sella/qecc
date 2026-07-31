@@ -37,4 +37,4 @@ if __name__ == "__main__":
             data = plotLogicalErrorRate(os.path.join(dirpath, d))
             reward = calculateRewardFromSamples(logicalErrorCount = data["errorRate"], numberOfSamples=data["Number of samples"], errorRange = data["errorRange"], l = 0, m = 0, rewardEngineering = True)
             
-            print(f"Reward for code {data["Code name"]} was calculated as {reward} ")
+            print(f"Reward for code {data['Code name']} was calculated as {reward} ")

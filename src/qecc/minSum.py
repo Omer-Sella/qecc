@@ -235,7 +235,7 @@ class ldpcDecoder:
         return success, binaryVector
         
     def decoderSet(self, fromChannel):
-        # if self.syndromeDecoding:
+        # if self.syndromeDecoding: 
         #     for i in range(self.numberOfCheckNodes):
         #         self.checkNodes[i].fromChannel = fromChannel[i]
         #         self.checkNodes[i].presentState = fromChannel[i]

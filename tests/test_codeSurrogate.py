@@ -78,12 +78,12 @@ def test_singleBatchOverfitRecoversCurve():
     torch.testing.assert_close(curve, counts / 50.0, atol=0.05, rtol=0.0)
 
 
-def test_trainModelSmoke(tmp_path):
+def test_sizeSlotSplitsAndKeepsHeldOut(tmp_path):
     import sys, os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "surrogate"))
-    from trainSurrogate import trainModel
+    from trainMultiSize import SizeSlot
     from qecc.codeEvaluationDataset import CodeEvaluationData
-    import numpy as np
+    import numpy as np, torch
     rng = np.random.default_rng(0)
     n = 64
     data = CodeEvaluationData(
@@ -91,19 +91,19 @@ def test_trainModelSmoke(tmp_path):
         counts=rng.integers(0, 51, size=(n, 5)).astype(np.int64),
         samples=np.full(n, 50, dtype=np.int64),
         k=np.full(n, 8, dtype=np.int64), l=6, m=6)
-    model, history, testData = trainModel(data, epochs=2, batchSize=32, lr=1e-3, seed=0,
-                                           dModel=32, nHead=2, numLayers=1, dimFeedforward=64)
-    assert len(history["trainLoss"]) == 2
-    assert all(np.isfinite(v) for v in history["trainLoss"] + history["valLoss"])
-    assert testData.bits.shape[0] > 0  # held-out test split returned for reporting
+    slot = SizeSlot(data, torch.device("cpu"), seed=0, useCurveLoss=True)
+    assert slot.numberOfTrainRows() > 0
+    assert slot.test.bits.shape[0] > 0            # held-out split retained
+    assert (slot.train.bits.shape[0] + slot.val.bits.shape[0]
+            + slot.test.bits.shape[0]) == n       # split is complete
 
 
 def test_trainModelRaisesOnEmptySplit(tmp_path):
     import sys, os
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "surrogate"))
-    from trainSurrogate import trainModel
+    from trainMultiSize import SizeSlot
     from qecc.codeEvaluationDataset import CodeEvaluationData
-    import numpy as np
+    import numpy as np, torch
     rng = np.random.default_rng(0)
     n = 5
     data = CodeEvaluationData(
@@ -112,5 +112,4 @@ def test_trainModelRaisesOnEmptySplit(tmp_path):
         samples=np.full(n, 50, dtype=np.int64),
         k=np.full(n, 8, dtype=np.int64), l=6, m=6)
     with pytest.raises(ValueError):
-        trainModel(data, epochs=1, batchSize=32, lr=1e-3, seed=0,
-                   dModel=32, nHead=2, numLayers=1, dimFeedforward=64)
+        SizeSlot(data, torch.device("cpu"), seed=0, useCurveLoss=True)

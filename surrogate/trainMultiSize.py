@@ -35,7 +35,7 @@ import numpy as np
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from trainSurrogate import resolveDevice  # noqa: E402
+
 from evaluateTransfer import loadCheckpoint, evaluateOnData, appendReport  # noqa: E402
 
 from qecc.codeEvaluationDataset import (loadCodeEvaluations, splitData, toTensors,  # noqa: E402
@@ -43,6 +43,18 @@ from qecc.codeEvaluationDataset import (loadCodeEvaluations, splitData, toTensor
 from qecc.codeSurrogate import (CodeCurvePredictor, binomialCurveLoss,  # noqa: E402
                                 kPredictionLoss)
 from qecc.utils import NAMED_ERROR_RANGES, CANONICAL_ERROR_RANGE
+
+
+def resolveDevice(requested):
+    """'auto' -> cuda when available, else cpu. Explicit 'cuda' fails loudly if absent."""
+    if requested == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(requested)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise ValueError(
+            "CUDA was requested but torch.cuda.is_available() is False - "
+            "check the node allocation / torch build, or use --device cpu.")
+    return device
 
 def parseSizes(tokens):
     if tokens is None:

@@ -49,7 +49,7 @@ from torchrl.data.replay_buffers.samplers import SamplerWithoutReplacement
 from torchrl.data.replay_buffers.storages import LazyTensorStorage
 from torchrl.envs import (Compose, DoubleToFloat, ObservationNorm, StepCounter,
                           TransformedEnv, ParallelEnv)
-from torchrl.envs.libs.gym import GymEnv
+from torchrl.envs.libs.gym import GymEnv  # https://docs.pytorch.org/rl/main/reference/generated/torchrl.envs.GymEnv.html
 from torchrl.envs.utils import ExplorationType, set_exploration_type
 from torchrl.modules import ProbabilisticActor, ValueOperator
 from torchrl.objectives import ClipPPOLoss
@@ -59,6 +59,7 @@ from torchrl.envs.transforms import Transform
 from torch.distributions import Bernoulli, Independent
 #from qecc.bb_gym import exampleDecoderFunction2
 from qecc.modelArchitectures import create_actor_value_nets, create_value_net, hybridNet, setEncoderFrozen
+from qecc.utils import NAMED_ERROR_RANGES
 warnings.filterwarnings("ignore")
 
 #myKeys = ['Observation', 'actorEntropy', 'logP',
@@ -268,7 +269,7 @@ if __name__ == "__main__":
     )
     
     parser.add_argument(
-        "--env-use-dict-observation", default = "False", type = str, choices = ["True", "False", "true", "false"],
+        "--env-use-dict-observation", default = "True", type = str, choices = ["True", "False", "true", "false"],
         help = "In any case the environment returns the observation as a flat vector containing the code. If this flag is True, then it also returns the vectors that represent the polynomial exponents so np.concat([aX,aY,bX,bY,code]). WARNING: note that this ordering is not the same as the action slices: action=  np.concat([aX,bX,aY,bY])"
     )
 
@@ -289,10 +290,20 @@ if __name__ == "__main__":
 
     parser.add_argument(
             "--env-reset-type", type = str, default = "Zero", choices=["zero", "Zero", "random3", "Random3"],
-            help = "What type of reset the environment uses. Zero means all zero polynomials, random3 means up to three non zero coefficients."
+            help = "What type of reset the environment uses. Zero means all zero polynomials, random3 means up to three non zero coefficients. WARNING: should be used in conjuction with env_max_steps, otherwise it may not be effective or reachable as the environment will (almost) never reset."
         )
+
     parser.add_argument(
-        "--model-architecture", default = "mlp", type = str, choices = ["mlp", "hybrid"],
+                "--env-max-step", type = int, default = 30, 
+                help = "External time limit - how many steps does a single episode run."
+            )
+
+    parser.add_argument(
+                    "--env-max-decoding-usage", type = int, default = 2**30, 
+                    help = "This determines whether the environment is bounded by some decoding usage. If the number of times the environment used decoding exceeded this, the episode should terminate or truncate (TBD)."
+                )
+    parser.add_argument(
+        "--model-architecture", default = "hybrid", type = str, choices = ["mlp", "hybrid"],
         help = "Use mlp for the first version, where we only expose the code as a flat vector. For now, this parameter is overrdien internally to mirror --env-preamble-polynomilas-to-observation."
     )
 
@@ -327,6 +338,8 @@ if __name__ == "__main__":
     sub_batch_size = parsedArguments.sub_batch_size
     num_epochs = parsedArguments.num_epochs
     eval_rollout_length = parsedArguments.eval_rollout_length
+    if eval_rollout_length > env_max_step:
+        raise ValueError("At the moment the way I parse the logging data assumes that there is no reset mid-evaluation.")
     lr = parsedArguments.lr
     num_cells = parsedArguments.num_cells
     log_name = parsedArguments.log_name
@@ -357,26 +370,16 @@ if __name__ == "__main__":
     env_number_of_samples = parsedArguments.env_number_of_samples
     env_code_logging = parsedArguments.env_code_logging.lower() == "true"
     resolvedArguments["env_code_logging"] = env_code_logging
-    env_error_range = parsedArguments.env_error_range.lower()
+    env_error_range = parsedArguments.env_error_range
 
-    if env_error_range == "linear5":
-        resolved_env_error_range = np.linspace(0.0001,0.1,5)
-    elif env_error_range == "geometric5":
-        resolved_env_error_range = np.geomspace(0.001, 0.1, 5)
-    elif env_error_range == "geometric7":
-        resolved_env_error_range = np.geomspace(0.001, 0.1, 7)
-    elif env_error_range == "geometric10":
-        resolved_env_error_range = np.geomspace(0.0001, 0.1, 10)
-    elif env_error_range == "datacollection":
-         resolved_env_error_range = np.unique(np.round(np.concatenate([
-            np.linspace(0.0001, 0.1, 5),
-            np.geomspace(0.001, 0.1, 5),
-            np.geomspace(0.001, 0.1, 7),
-            np.geomspace(0.0001, 0.1, 10)]), 10))
-    else:
-        raise ValueError("Error range not found")
+    resolved_env_error_range = NAMED_ERROR_RANGES[env_error_range]
+    
 
     env_reset_type = parsedArguments.env_reset_type.lower()
+    env_max_step = parsedArguments.env_max_step
+    env_max_decoding_usage = parsedArguments.env_max_decoding_usage
+    resolvedArguments["env_max_step"] = env_max_step
+    resolvedArguments["env_max_decoding_usage"] = env_max_decoding_usage
     resolvedArguments["env_reset_type"] = env_reset_type
     resolvedArguments["env_error_range"] = str(list(np.round(resolved_env_error_range,6)))
     model_architecture = parsedArguments.model_architecture    
@@ -467,7 +470,8 @@ if __name__ == "__main__":
                           codeLogging = env_code_logging,
                           bitFlipping = env_bit_flipping, 
                           useDictObservation = env_useDictObservation,  # removed device = device, since this will run on the CPU always
-                          resetType = env_reset_type)
+                          resetType = env_reset_type,
+                          stepsLimit = env_max_step)
         # If we're not taking care of it inside the model, then we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
         # We also need to change 0,1 to -1,1 if this is not taken cared of inside the model
         if env_useDictObservation: # WARNING - if env_useDictObservation is True, that means that normalization has to happen inside the model forward method.
@@ -492,7 +496,7 @@ if __name__ == "__main__":
     collectorEnv = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv, num_threads = 1)
     collectorEnv.set_seed(seed_for_environment) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
     evaluationEnv = environmentCreatorForParallelEnv()
-    evaluationEnv.set_seed(seed_for_environment + 1) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
+    evaluationEnv.set_seed(seed_for_environment + 2**16 * (num_workers + 1)) # ATTENTION ! the seed in the collector env is incremented by 1 every step. So the seed for the EVALUATION env needs to be far away.
 
     if model_architecture == "mlp":
         actor_net = create_actor_value_nets(collectorEnv.action_spec, num_cells, device = trainingDevice) # removed device selecting leave it to the collector

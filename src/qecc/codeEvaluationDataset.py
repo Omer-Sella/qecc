@@ -42,14 +42,6 @@ def _iterRecords(rootDirectory):
                         continue  # tolerate a truncated last line from a killed run
 
 
-def _foldCoefficients(values, period):
-    """Fold an over-length coefficient vector to `period` via x^period = 1 (XOR over residues)."""
-    folded = np.zeros(period, dtype=np.int8)
-    for i, bit in enumerate(values):
-        if bit:
-            folded[i % period] ^= 1
-    return folded
-
 def _gridProjection(recordGrid, errorRange, tolerance=GRID_TOLERANCE):
     """Column indices of errorRange inside recordGrid, or None if recordGrid lacks a point."""
     columns = []
@@ -82,11 +74,7 @@ def loadCodeEvaluations(rootDirectory, l, m, errorRange):
         combined = (np.asarray(record["logicalErrorCounts"], dtype=np.int64)[columns] +
                     np.asarray(record["decoderFailureCounts"], dtype=np.int64)[columns])
 
-        # foldedAX = _foldCoefficients(record["aX"], l)
-        # foldedBX = _foldCoefficients(record["bX"], l)
-        # foldedAY = _foldCoefficients(record["aY"], m)
-        # foldedBY = _foldCoefficients(record["bY"], m)
-        #bits = tuple(foldedAX) + tuple(foldedAY) + tuple(foldedBX) + tuple(foldedBY)
+        
         bits = tuple(record["aX"]) + tuple(record["aY"]) + tuple(record["bX"]) + tuple(record["bY"])
         entry = aggregated.get(bits)
         if entry is None:

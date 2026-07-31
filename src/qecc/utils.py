@@ -38,10 +38,24 @@ baselines = {(6,6): {"name": "[[72,12,6]]", "reward": 0.035964,"number of logica
              (15,3): {"name": "[[90,8,10]]", "reward":0.035964,"number of logical qubits": 8, "reward_geometric5": 0.5063, "reward_linear5":0.3600}, #0.04218,
              (12,6): {"name": "[[144,12,12]]", "reward":0.037462499999999996,"number of logical qubits": 12, "reward_geometric5": 0.554, "reward_linear5":0.3749},# 0.038739,
 #             (12,12): {"reward":0.041958,"number of logical qubits": 12, "reward_geometric5": 0.60, "reward_linear5":0.385}, #TODO: add code name and double check reward value0.0414,
-             (21,18): {"reward":0.0384615,"number of logical qubits": 16, "reward_geometric5": 0.60, "reward_linear5":0.385}, #TODO: add code name and double check reward value
-             (3,27): {},
-             (5,15): {},
+             (21,18): {"name": "[[756,16,≤34]]", "reward":0.0384615,"number of logical qubits": 16, "reward_geometric5": 0.60, "reward_linear5":0.385}, #TODO: double check reward value
+             (3,27): {},#TODO: add name and double check reward value
+             (5,15): {},#TODO: add name and double check reward value
+             (30,6): {"name": "[[360,12,≤24]]"},
+             (12,12): {"name": "[[288,12,18]]"}
              }
+"""
+Just a reminder:
+[[n,k,d]] NetEncoding   ℓ,m A B
+            Rate r 
+[[72,12,6]] 1/12        6,6 x3+y+y2 y3+x+x2
+[[90,8,10]] 1/23        15,3 x9+y+y2 1+x2+x7
+[[108,8,10]] 1/27       9,6 x3+y+y2 y3+x+x2
+[[144,12,12]] 1/24      12,6 x3+y+y2 y3+x+x2
+[[288,12,18]] 1/48      12,12 x3+y2+y7 y3+x+x2
+[[360,12,≤24]] 1/60     30,6 x9+y+y2 y3+x25+x26
+[[756,16,≤34]] 1/95     21,18 x3+y10+y17 y5+x3+x19
+"""
 def minSumEvaluateCode(numberOfTransmissions, seed, errorRange, numberOfIterations, H):
     """
     parameters

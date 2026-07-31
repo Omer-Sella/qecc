@@ -370,7 +370,7 @@ def analyseEvaluation(filePath, baseline = None):
     if baseline is None and (env_l,env_m) in baselines.keys(): # Baseline was not given by the user, so # check if there is already a baseline in the dictionary at the top of this module                    
         if "env_reward_engineering" in comments:
             if comments["env_reward_engineering"].lower() == "true": # Remember that the comments are strings !
-                baseline = baselines[(env_l,env_m)][f"reward_{comments.get("env_error_range")}"] # ERROR !!! I need to make sure I get the correct errorRange !!!
+                baseline = baselines[(env_l,env_m)][f"reward_{comments.get('env_error_range')}"] # ERROR !!! I need to make sure I get the correct errorRange !!!
                 baselineNumberOfQubits = baselines[(env_l,env_m)]["number of logical qubits"]
             else:
                 baseline = baselines[(env_l,env_m)]["reward"]

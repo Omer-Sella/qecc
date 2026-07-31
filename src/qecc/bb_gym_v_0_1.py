@@ -29,17 +29,24 @@ class bicycleBivariateCodeEnvironment(gym.Env):
     [[288, 12,18]]
     """
 
-    def __init__(self, l, m, errorRange = np.linspace(0.0001,0.1,10), minimumNumberOfLogicalQubits = 6, render_mode = None, 
+    def __init__(self, l, m, 
+                 errorRange = np.linspace(0.0001,0.1,10), 
+                 minimumNumberOfLogicalQubits = 6, 
+                 render_mode = None, 
                  numberOfSamples = 50, 
                  numberOfIterations = 50, 
                  rewardEngineering = False, 
                  seed = 0, 
                  codeLogging = True, 
                  bitFlipping = False, 
-                 useDictObservation = False,
-                 resetType = "zero"):
+                 useDictObservation = True,
+                 resetType = "zero",
+                 stepsLimit = 1000000, # Some large value to maintain legacy, but should be set wisely !
+                 ):
         
         self.resetType = resetType
+        self.episodeStepsLimit = stepsLimit
+        self.numberOfSteps = 0
         self.useDictObservation = useDictObservation
         self.codeLogging = codeLogging
         self.render_mode = render_mode # There is no rendering, but we have to accept and store it to comply with gymnasium spec.
@@ -103,7 +110,6 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         else:
             self.observation_space = spaces.MultiBinary(len(self._getObservation()))
 
-        self.chanceOfNoErrors = (1 - 3 * np.asarray(self.errorRange, dtype=np.float64)) ** (2 * l * m)
         self.rewardEngineering = rewardEngineering
         # if rewardEngineering is not False: #I'm moving reward engineering to be part of a function in utils since it is consumed by other functions.
         #     # The old rewarding system has a few downdraws that should be documented in the paper, I'm switching to a reward system that takes into account qubit coverage, code size offset
@@ -153,6 +159,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             self.seed = seed
         super().reset(seed = self.seed)
         
+        self.numberOfSteps = 0
         self.aX = self.aX * 0
         self.aY = self.aY * 0
         self.bX = self.bX * 0
@@ -179,6 +186,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
 
         observation = self._getObservation()
         #info = self._getInfo()
+        # Reset the number of steps that were made to 0
         info = {}
         return observation, info
 
@@ -202,7 +210,7 @@ class bicycleBivariateCodeEnvironment(gym.Env):
             self.bX = bXaction[0:-1]
             self.aY = aYAction[0:-1]
             self.bY = bYAction[0:-1]
-        
+        self.numberOfSteps += 1
         self.A, self.B = generateABmatrices(self._l, self._m, 
                                             np.where(self.aX !=0)[0], 
                                             np.where(self.aY !=0)[0], 
@@ -231,7 +239,12 @@ class bicycleBivariateCodeEnvironment(gym.Env):
         terminated = False
         observation = self._getObservation()
         info = {}#None
-        return observation, reward, terminated, False, info
+        # Regarding truncated and terminated:
+        # https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits/
+        # https://gymnasium.farama.org/introduction/migration_guide/
+        # https://docs.pytorch.org/rl/main/tutorials/collector_trajectory_assembly.html
+        truncated = self.numberOfSteps >= self.episodeStepsLimit 
+        return observation, reward, terminated, truncated, info
     
     def decoderEvaluation(self, seed):
 
