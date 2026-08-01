@@ -48,7 +48,27 @@ def binomialNllOfCurve(curve, counts, samples):
 
 def noiseFloorNll(counts, samples):
     return binomialNllOfCurve(counts / samples[:, None], counts, samples)
+def curveMaeNoiseFloor(counts, samples):
+    """Expected per-point |pHat - p| of the labels themselves: what a PERFECT curve
+    would still score, because the empirical rates carry shot noise."""
+    n = samples[:, None].astype(float)
+    pHat = counts / n
+    return float((np.sqrt(2.0 / np.pi) * np.sqrt(pHat * (1.0 - pHat) / n)).mean())
 
+
+def rewardMaeNoiseFloor(counts, samples, errorRange, rewardEngineering=True):
+    """Same floor for the collapsed reward. The reward is linear in the counts
+    (trapezoid = weighted sum), so the noise variance closes analytically."""
+    grid = np.asarray(errorRange, dtype=float)
+    weights = np.empty_like(grid)
+    weights[0], weights[-1] = (grid[1] - grid[0]) / 2.0, (grid[-1] - grid[-2]) / 2.0
+    weights[1:-1] = (grid[2:] - grid[:-2]) / 2.0
+    if rewardEngineering:
+        weights = weights / (grid[-1] - grid[0])
+    n = samples[:, None].astype(float)
+    pHat = counts / n
+    variance = ((weights ** 2) * pHat * (1.0 - pHat) / n).sum(axis=1)
+    return float(np.mean(np.sqrt(2.0 / np.pi) * np.sqrt(variance)))
 
 def topKOverlap(trueValues, predictedValues, k):
     trueTop = set(np.argsort(trueValues)[-k:])
@@ -84,6 +104,9 @@ def evaluateOnData(model, data, errorRange, batchSize = 1024, rewardEngineering 
     # Rank correlation is genuinely undefined when either series is constant
     # (zero range); short-circuit instead of calling scipy, which would emit
     # a RuntimeWarning and still return NaN.
+    
+    empiricalRate = data.counts / data.samples[:, None].astype(float)
+    curveAbsoluteError = np.abs(curve - empiricalRate)
     if np.ptp(trueReward) == 0 or np.ptp(predictedReward) == 0:
         spearman = float("nan")
         kendall = float("nan")
@@ -91,6 +114,12 @@ def evaluateOnData(model, data, errorRange, batchSize = 1024, rewardEngineering 
         spearman = float(spearmanr(trueReward, predictedReward).statistic)
         kendall = float(kendalltau(trueReward, predictedReward).statistic)
     return {
+        "rewardMaeFloor": rewardMaeNoiseFloor(data.counts, data.samples,
+                                              errorRange, rewardEngineering),
+        "curveMae": float(curveAbsoluteError.mean()), # Average includes all points in the error range
+        **{f"curveMaeP{i}": float(curveAbsoluteError[:, i].mean()) #And now the individual points
+           for i in range(curveAbsoluteError.shape[1])},
+        "curveMaeFloor": curveMaeNoiseFloor(data.counts, data.samples),
         "nll": binomialNllOfCurve(curve, data.counts.astype(float),
                                   data.samples.astype(float)),
         "noiseFloor": noiseFloorNll(data.counts.astype(float),
@@ -158,7 +187,10 @@ def evaluateSweep(reportName, modelCheckpointsPath, dataPath, codeSizes, errorRa
                     "numberOfCodes":None,
                     "code l":None,
                     "code m":None,
-                    "Date":None,}
+                    "Date":None,
+                    "recipie":None,
+                    "recipe name":None,
+                    }
                     # "nll":None, 
                     # "noiseFloor":None, 
                     # "rewardMae":None, 
@@ -197,6 +229,8 @@ def evaluateSweep(reportName, modelCheckpointsPath, dataPath, codeSizes, errorRa
              else "groundAnchored")
             report["trained on sizes"] = trainedOn["sizes"]
             trainingSizes = [tuple(s) for s in trainedOn["sizes"]] 
+            sizesTag = "-".join(f"{a}{b}" for (a, b) in trainingSizes)
+            report["recipe name"] = f"{report['recipie']}_{sizesTag}"
             for t in trainingSizes:
                 report[f"{t[0]},{t[1]}"] = True 
             # 3. Evaluate the loaded model on the loaded data. 
