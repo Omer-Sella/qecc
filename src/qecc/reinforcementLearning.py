@@ -338,6 +338,7 @@ if __name__ == "__main__":
     sub_batch_size = parsedArguments.sub_batch_size
     num_epochs = parsedArguments.num_epochs
     eval_rollout_length = parsedArguments.eval_rollout_length
+    env_max_step = parsedArguments.env_max_step
     if eval_rollout_length > env_max_step:
         raise ValueError("At the moment the way I parse the logging data assumes that there is no reset mid-evaluation.")
     lr = parsedArguments.lr
@@ -376,7 +377,6 @@ if __name__ == "__main__":
     
 
     env_reset_type = parsedArguments.env_reset_type.lower()
-    env_max_step = parsedArguments.env_max_step
     env_max_decoding_usage = parsedArguments.env_max_decoding_usage
     resolvedArguments["env_max_step"] = env_max_step
     resolvedArguments["env_max_decoding_usage"] = env_max_decoding_usage

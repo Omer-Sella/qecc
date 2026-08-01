@@ -24,7 +24,17 @@ from qecc.codeSurrogate import CodeCurvePredictor
 import fnmatch
 from qecc.utils import baselines
 import copy
-from trainSurrogate import resolveDevice
+
+def resolveDevice(requested):
+    """'auto' -> cuda when available, else cpu. Explicit 'cuda' fails loudly if absent."""
+    if requested == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(requested)
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise ValueError(
+            "CUDA was requested but torch.cuda.is_available() is False - "
+            "check the node allocation / torch build, or use --device cpu.")
+    return device
 
 EPSILON = 1e-6
 
