@@ -458,7 +458,7 @@ if __name__ == "__main__":
     
     
     
-    def environmentCreatorForParallelEnv(stepsLimit):
+    def environmentCreatorForParallelEnv(stepsLimit = env_max_step):
         #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")        
         env = GymEnv("qecc/bbcode-ldpc-v0", 
                           l = env_l, 
@@ -494,9 +494,9 @@ if __name__ == "__main__":
     #def environmentCreatorForCollector():
     #    return ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv)
     
-    collectorEnv = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv(env_max_step), num_threads = 1)
+    collectorEnv = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv, num_threads = 1)
     collectorEnv.set_seed(seed_for_environment) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
-    evaluationEnv = environmentCreatorForParallelEnv(eval_rollout_length)
+    evaluationEnv = environmentCreatorForParallelEnv(stepsLimit=eval_rollout_length)
     evaluationEnv.set_seed(seed_for_environment + 2**16 * (num_workers + 1)) # ATTENTION ! the seed in the collector env is incremented by 1 every step. So the seed for the EVALUATION env needs to be far away.
 
     if model_architecture == "mlp":
