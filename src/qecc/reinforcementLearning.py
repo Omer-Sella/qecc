@@ -340,7 +340,8 @@ if __name__ == "__main__":
     eval_rollout_length = parsedArguments.eval_rollout_length
     env_max_step = parsedArguments.env_max_step
     if eval_rollout_length > env_max_step:
-        raise ValueError("At the moment the way I parse the logging data assumes that there is no reset mid-evaluation.")
+        #raise ValueError("At the moment the way I parse the logging data assumes that there is no reset mid-evaluation.")
+        resolvedArguments["eval_rollout_length"] = f"{eval_rollout_length}_while_training_is_{env_max_step}"
     lr = parsedArguments.lr
     num_cells = parsedArguments.num_cells
     log_name = parsedArguments.log_name
@@ -457,7 +458,7 @@ if __name__ == "__main__":
     
     
     
-    def environmentCreatorForParallelEnv():
+    def environmentCreatorForParallelEnv(stepsLimit):
         #print(f"Use GymEnv to wrap the environmen. Any arguments past device will be passed on to the environmet via gym.make.: ")        
         env = GymEnv("qecc/bbcode-ldpc-v0", 
                           l = env_l, 
@@ -471,7 +472,7 @@ if __name__ == "__main__":
                           bitFlipping = env_bit_flipping, 
                           useDictObservation = env_useDictObservation,  # removed device = device, since this will run on the CPU always
                           resetType = env_reset_type,
-                          stepsLimit = env_max_step)
+                          stepsLimit = stepsLimit)
         # If we're not taking care of it inside the model, then we need to transform the observation type of multi binary which is int8, to float32 using a transformed env:")
         # We also need to change 0,1 to -1,1 if this is not taken cared of inside the model
         if env_useDictObservation: # WARNING - if env_useDictObservation is True, that means that normalization has to happen inside the model forward method.
@@ -493,9 +494,9 @@ if __name__ == "__main__":
     #def environmentCreatorForCollector():
     #    return ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv)
     
-    collectorEnv = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv, num_threads = 1)
+    collectorEnv = ParallelEnv(env_level_paralleism, environmentCreatorForParallelEnv(env_max_step), num_threads = 1)
     collectorEnv.set_seed(seed_for_environment) # ATTENTION ! : this is necessary to make sure we're not just running the same environment with the same seed in all parallel environments. 
-    evaluationEnv = environmentCreatorForParallelEnv()
+    evaluationEnv = environmentCreatorForParallelEnv(eval_rollout_length)
     evaluationEnv.set_seed(seed_for_environment + 2**16 * (num_workers + 1)) # ATTENTION ! the seed in the collector env is incremented by 1 every step. So the seed for the EVALUATION env needs to be far away.
 
     if model_architecture == "mlp":

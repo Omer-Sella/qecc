@@ -16,6 +16,7 @@ DATA_LOGGING_PATH = os.environ.get('QECC_DATA')
 if DATA_LOGGING_PATH is None:
     # Try to avoid relying on this, instead define a system variable
     DATA_LOGGING_PATH =  "/rds/general/user/osella/home/rl-qecc-data/"
+DATA_LOGGING_PATH = os.path.join(DATA_LOGGING_PATH, "reinforcementLearning")
 # When logging (printing, writing to csv etc.) numpy arrays, if there are 
 #"too many" elements the array will contain ellipsis look like this:
 #[0, 0, 0, ..., 0, 0, 0] so when using array2string we need to set a threshold
@@ -147,10 +148,12 @@ class logger():
         
         for key in keys:
             self.columnKeys.append(key)
+            self.columnKeys.append("time")
         
         self.headerWritten = False
             
         self.dataSet = 0
+        
         
     def logPrint(self, message, colour='green'):
         #if mpiProcessID() == 0:
@@ -167,6 +170,8 @@ class logger():
             with open(self.fullPath, 'a') as fid:
                 fid.write("\t".join(self.columnKeys)+"\n")
             self.headerWritten = True
+        # Log dumping triggers a timestamp addition
+        self.currentRow['time']=time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(time.time()))
         values = []
         keyLengths = []
         for key in self.columnKeys:

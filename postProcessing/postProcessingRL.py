@@ -540,6 +540,12 @@ def analyseEvaluation(filePath, baseline = None):
     
     return df
 
+def tableSummary(df):
+    #runs beating reference (by best-found)
+    #best reward	0.5456 (+0.20)	0.6092 (+0.064)
+    #late evals that re-find ≥ reference	27.8%	4.5%
+    # evals stuck in penalty region	20–31%	15–19%
+    # k of codes beating the reference reward
 
 
 def crawl(dataFolder, baseline=None):
@@ -552,7 +558,7 @@ def crawl(dataFolder, baseline=None):
     failed = 0
 
     for dirpath, dirnames, filenames in os.walk(dataFolder):
-        experiments = fnmatch.filter(filenames, "*experiment.txt")
+        experiments = fnmatch.filter(filenames, "*experiment*")
         if not experiments:
             continue
 
@@ -595,9 +601,9 @@ def pruneByEntropyEps(dataFolder, threshold=0.3, dryRun=True):
     return matched
 
 if __name__ == "__main__":
-    analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\2026-07-27_21-50-20_734978\search_9_6_seed_2236067_experiment.txt")
-    #dataFolder = os.environ.get("QECC_DATA")
-    #crawl(dataFolder)
+    #analyseEvaluation(r"C:\Users\Omer\rl-qecc-data\reinforcementLearning\2026-08-03_19-34-15_1777554\experiment_9_6_seed_999")
+    dataFolder = os.environ.get("QECC_DATA")
+    crawl(dataFolder)
     
 
 

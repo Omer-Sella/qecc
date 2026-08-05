@@ -1,9 +1,7 @@
-"""Loader for codeEvaluations_*.jsonl decoder-evaluation logs.
+"""
+Loader for codeEvaluations_*.jsonl decoder-evaluation logs.
 
-Each record is one (code -> BER curve) supervision pair written by
-bb_gym_v_0_1.logCodeEvaluation. 
-This module discovers, filters, dedups, and
-tensorizes them for surrogate training. See
+This module discovers, filters, deduplicates, and tensorizes the records them for surrogate training.
 
 """
 import fnmatch
