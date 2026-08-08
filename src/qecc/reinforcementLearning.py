@@ -730,6 +730,10 @@ if __name__ == "__main__":
                         # myLogger.keyValue("preAction_bY", evalObservationBY[timeIndex].astype(int))
                     myLogger.dumpLogger(printOut = False)
                 
+                torch.save({k: v.cpu() for k, v in policy_module.state_dict().items()},
+                                f"{myLogger.logPath}/policy_weights_evaluation_{i//10}.pth")
+                torch.save({k: v.cpu() for k, v in value_module.state_dict().items()},
+                                f"{myLogger.logPath}/value_weights_evaluation_{i//10}.pth")
                 del eval_rollout
         # We're also using a learning rate scheduler. Like the gradient clipping,
         scheduler.step()

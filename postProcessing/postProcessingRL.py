@@ -20,7 +20,7 @@ from matplotlib.transforms import Bbox
 import textwrap
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
+from pathlib import Path
 
 FONT_SIZE = 12
 TICKS_FONT_SIZE = 10
@@ -540,13 +540,6 @@ def analyseEvaluation(filePath, baseline = None):
     
     return df
 
-def tableSummary(df):
-    #runs beating reference (by best-found)
-    #best reward	0.5456 (+0.20)	0.6092 (+0.064)
-    #late evals that re-find ≥ reference	27.8%	4.5%
-    # evals stuck in penalty region	20–31%	15–19%
-    # k of codes beating the reference reward
-
 
 def crawl(dataFolder, baseline=None):
     # Non-interactive backend, set BEFORE importing anything that pulls in pyplot,
@@ -562,14 +555,19 @@ def crawl(dataFolder, baseline=None):
         if not experiments:
             continue
 
+        if any(Path(dirpath).glob("*.png")):
+            print(f"Skipped {dirpath} since it has a png in it, looks processed.")
+            skipped += 1
+            continue
+
         for experiment in experiments:
-            experimentPath = os.path.join(dirpath, experiment)
+            experimentPath = os.path.join(dirpath, experiment)    
             try:
                 print(f"PROCESS: {experimentPath}")
                 analyseEvaluation(experimentPath, baseline=baseline)
                 processed += 1
-            except Exception as exc:
-                print(f"FAILED:  {experimentPath}  ->  {exc}")
+            except:
+                print(f"FAILED processing {experimentPath}, analyseEvaluation threw an exception.")
                 failed += 1
             finally:
                 plt.close("all")                        # free the figure before the next file
